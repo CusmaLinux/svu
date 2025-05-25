@@ -1,31 +1,27 @@
 package co.edu.itp.svu.service.mapper;
 
 import co.edu.itp.svu.domain.Notificacion;
-import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.service.dto.NotificacionDTO;
-import co.edu.itp.svu.service.dto.OficinaDTO;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.mapstruct.*;
 
 /**
  * Mapper for the entity {@link Notificacion} and its DTO {@link NotificacionDTO}.
  */
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = { UserMapper.class })
 public interface NotificacionMapper extends EntityMapper<NotificacionDTO, Notificacion> {
-    @Mapping(target = "destinatarios", source = "destinatarios", qualifiedByName = "oficinaIdSet")
-    NotificacionDTO toDto(Notificacion s);
+    @Override
+    // Source for 'recipient' is Notificacion entity
+    @Mapping(source = "recipient", target = "recipientDto")
+    NotificacionDTO toDto(Notificacion notificacion);
 
-    @Mapping(target = "removeDestinatarios", ignore = true)
+    @Override
+    // Source for 'recipientDto' is NotificacionDTO
+    @Mapping(source = "recipientDto", target = "recipient")
     Notificacion toEntity(NotificacionDTO notificacionDTO);
 
-    @Named("oficinaId")
-    @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "id", source = "id")
-    OficinaDTO toDtoOficinaId(Oficina oficina);
-
-    @Named("oficinaIdSet")
-    default Set<OficinaDTO> toDtoOficinaIdSet(Set<Oficina> oficina) {
-        return oficina.stream().map(this::toDtoOficinaId).collect(Collectors.toSet());
-    }
+    @Override
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    // Source for 'recipientDto' is NotificacionDTO (the second parameter)
+    @Mapping(source = "recipientDto", target = "recipient")
+    void partialUpdate(@MappingTarget Notificacion notificacion, NotificacionDTO notificacionDTO);
 }

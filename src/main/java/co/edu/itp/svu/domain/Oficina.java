@@ -1,12 +1,9 @@
 package co.edu.itp.svu.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -38,17 +35,10 @@ public class Oficina implements Serializable {
     @Field("oficina_superior")
     private String oficinaSuperior;
 
-    // Usamos @DBRef si quieres hacer referencia a la entidad User en la colección de MongoDB
     @DBRef
     @Field("responsable")
     private User responsable;
 
-    @DBRef
-    @Field("notificacions")
-    @JsonIgnoreProperties(value = { "destinatarios" }, allowSetters = true)
-    private Set<Notificacion> notificacions = new HashSet<>();
-
-    // Este campo almacenará las PQRS dirigidas a esta oficina
     @DBRef
     @Field("pqrsList")
     private List<Pqrs> pqrsList;
@@ -72,9 +62,6 @@ public class Oficina implements Serializable {
     public void setResponsable(User responsable) {
         this.responsable = responsable;
     }
-
-    // jhipster-needle-entity-add-field - JHipster will add fields here
-    // El responsable es un usuario que tendrá un rol específico
 
     public Oficina(String nombre, User responsable) {
         this.nombre = nombre;
@@ -152,39 +139,6 @@ public class Oficina implements Serializable {
     public void setOficinaSuperior(String oficinaSuperior) {
         this.oficinaSuperior = oficinaSuperior;
     }
-
-    public Set<Notificacion> getNotificacions() {
-        return this.notificacions;
-    }
-
-    public void setNotificacions(Set<Notificacion> notificacions) {
-        if (this.notificacions != null) {
-            this.notificacions.forEach(i -> i.removeDestinatarios(this));
-        }
-        if (notificacions != null) {
-            notificacions.forEach(i -> i.addDestinatarios(this));
-        }
-        this.notificacions = notificacions;
-    }
-
-    public Oficina notificacions(Set<Notificacion> notificacions) {
-        this.setNotificacions(notificacions);
-        return this;
-    }
-
-    public Oficina addNotificacion(Notificacion notificacion) {
-        this.notificacions.add(notificacion);
-        notificacion.getDestinatarios().add(this);
-        return this;
-    }
-
-    public Oficina removeNotificacion(Notificacion notificacion) {
-        this.notificacions.remove(notificacion);
-        notificacion.getDestinatarios().remove(this);
-        return this;
-    }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
