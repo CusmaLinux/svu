@@ -15,7 +15,7 @@
       <div class="text-white">
         <small>{{ t$(getEnumValueByKey(NotificationType, notification.type, t$('sse-notification.non-type'))) }}</small
         ><br />
-        {{ truncateMessage(notification || '', 300) }}
+        {{ truncateMessage(notification || '', 70) }}
       </div>
       <small>{{ formatDateTime(notification.creationDate) }}</small>
     </b-dropdown-item>
