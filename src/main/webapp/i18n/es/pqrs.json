@@ -29,7 +29,8 @@
       "action": {
         "resolve": "Marcar como Resuelta",
         "inProgres": "En Proceso",
-        "closePqrs": "CERRAR PQRS"
+        "closePqrs": "CERRAR PQRS",
+        "confirm": "Confirmar"
       },
       "messages": {
         "resolvedSuccess": "Estado de PQRS cambio a \"RESUELTA\".",
