@@ -1,0 +1,10 @@
+{
+  "sse-notification": {
+    "non-type": "Tipo: N/A",
+    "message": "La PQRS '{pqrsTitle}' (ID: {pqrsId}) vence el '{pqrsDueDate}'.",
+    "pqrs-due-date-reminder": "Recordatorio: Vencimiento del plazo para PQRS",
+    "mark-all-as-read": "Marcar todo como leído",
+    "view-all-notifications": "Ver todas las notificaciones",
+    "no-new-notifications": "No hay notificaciones nuevas"
+  }
+}
