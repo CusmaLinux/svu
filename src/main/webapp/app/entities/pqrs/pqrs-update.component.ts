@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
 
-import { StatesPqrs } from '../../constants';
+import { PqrsStatus } from '@/constants';
 import PqrsService from './pqrs.service';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat, useValidation } from '@/shared/composables';
@@ -48,7 +48,7 @@ export default defineComponent({
     const router = useRouter();
 
     const daysForResponse = ref<number | null>(null);
-    const statesPqrsRef = ref(StatesPqrs);
+    const statesPqrsRef = ref(PqrsStatus);
 
     const isAdminReactive = ref<boolean | null>(null);
 

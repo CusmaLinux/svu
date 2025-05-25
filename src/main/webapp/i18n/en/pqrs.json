@@ -27,13 +27,17 @@
       "oficinaResponder": "Responsible Office",
       "action": {
         "resolve": "Mark as Solved",
-        "inProgres": "In Process"
+        "inProgres": "In Process",
+        "closePqrs": "CLOSE PQRS",
+        "confirm": "Confirm"
       },
       "messages": {
         "resolvedSuccess": "PQRS marked as successfully resolved.",
         "resolvedError": "Error when marking the PQRS as resolved.",
         "notFound": "PQRS not found.",
-        "inProgresSuccess": "PQRS marked as In Process successfully."
+        "inProgresSuccess": "PQRS marked as In Process successfully.",
+        "messageClosePqrs": "You are sure to close the PQRS?",
+        "confirmClosePqrs": "Confirmation Message"
       }
     }
   }

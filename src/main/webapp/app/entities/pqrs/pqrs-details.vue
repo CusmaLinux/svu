@@ -58,18 +58,39 @@
         </router-link>
 
         <button
-          v-if="pqrs.id"
-          @click="toggleEstadoPqrs()"
-          :class="['btn', pqrs.estado === StatesPqrs.Resolved ? 'btn-warning' : 'btn-success', 'ms-2']"
+          v-if="isFunctionary && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
+          @click="toggleStatusPqrs()"
+          :class="['btn', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success', 'ms-2']"
           data-cy="toggleStatusButton"
         >
-          <font-awesome-icon :icon="pqrs.estado === StatesPqrs.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
-          <span v-if="pqrs.estado === StatesPqrs.Resolved" v-text="t('ventanillaUnicaApp.pqrs.action.inProgres')"></span>
+          <font-awesome-icon :icon="pqrs.estado === PqrsStatus.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
+          <span v-if="pqrs.estado === PqrsStatus.Resolved" v-text="t('ventanillaUnicaApp.pqrs.action.inProgres')"></span>
           <span v-else v-text="t('ventanillaUnicaApp.pqrs.action.resolve')"></span>
         </button>
-        <div v-else>
-          <p v-text="t('global.messages.info.loading')"></p>
-        </div>
+
+        <button
+          v-if="pqrs.id && pqrs.estado !== PqrsStatus.Closed && isAdmin"
+          @click="openConfirmCloseModal"
+          class="btn btn-danger ms-2"
+          data-cy="closePqrsButton"
+        >
+          <font-awesome-icon icon="times-circle"></font-awesome-icon>
+          <span v-text="t('ventanillaUnicaApp.pqrs.action.closePqrs')"></span>
+        </button>
+        <b-modal
+          id="confirmClosePqrsModal"
+          ref="confirmCloseModalRef"
+          v-model="isConfirmCloseModalVisible"
+          :title="t('ventanillaUnicaApp.pqrs.messages.confirmClosePqrs')"
+          @ok="handleConfirmClose"
+          :ok-title="t('entity.action.confirm')"
+          ok-variant="danger"
+          :cancel-title="t('entity.action.cancel')"
+          cancel-variant="secondary"
+          centered
+        >
+          <p v-text="t('ventanillaUnicaApp.pqrs.messages.messageClosePqrs')"></p>
+        </b-modal>
       </div>
     </div>
   </div>
