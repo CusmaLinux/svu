@@ -2,7 +2,7 @@ import { type Ref, computed, defineComponent, inject, onMounted, ref } from 'vue
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
-import { StatesPqrs } from '@/constants';
+import { PqrsStatus } from '@/constants';
 import PqrsService from './pqrs.service';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
@@ -33,7 +33,7 @@ export default defineComponent({
     const isConfirmCloseModalVisible = ref(false);
     const confirmCloseModalRef = ref(null);
 
-    const isFuncionario = computed(() => {
+    const isFunctionary = computed(() => {
       return accountStore.account?.authorities?.includes('ROLE_FUNCTIONARY') ?? false;
     });
 
@@ -50,9 +50,8 @@ export default defineComponent({
       }
     };
 
-    const toggleEstadoPqrs = async () => {
-      if (!isFuncionario.value) {
-        console.warn('Intento de cambiar estado sin ser funcionario.');
+    const toggleStatusPqrs = async () => {
+      if (!isFunctionary.value) {
         return;
       }
 
@@ -60,11 +59,11 @@ export default defineComponent({
         let newState: string;
         let successMessageKey: string;
 
-        if (pqrs.value.estado === StatesPqrs.Resolved) {
-          newState = StatesPqrs.InProcess;
+        if (pqrs.value.estado === PqrsStatus.Resolved) {
+          newState = PqrsStatus.InProcess;
           successMessageKey = 'ventanillaUnicaApp.pqrs.messages.inProgresSuccess';
         } else {
-          newState = StatesPqrs.Resolved;
+          newState = PqrsStatus.Resolved;
           successMessageKey = 'ventanillaUnicaApp.pqrs.messages.resolvedSuccess';
         }
 
@@ -78,8 +77,6 @@ export default defineComponent({
           pqrs.value = result;
           alertService.showSuccess(t(successMessageKey));
         } catch (error: any) {
-          console.error('Error al cambiar estado de PQRS:', error);
-          const errorMessageKey = 'ventanillaUnicaApp.pqrs.messages.resolvedSuccess';
           if (error.response) {
             alertService.showHttpError(error.response);
           } else {
@@ -96,7 +93,7 @@ export default defineComponent({
       isConfirmCloseModalVisible.value = true;
     };
 
-    const handleConfirmClose = async (bvModalEvent: Event) => {
+    const handleConfirmClose = async () => {
       await confirmClosePqrs();
     };
 
@@ -104,7 +101,7 @@ export default defineComponent({
       if (pqrs.value && pqrs.value.id) {
         const pqrsToUpdate: IPqrs = {
           ...pqrs.value,
-          estado: StatesPqrs.Closed,
+          estado: PqrsStatus.Closed,
         };
 
         try {
@@ -112,13 +109,11 @@ export default defineComponent({
           pqrs.value = result;
           alertService.showSuccess(t('ventanillaUnicaApp.pqrs.messages.closedSuccess'));
           isConfirmCloseModalVisible.value = false;
-        } catch (error) {
-          console.error('Error al cerrar PQRS:', error);
-          const errorMessageKey = 'ventanillaUnicaApp.pqrs.messages.closeError';
+        } catch (error: any) {
           if (error.response) {
             alertService.showHttpError(error.response);
           } else {
-            alertService.showError(t(errorMessageKey));
+            alertService.showError(t('ventanillaUnicaApp.pqrs.messages.closeError'));
           }
         }
       }
@@ -129,7 +124,6 @@ export default defineComponent({
       if (pqrsId) {
         await retrievePqrs(pqrsId);
       } else {
-        console.error('PQRS ID no encontrado en los parámetros de la ruta.');
         alertService.showError(t('ventanillaUnicaApp.pqrs.messages.notFound'));
         previousState();
       }
@@ -139,10 +133,10 @@ export default defineComponent({
       ...dateFormat,
       alertService,
       pqrs,
-      StatesPqrs,
+      PqrsStatus,
       isConfirmCloseModalVisible,
       confirmCloseModalRef,
-      isFuncionario,
+      isFunctionary,
       isAdmin,
       openConfirmCloseModal,
       handleConfirmClose,
@@ -152,7 +146,7 @@ export default defineComponent({
       t$: useI18n().t,
       t,
       formatDateLong,
-      toggleEstadoPqrs,
+      toggleStatusPqrs,
     };
   },
 });

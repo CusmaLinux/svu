@@ -58,18 +58,18 @@
         </router-link>
 
         <button
-          v-if="isFuncionario && pqrs.id && pqrs.estado !== StatesPqrs.Closed"
-          @click="toggleEstadoPqrs()"
-          :class="['btn', pqrs.estado === StatesPqrs.Resolved ? 'btn-warning' : 'btn-success', 'ms-2']"
+          v-if="isFunctionary && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
+          @click="toggleStatusPqrs()"
+          :class="['btn', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success', 'ms-2']"
           data-cy="toggleStatusButton"
         >
-          <font-awesome-icon :icon="pqrs.estado === StatesPqrs.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
-          <span v-if="pqrs.estado === StatesPqrs.Resolved" v-text="t('ventanillaUnicaApp.pqrs.action.inProgres')"></span>
+          <font-awesome-icon :icon="pqrs.estado === PqrsStatus.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
+          <span v-if="pqrs.estado === PqrsStatus.Resolved" v-text="t('ventanillaUnicaApp.pqrs.action.inProgres')"></span>
           <span v-else v-text="t('ventanillaUnicaApp.pqrs.action.resolve')"></span>
         </button>
 
         <button
-          v-if="pqrs.id && pqrs.estado !== StatesPqrs.Closed && isAdmin"
+          v-if="pqrs.id && pqrs.estado !== PqrsStatus.Closed && isAdmin"
           @click="openConfirmCloseModal"
           class="btn btn-danger ms-2"
           data-cy="closePqrsButton"
