@@ -4,7 +4,7 @@ import { type MountingOptions, shallowMount } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import Notificacion from './notificacion.vue';
-import NotificacionService from './notificacion.service';
+import NotificacionService from './notification.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type NotificacionComponentType = InstanceType<typeof Notificacion>;

@@ -19,9 +19,8 @@ const ArchivoAdjunto = () => import('@/entities/archivo-adjunto/archivo-adjunto.
 const ArchivoAdjuntoUpdate = () => import('@/entities/archivo-adjunto/archivo-adjunto-update.vue');
 const ArchivoAdjuntoDetails = () => import('@/entities/archivo-adjunto/archivo-adjunto-details.vue');
 
-const Notificacion = () => import('@/entities/notificacion/notificacion.vue');
-const NotificacionUpdate = () => import('@/entities/notificacion/notificacion-update.vue');
-const NotificacionDetails = () => import('@/entities/notificacion/notificacion-details.vue');
+const Notification = () => import('@/entities/notification/notification.vue');
+const NotificationDetails = () => import('@/entities/notification/notification-details.vue');
 
 const InformePqrs = () => import('@/entities/informe-pqrs/informe-pqrs.vue');
 const InformePqrsUpdate = () => import('@/entities/informe-pqrs/informe-pqrs-update.vue');
@@ -130,27 +129,15 @@ export default {
       meta: { authorities: [Authority.ADMIN] },
     },
     {
-      path: 'notificacion',
-      name: 'Notificacion',
-      component: Notificacion,
-      meta: { authorities: [Authority.USER] },
-    },
-    {
-      path: 'notificacion/new',
-      name: 'NotificacionCreate',
-      component: NotificacionUpdate,
-      meta: { authorities: [Authority.USER] },
-    },
-    {
-      path: 'notificacion/:notificacionId/edit',
-      name: 'NotificacionEdit',
-      component: NotificacionUpdate,
+      path: 'notificaciones',
+      name: 'Notifications',
+      component: Notification,
       meta: { authorities: [Authority.USER] },
     },
     {
       path: 'notificacion/:notificacionId/view',
       name: 'NotificacionView',
-      component: NotificacionDetails,
+      component: NotificationDetails,
       meta: { authorities: [Authority.USER] },
     },
     {

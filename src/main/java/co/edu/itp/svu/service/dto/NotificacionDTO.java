@@ -3,9 +3,7 @@ package co.edu.itp.svu.service.dto;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A DTO for the {@link co.edu.itp.svu.domain.Notificacion} entity.
@@ -25,7 +23,7 @@ public class NotificacionDTO implements Serializable {
 
     private Boolean leido;
 
-    private Set<OficinaDTO> destinatarios = new HashSet<>();
+    private UserDTO recipientDto;
 
     public String getId() {
         return id;
@@ -67,12 +65,12 @@ public class NotificacionDTO implements Serializable {
         this.leido = leido;
     }
 
-    public Set<OficinaDTO> getDestinatarios() {
-        return destinatarios;
+    public UserDTO getRecipientDto() {
+        return recipientDto;
     }
 
-    public void setDestinatarios(Set<OficinaDTO> destinatarios) {
-        this.destinatarios = destinatarios;
+    public void setRecipientDto(UserDTO recipientDto) {
+        this.recipientDto = recipientDto;
     }
 
     @Override
@@ -105,7 +103,7 @@ public class NotificacionDTO implements Serializable {
             ", fecha='" + getFecha() + "'" +
             ", mensaje='" + getMensaje() + "'" +
             ", leido='" + getLeido() + "'" +
-            ", destinatarios=" + getDestinatarios() +
+            ", recipient=[" + recipientDto.getId() + ", " + recipientDto.getLogin() + "]" +
             "}";
     }
 }

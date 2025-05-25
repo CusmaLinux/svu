@@ -1,11 +1,8 @@
 package co.edu.itp.svu.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -38,11 +35,8 @@ public class Notificacion implements Serializable {
     private Boolean leido;
 
     @DBRef
-    @Field("destinatarios")
-    @JsonIgnoreProperties(value = { "notificacions" }, allowSetters = true)
-    private Set<Oficina> destinatarios = new HashSet<>();
-
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @Field("recipient")
+    private User recipient;
 
     public String getId() {
         return this.id;
@@ -109,30 +103,18 @@ public class Notificacion implements Serializable {
         this.leido = leido;
     }
 
-    public Set<Oficina> getDestinatarios() {
-        return this.destinatarios;
+    public User getRecipient() {
+        return this.recipient;
     }
 
-    public void setDestinatarios(Set<Oficina> oficinas) {
-        this.destinatarios = oficinas;
-    }
-
-    public Notificacion destinatarios(Set<Oficina> oficinas) {
-        this.setDestinatarios(oficinas);
+    public Notificacion recipient(User recipient) {
+        this.setRecipient(recipient);
         return this;
     }
 
-    public Notificacion addDestinatarios(Oficina oficina) {
-        this.destinatarios.add(oficina);
-        return this;
+    public void setRecipient(User user) {
+        this.recipient = user;
     }
-
-    public Notificacion removeDestinatarios(Oficina oficina) {
-        this.destinatarios.remove(oficina);
-        return this;
-    }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
@@ -160,6 +142,7 @@ public class Notificacion implements Serializable {
             ", fecha='" + getFecha() + "'" +
             ", mensaje='" + getMensaje() + "'" +
             ", leido='" + getLeido() + "'" +
+            ", user='" + (recipient!= null ? recipient.getId() : "null") + "'" +
             "}";
     }
 }

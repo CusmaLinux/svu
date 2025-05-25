@@ -16,9 +16,9 @@
       <font-awesome-icon icon="asterisk" />
       <span v-text="t$('global.menu.entities.archivoAdjunto')"></span>
     </b-dropdown-item>
-    <b-dropdown-item to="/notificacion">
+    <b-dropdown-item to="/notificaciones">
       <font-awesome-icon icon="asterisk" />
-      <span v-text="t$('global.menu.entities.notificacion')"></span>
+      <span v-text="t$('global.menu.entities.notifications')"></span>
     </b-dropdown-item>
     <b-dropdown-item v-if="isAdmin" to="/informe-pqrs">
       <font-awesome-icon icon="asterisk" />

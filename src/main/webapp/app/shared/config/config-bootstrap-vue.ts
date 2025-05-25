@@ -25,12 +25,15 @@ import {
   BProgressBar,
   BListGroup,
   BListGroupItem,
+  BDropdownText,
+  BDropdownDivider,
+  BSpinner,
   ToastPlugin,
   IconsPlugin,
   VBModal,
 } from 'bootstrap-vue';
 
-export function initBootstrapVue(vue) {
+export function initBootstrapVue(vue: any) {
   vue.use(ToastPlugin);
   vue.use(IconsPlugin);
 
@@ -61,4 +64,7 @@ export function initBootstrapVue(vue) {
   vue.component('b-input-group-prepend', BInputGroupPrepend);
   vue.component('b-list-group', BListGroup);
   vue.component('b-list-group-item', BListGroupItem);
+  vue.component('b-dropdown-text', BDropdownText);
+  vue.component('b-dropdown-divider', BDropdownDivider);
+  vue.component('b-spinner', BSpinner);
 }

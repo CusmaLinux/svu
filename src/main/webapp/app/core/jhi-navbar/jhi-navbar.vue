@@ -88,6 +88,7 @@
             {{ value.name }}
           </b-dropdown-item>
         </b-nav-item-dropdown>
+        <notification-menu></notification-menu>
         <b-nav-item-dropdown
           right
           href="javascript:void(0);"
@@ -100,7 +101,6 @@
           <template #button-content>
             <span class="navbar-dropdown-menu">
               <font-awesome-icon icon="user" />
-              <span class="no-bold" v-text="t$('global.menu.account.main')"></span>
             </span>
           </template>
           <b-dropdown-item data-cy="settings" to="/account/settings" v-if="authenticated" active-class="active">

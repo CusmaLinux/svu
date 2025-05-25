@@ -1,30 +1,30 @@
 import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import NotificacionService from './notificacion.service';
-import { type INotificacion } from '@/shared/model/notificacion.model';
+import NotificationService from './notification.service';
+import { type INotification } from '@/shared/model/notification.model';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  name: 'Notificacion',
+  name: 'Notifications',
   setup() {
     const { t: t$ } = useI18n();
     const dateFormat = useDateFormat();
     const dataUtils = useDataUtils();
-    const notificacionService = inject('notificacionService', () => new NotificacionService());
+    const notificationService = inject('notificationService', () => new NotificationService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
-    const queryCount: Ref<number> = ref(null);
+    const queryCount: Ref<number | null> = ref(null);
     const page: Ref<number> = ref(1);
     const propOrder = ref('id');
     const reverse = ref(false);
     const totalItems = ref(0);
 
-    const notificacions: Ref<INotificacion[]> = ref([]);
+    const notifications: Ref<INotification[]> = ref([]);
 
     const isFetching = ref(false);
 
@@ -40,7 +40,7 @@ export default defineComponent({
       return result;
     };
 
-    const retrieveNotificacions = async () => {
+    const retrieveNotifications = async () => {
       isFetching.value = true;
       try {
         const paginationQuery = {
@@ -48,11 +48,11 @@ export default defineComponent({
           size: itemsPerPage.value,
           sort: sort(),
         };
-        const res = await notificacionService().retrieve(paginationQuery);
+        const res = await notificationService().retrieve(paginationQuery);
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
-        notificacions.value = res.data;
-      } catch (err) {
+        notifications.value = res.data;
+      } catch (err: any) {
         alertService.showHttpError(err.response);
       } finally {
         isFetching.value = false;
@@ -60,34 +60,12 @@ export default defineComponent({
     };
 
     const handleSyncList = () => {
-      retrieveNotificacions();
+      retrieveNotifications();
     };
 
     onMounted(async () => {
-      await retrieveNotificacions();
+      await retrieveNotifications();
     });
-
-    const removeId: Ref<string> = ref(null);
-    const removeEntity = ref<any>(null);
-    const prepareRemove = (instance: INotificacion) => {
-      removeId.value = instance.id;
-      removeEntity.value.show();
-    };
-    const closeDialog = () => {
-      removeEntity.value.hide();
-    };
-    const removeNotificacion = async () => {
-      try {
-        await notificacionService().delete(removeId.value);
-        const message = t$('ventanillaUnicaApp.notificacion.deleted', { param: removeId.value }).toString();
-        alertService.showInfo(message, { variant: 'danger' });
-        removeId.value = null;
-        retrieveNotificacions();
-        closeDialog();
-      } catch (error) {
-        alertService.showHttpError(error.response);
-      }
-    };
 
     const changeOrder = (newOrder: string) => {
       if (propOrder.value === newOrder) {
@@ -102,7 +80,7 @@ export default defineComponent({
     watch([propOrder, reverse], async () => {
       if (page.value === 1) {
         // first page, retrieve new data
-        await retrieveNotificacions();
+        await retrieveNotifications();
       } else {
         // reset the pagination
         clear();
@@ -111,21 +89,16 @@ export default defineComponent({
 
     // Whenever page changes, switch to the new page.
     watch(page, async () => {
-      await retrieveNotificacions();
+      await retrieveNotifications();
     });
 
     return {
-      notificacions,
+      notifications,
       handleSyncList,
       isFetching,
-      retrieveNotificacions,
+      retrieveNotifications,
       clear,
       ...dateFormat,
-      removeId,
-      removeEntity,
-      prepareRemove,
-      closeDialog,
-      removeNotificacion,
       itemsPerPage,
       queryCount,
       page,

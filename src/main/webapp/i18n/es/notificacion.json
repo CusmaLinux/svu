@@ -1,18 +1,18 @@
 {
   "ventanillaUnicaApp": {
-    "notificacion": {
+    "notification": {
       "home": {
-        "title": "Notificacions",
+        "title": "Notificaciones",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Notificacion",
+        "createLabel": "Crear nueva Notificacion",
         "createOrEditLabel": "Crear o editar Notificacion",
-        "notFound": "Ningún Notificacions encontrado"
+        "notFound": "Ningúna notificacion encontrada"
       },
-      "created": "Un nuevo Notificacion ha sido creado con el identificador { param }",
-      "updated": "Un Notificacion ha sido actualizado con el identificador { param }",
-      "deleted": "Un Notificacion ha sido eliminado con el identificador { param }",
+      "created": "Una nueva Notificacion ha sido creada con el identificador { param }",
+      "updated": "Una Notificacion ha sido actualizada con el identificador { param }",
+      "deleted": "Una Notificacion ha sido eliminada con el identificador { param }",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Notificacion { id }?"
+        "question": "¿Desea eliminar la Notificacion { id }?"
       },
       "detail": {
         "title": "Notificacion"
@@ -21,8 +21,7 @@
       "tipo": "Tipo",
       "fecha": "Fecha",
       "mensaje": "Mensaje",
-      "leido": "Leido",
-      "destinatarios": "Destinatarios"
+      "leido": "Leido"
     }
   }
 }

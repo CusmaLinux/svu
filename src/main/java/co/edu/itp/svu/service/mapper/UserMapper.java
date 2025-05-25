@@ -63,6 +63,17 @@ public class UserMapper {
         }
     }
 
+    public User userDTOToUser(UserDTO userDTO) {
+        if (userDTO == null) {
+            return null;
+        }
+        User user = new User();
+        user.setId(userDTO.getId());
+        user.setLogin(userDTO.getLogin());
+
+        return user;
+    }
+
     private Set<Authority> authoritiesFromStrings(Set<String> authoritiesAsString) {
         Set<Authority> authorities = new HashSet<>();
 

@@ -54,7 +54,7 @@ class NotificacionResourceIT {
     private static final Boolean DEFAULT_LEIDO = false;
     private static final Boolean UPDATED_LEIDO = true;
 
-    private static final String ENTITY_API_URL = "/api/notificacions";
+    private static final String ENTITY_API_URL = "/api/notifications";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
     @Autowired

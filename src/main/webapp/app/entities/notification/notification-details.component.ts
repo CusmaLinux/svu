@@ -2,10 +2,10 @@ import { type Ref, defineComponent, inject, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
-import NotificacionService from './notificacion.service';
+import NotificationService from './notification.service';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
-import { type INotificacion } from '@/shared/model/notificacion.model';
+import { type INotification } from '@/shared/model/notification.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
@@ -13,7 +13,7 @@ export default defineComponent({
   name: 'NotificacionDetails',
   setup() {
     const dateFormat = useDateFormat();
-    const notificacionService = inject('notificacionService', () => new NotificacionService());
+    const notificationService = inject('notificationService', () => new NotificationService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const dataUtils = useDataUtils();
@@ -22,13 +22,13 @@ export default defineComponent({
     const router = useRouter();
 
     const previousState = () => router.go(-1);
-    const notificacion: Ref<INotificacion> = ref({});
+    const notification: Ref<INotification> = ref({});
 
-    const retrieveNotificacion = async notificacionId => {
+    const retrieveNotificacion = async (notificationId: string | string[]) => {
       try {
-        const res = await notificacionService().find(notificacionId);
-        notificacion.value = res;
-      } catch (error) {
+        const res = await notificationService().find(notificationId);
+        notification.value = res;
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -40,7 +40,7 @@ export default defineComponent({
     return {
       ...dateFormat,
       alertService,
-      notificacion,
+      notification,
 
       ...dataUtils,
 

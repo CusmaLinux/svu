@@ -1,4 +1,4 @@
-import { type Ref, computed, defineComponent, inject, onMounted, ref } from 'vue';
+import { type Ref, computed, defineComponent, inject, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -19,6 +19,8 @@ export default defineComponent({
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
     const { formatDateLong } = useDateFormat();
+    const pqrsId = computed(() => route.params.pqrsId as string);
+    const loading = ref(false);
 
     const dataUtils = useDataUtils();
 
@@ -28,7 +30,7 @@ export default defineComponent({
     const accountStore = useAccountStore();
 
     const previousState = () => router.go(-1);
-    const pqrs: Ref<IPqrs> = ref({});
+    const pqrs: Ref<IPqrs | null> = ref({});
 
     const isConfirmCloseModalVisible = ref(false);
     const confirmCloseModalRef = ref(null);
@@ -42,11 +44,19 @@ export default defineComponent({
     });
 
     const retrievePqrs = async (pqrsId: string | string[]) => {
+      if (!pqrsId) {
+        pqrs.value = null;
+        alertService.showError('PQRS ID is missing');
+        return;
+      }
+      loading.value = true;
       try {
         const res = await pqrsService().find(pqrsId);
         pqrs.value = res;
       } catch (error: any) {
         alertService.showHttpError(error.response);
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -129,6 +139,22 @@ export default defineComponent({
       }
     });
 
+    watch(
+      pqrsId,
+      async (newId, oldId) => {
+        if (newId && newId !== oldId) {
+          await retrievePqrs(newId);
+        }
+      },
+      { immediate: false },
+    );
+
+    onMounted(() => {
+      if (pqrsId.value) {
+        retrievePqrs(pqrsId.value);
+      }
+    });
+
     return {
       ...dateFormat,
       alertService,
@@ -140,6 +166,9 @@ export default defineComponent({
       isAdmin,
       openConfirmCloseModal,
       handleConfirmClose,
+      pqrsId,
+      loading,
+
       ...dataUtils,
 
       previousState,

@@ -1,0 +1,10 @@
+{
+  "sse-notification": {
+    "non-type": "Type: N/A",
+    "message": "PQRS '{pqrsTitle}' (ID: {pqrsId}) is due on '{pqrsDueDate}'.",
+    "pqrs-due-date-reminder": "PQRS due date reminder",
+    "mark-all-as-read": "Mark all as read",
+    "view-all-notifications": "View all notifications",
+    "no-new-notifications": "No new notifications"
+  }
+}

@@ -21,8 +21,7 @@
       "nombre": "Nombre",
       "descripcion": "Descripcion",
       "nivel": "Nivel",
-      "oficinaSuperior": "Oficina Superior",
-      "notificacion": "Notificacion"
+      "oficinaSuperior": "Oficina Superior"
     }
   }
 }

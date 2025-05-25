@@ -24,26 +24,4 @@ class OficinaTest {
         oficina2 = getOficinaSample2();
         assertThat(oficina1).isNotEqualTo(oficina2);
     }
-
-    @Test
-    void notificacionTest() {
-        Oficina oficina = getOficinaRandomSampleGenerator();
-        Notificacion notificacionBack = getNotificacionRandomSampleGenerator();
-
-        oficina.addNotificacion(notificacionBack);
-        assertThat(oficina.getNotificacions()).containsOnly(notificacionBack);
-        assertThat(notificacionBack.getDestinatarios()).containsOnly(oficina);
-
-        oficina.removeNotificacion(notificacionBack);
-        assertThat(oficina.getNotificacions()).doesNotContain(notificacionBack);
-        assertThat(notificacionBack.getDestinatarios()).doesNotContain(oficina);
-
-        oficina.notificacions(new HashSet<>(Set.of(notificacionBack)));
-        assertThat(oficina.getNotificacions()).containsOnly(notificacionBack);
-        assertThat(notificacionBack.getDestinatarios()).containsOnly(oficina);
-
-        oficina.setNotificacions(new HashSet<>());
-        assertThat(oficina.getNotificacions()).doesNotContain(notificacionBack);
-        assertThat(notificacionBack.getDestinatarios()).doesNotContain(oficina);
-    }
 }

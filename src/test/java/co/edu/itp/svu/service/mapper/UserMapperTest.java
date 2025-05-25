@@ -167,8 +167,13 @@ class UserMapperTest {
     }
 
     @Test
-    void userDTOToUserMapWithNullUserShouldReturnNull() {
-        assertThat(userMapper.userDTOToUser(null)).isNull();
+    void userDTOToUser_whenAdminUserDTONull_shouldReturnNull() {
+        assertThat(userMapper.userDTOToUser((AdminUserDTO) null)).isNull();
+    }
+
+    @Test
+    void userDTOToUser_whenUserDTONull_shouldReturnNull() {
+        assertThat(userMapper.userDTOToUser((UserDTO) null)).isNull();
     }
 
     @Test
