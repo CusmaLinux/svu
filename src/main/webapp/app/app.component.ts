@@ -4,14 +4,15 @@ import Ribbon from '@/core/ribbon/ribbon.vue';
 import JhiFooter from '@/core/jhi-footer/jhi-footer.vue';
 import JhiNavbar from '@/core/jhi-navbar/jhi-navbar.vue';
 import LoginForm from '@/account/login-form/login-form.vue';
+import { useDateFormat } from '@/shared/composables';
 
 import '@/shared/config/dayjs';
 
 import { useAccountStore } from './shared/config/store/account-store';
 import { useNotificationStore } from './shared/config/store/notification-store';
-import { useBvToast } from './shared/composables/bv-toast';
+import useDataUtils from './shared/data/data-utils.service';
 
-import sseNotificationService from './services/notification.service';
+import sseNotificationService from './services/sse-notification.service';
 import { useAlertService } from '@/shared/alert/alert.service';
 
 export default defineComponent({
@@ -26,14 +27,16 @@ export default defineComponent({
   setup() {
     const accountStore = useAccountStore();
     const notificationStore = useNotificationStore();
-    const bvToast = useBvToast();
     const alertService = inject('alertService', () => useAlertService(), true);
+    const dataUtils = useDataUtils();
+    const dateFormat = useDateFormat();
+    const { t } = useI18n();
 
     const manageSseConnection = () => {
       if (accountStore.authenticated) {
         const connectedUser = sseNotificationService.connect();
         if (connectedUser) {
-          // fetch notifications
+          notificationStore.fetchUserNotifications();
         }
 
         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -58,19 +61,17 @@ export default defineComponent({
         const latestItem = newSseItems.find(newItem => !oldSseItems.some(oldItem => oldItem.id === newItem.id));
 
         if (latestItem && latestItem.isSse) {
-          const message = latestItem.message || 'Message';
-          alertService.showInfo(message, {
-            href: '/',
-            title: `${latestItem.pqrsTitle}`,
-          });
-          /* bvToast.toast(latestItem.message || 'Notification', {
-            title: latestItem.pqrsTitle,
-            variant: 'info',
-            solid: true,
-            autoHideDelay: 7000,
-            appendToast: true,
-            toaster: 'b-toaster-top-right',
-          }); */
+          alertService.showInfo(
+            t('sse-notification.message', {
+              pqrsTitle: latestItem.pqrsTitle,
+              pqrsId: latestItem.pqrsId,
+              pqrsDueDate: dateFormat.formatDateLong(latestItem.pqrsResponseDueDate),
+            }),
+            {
+              href: `/pqrs/${latestItem.pqrsId}/view`,
+              title: `${latestItem.pqrsTitle}`,
+            },
+          );
         }
       },
       { deep: true },
@@ -87,6 +88,7 @@ export default defineComponent({
     provide('alertService', useAlertService());
     return {
       t$: useI18n().t,
+      ...dataUtils,
     };
   },
 });
