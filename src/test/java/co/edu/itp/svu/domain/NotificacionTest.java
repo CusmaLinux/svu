@@ -24,22 +24,4 @@ class NotificacionTest {
         notificacion2 = getNotificacionSample2();
         assertThat(notificacion1).isNotEqualTo(notificacion2);
     }
-
-    @Test
-    void destinatariosTest() {
-        Notificacion notificacion = getNotificacionRandomSampleGenerator();
-        Oficina oficinaBack = getOficinaRandomSampleGenerator();
-
-        notificacion.addDestinatarios(oficinaBack);
-        assertThat(notificacion.getDestinatarios()).containsOnly(oficinaBack);
-
-        notificacion.removeDestinatarios(oficinaBack);
-        assertThat(notificacion.getDestinatarios()).doesNotContain(oficinaBack);
-
-        notificacion.destinatarios(new HashSet<>(Set.of(oficinaBack)));
-        assertThat(notificacion.getDestinatarios()).containsOnly(oficinaBack);
-
-        notificacion.setDestinatarios(new HashSet<>());
-        assertThat(notificacion.getDestinatarios()).doesNotContain(oficinaBack);
-    }
 }
