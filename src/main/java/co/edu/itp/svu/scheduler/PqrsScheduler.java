@@ -1,11 +1,12 @@
 package co.edu.itp.svu.scheduler;
 
+import co.edu.itp.svu.domain.Notificacion;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.service.SseNotificationService;
-import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -24,19 +25,18 @@ public class PqrsScheduler {
 
     private final PqrsRepository pqrsRepository;
     private final SseNotificationService sseNotificationService;
-    private final PqrsMapper pqrsMapper;
-    private final UserRepository userRepository;
+    private final NotificacionRepository notificationRepository;
 
     public PqrsScheduler(
         PqrsRepository pqrsRepository,
         SseNotificationService sseNotificationService,
         PqrsMapper pqrsMapper,
-        UserRepository userRepository
+        UserRepository userRepository,
+        NotificacionRepository notificationRepository
     ) {
         this.pqrsRepository = pqrsRepository;
         this.sseNotificationService = sseNotificationService;
-        this.pqrsMapper = pqrsMapper;
-        this.userRepository = userRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     // @Scheduled(cron = "0 0 * * * ?") // Every hour
@@ -66,6 +66,7 @@ public class PqrsScheduler {
                 User responsibleUser = pqrs.getOficinaResponder().getResponsable();
 
                 if (responsibleUser != null) {
+                    createPersistentNotification(responsibleUser, pqrs);
                     sendPqrsNotification(responsibleUser.getLogin(), pqrs);
                 }
             } else {
@@ -83,14 +84,12 @@ public class PqrsScheduler {
             pqrs.getFechaLimiteRespuesta().toString()
         );
 
-        // PqrsDTO pqrsDTO = pqrsMapper.toDto(pqrs);
-
         var notificationData = Map.of(
             "id",
             pqrs.getId(),
             "type",
             "PQRS_DUE_DATE_REMINDER",
-            "currentDate",
+            "creationDate",
             LocalDate.now(),
             "message",
             message,
@@ -111,5 +110,23 @@ public class PqrsScheduler {
         sseNotificationService.sendNotificationToUser(userLogin, "PQRS_DUE_DATE_REMINDER", notificationData);
 
         LOG.info("Sent due date reminder for PQRS id {} to user {}", pqrs.getId(), userLogin);
+    }
+
+    private void createPersistentNotification(User responsibleUser, Pqrs pqrs) {
+        String message = String.format(
+            "PQRS '%s' (ID: %s) is due on %s.",
+            pqrs.getTitulo(),
+            pqrs.getId(),
+            pqrs.getFechaLimiteRespuesta().toString()
+        );
+
+        Notificacion notification = new Notificacion();
+        notification.setFecha(Instant.now());
+        notification.setLeido(false);
+        notification.setTipo("PQRS_DUE_DATE_REMINDER");
+        notification.setRecipient(responsibleUser);
+        notification.setMensaje(message);
+
+        notificationRepository.save(notification);
     }
 }
