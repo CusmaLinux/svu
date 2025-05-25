@@ -3,6 +3,7 @@ package co.edu.itp.svu.scheduler;
 import co.edu.itp.svu.domain.Notificacion;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.UserRepository;
@@ -39,19 +40,17 @@ public class PqrsScheduler {
         this.notificationRepository = notificationRepository;
     }
 
-    // @Scheduled(cron = "0 0 * * * ?") // Every hour
-    @Scheduled(fixedRate = 10000) // Every minute for testing
+    @Scheduled(cron = "0 0 9 * * ?", zone = "America/Bogota")
     public void checkPqrsDueDates() {
         LOG.info("Running PQRS due date check...");
 
         Instant now = Instant.now();
-        // Instant oneDayFromNow = now.plus(1, ChronoUnit.DAYS);
         Instant threeDaysFromNow = now.plus(3, ChronoUnit.DAYS);
 
         List<Pqrs> upcomingPqrs = pqrsRepository.findAllByFechaLimiteRespuestaBetweenAndEstadoNotIn(
             now,
             threeDaysFromNow,
-            List.of("Resuelta", "closed")
+            List.of(PqrsStatus.RESOLVED.toString(), PqrsStatus.CLOSED.toString())
         );
 
         for (Pqrs pqrs : upcomingPqrs) {
