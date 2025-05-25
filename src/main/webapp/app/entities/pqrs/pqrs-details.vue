@@ -1,6 +1,7 @@
 <template>
   <div class="row justify-content-center">
     <div class="col-8">
+      <div v-if="loading">Loading PQRS data...</div>
       <div v-if="pqrs">
         <h2 class="jh-entity-heading" data-cy="pqrsDetailsHeading">
           <span v-text="t$('ventanillaUnicaApp.pqrs.detail.title')"></span> {{ pqrs.id }}
