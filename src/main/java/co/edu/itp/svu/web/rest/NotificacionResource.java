@@ -28,7 +28,7 @@ import tech.jhipster.web.util.ResponseUtil;
  * REST controller for managing {@link co.edu.itp.svu.domain.Notificacion}.
  */
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/notification")
 public class NotificacionResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(NotificacionResource.class);
@@ -38,12 +38,12 @@ public class NotificacionResource {
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
 
-    private final NotificacionService notificacionService;
+    private final NotificacionService notificationService;
 
     private final NotificacionRepository notificacionRepository;
 
-    public NotificacionResource(NotificacionService notificacionService, NotificacionRepository notificacionRepository) {
-        this.notificacionService = notificacionService;
+    public NotificacionResource(NotificacionService notificationService, NotificacionRepository notificacionRepository) {
+        this.notificationService = notificationService;
         this.notificacionRepository = notificacionRepository;
     }
 
@@ -51,7 +51,9 @@ public class NotificacionResource {
      * {@code POST  /notificacions} : Create a new notificacion.
      *
      * @param notificacionDTO the notificacionDTO to create.
-     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new notificacionDTO, or with status {@code 400 (Bad Request)} if the notificacion has already an ID.
+     * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with
+     *         body the new notificacionDTO, or with status
+     *         {@code 400 (Bad Request)} if the notificacion has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
@@ -61,8 +63,8 @@ public class NotificacionResource {
         if (notificacionDTO.getId() != null) {
             throw new BadRequestAlertException("A new notificacion cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        notificacionDTO = notificacionService.save(notificacionDTO);
-        return ResponseEntity.created(new URI("/api/notificacions/" + notificacionDTO.getId()))
+        notificacionDTO = notificationService.save(notificacionDTO);
+        return ResponseEntity.created(new URI("/api/notification/" + notificacionDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, notificacionDTO.getId()))
             .body(notificacionDTO);
     }
@@ -70,11 +72,14 @@ public class NotificacionResource {
     /**
      * {@code PUT  /notificacions/:id} : Updates an existing notificacion.
      *
-     * @param id the id of the notificacionDTO to save.
+     * @param id              the id of the notificacionDTO to save.
      * @param notificacionDTO the notificacionDTO to update.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated notificacionDTO,
-     * or with status {@code 400 (Bad Request)} if the notificacionDTO is not valid,
-     * or with status {@code 500 (Internal Server Error)} if the notificacionDTO couldn't be updated.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body
+     *         the updated notificacionDTO,
+     *         or with status {@code 400 (Bad Request)} if the notificacionDTO is
+     *         not valid,
+     *         or with status {@code 500 (Internal Server Error)} if the
+     *         notificacionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
@@ -94,21 +99,26 @@ public class NotificacionResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        notificacionDTO = notificacionService.update(notificacionDTO);
+        notificacionDTO = notificationService.update(notificacionDTO);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, notificacionDTO.getId()))
             .body(notificacionDTO);
     }
 
     /**
-     * {@code PATCH  /notificacions/:id} : Partial updates given fields of an existing notificacion, field will ignore if it is null
+     * {@code PATCH  /notificacions/:id} : Partial updates given fields of an
+     * existing notificacion, field will ignore if it is null
      *
-     * @param id the id of the notificacionDTO to save.
+     * @param id              the id of the notificacionDTO to save.
      * @param notificacionDTO the notificacionDTO to update.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated notificacionDTO,
-     * or with status {@code 400 (Bad Request)} if the notificacionDTO is not valid,
-     * or with status {@code 404 (Not Found)} if the notificacionDTO is not found,
-     * or with status {@code 500 (Internal Server Error)} if the notificacionDTO couldn't be updated.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body
+     *         the updated notificacionDTO,
+     *         or with status {@code 400 (Bad Request)} if the notificacionDTO is
+     *         not valid,
+     *         or with status {@code 404 (Not Found)} if the notificacionDTO is not
+     *         found,
+     *         or with status {@code 500 (Internal Server Error)} if the
+     *         notificacionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
@@ -128,7 +138,7 @@ public class NotificacionResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        Optional<NotificacionDTO> result = notificacionService.partialUpdate(notificacionDTO);
+        Optional<NotificacionDTO> result = notificationService.partialUpdate(notificacionDTO);
 
         return ResponseUtil.wrapOrNotFound(
             result,
@@ -137,23 +147,25 @@ public class NotificacionResource {
     }
 
     /**
-     * {@code GET  /notificacions} : get all the notificacions.
+     * {@code GET  /notificacions} : get all the notifications for current user.
      *
+     * @param Boolean  the read status of the notification
      * @param pageable the pagination information.
-     * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of notificacions in body.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list
+     *         of notifications in body.
      */
     @GetMapping("")
-    public ResponseEntity<List<NotificacionDTO>> getAllNotificacions(
+    public ResponseEntity<List<NotificacionDTO>> getAllNotifications(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
-        @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
+        @RequestParam(required = false) Boolean read
     ) {
-        LOG.debug("REST request to get a page of Notificacions");
+        LOG.debug("REST request to get a page of Notifications for current user");
         Page<NotificacionDTO> page;
-        if (eagerload) {
-            page = notificacionService.findAllWithEagerRelationships(pageable);
+
+        if (read != null) {
+            page = notificationService.findAllForCurrentUserAndReadStatus(read, pageable);
         } else {
-            page = notificacionService.findAll(pageable);
+            page = notificationService.findAllForCurrentUser(pageable);
         }
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
@@ -163,12 +175,13 @@ public class NotificacionResource {
      * {@code GET  /notificacions/:id} : get the "id" notificacion.
      *
      * @param id the id of the notificacionDTO to retrieve.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the notificacionDTO, or with status {@code 404 (Not Found)}.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body
+     *         the notificacionDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
     public ResponseEntity<NotificacionDTO> getNotificacion(@PathVariable("id") String id) {
         LOG.debug("REST request to get Notificacion : {}", id);
-        Optional<NotificacionDTO> notificacionDTO = notificacionService.findOne(id);
+        Optional<NotificacionDTO> notificacionDTO = notificationService.findOne(id);
         return ResponseUtil.wrapOrNotFound(notificacionDTO);
     }
 
@@ -181,7 +194,42 @@ public class NotificacionResource {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteNotificacion(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Notificacion : {}", id);
-        notificacionService.delete(id);
+        notificationService.delete(id);
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
+    }
+
+    /**
+     * {@code PUT /notifications/{id}/mark-as-read} : Marks a specific notification
+     * as read.
+     *
+     * @param id the id of the notificationDTO to mark as read.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} if
+     *         successful,
+     *         or with status {@code 404 (Not Found)} if the notification does not
+     *         exist,
+     *         or with status {@code 400 (Bad Request)} if the id is not valid.
+     */
+    @PutMapping("/{id}/mark-as-read")
+    public ResponseEntity<Void> markNotificationAsRead(@PathVariable String id) {
+        LOG.debug("REST request to mark Notification {} as read", id);
+        boolean marked = notificationService.markAsRead(id);
+        if (marked) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * {@code PUT  /notifications/mark-all-as-read} : Marks all notifications for
+     * the current user as read.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)}.
+     */
+    @PutMapping("/mark-all-as-read")
+    public ResponseEntity<Void> markAllNotificationsAsRead() {
+        LOG.debug("REST request to mark all Notifications as read for current user");
+        notificationService.markAllAsReadForCurrentUser();
+        return ResponseEntity.ok().build();
     }
 }

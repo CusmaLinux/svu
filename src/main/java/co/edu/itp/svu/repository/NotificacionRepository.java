@@ -22,4 +22,8 @@ public interface NotificacionRepository extends MongoRepository<Notificacion, St
 
     @Query("{'id': ?0}")
     Optional<Notificacion> findOneWithEagerRelationships(String id);
+
+    Page<Notificacion> findAllByRecipientId(String recipientId, Pageable pageable);
+
+    Page<Notificacion> findAllByRecipientIdAndLeidoOrderByFechaDesc(String recipientId, Boolean read, Pageable pageable);
 }
