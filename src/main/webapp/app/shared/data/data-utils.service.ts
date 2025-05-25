@@ -155,6 +155,89 @@ const useDataUtils = () => ({
     });
     return links;
   },
+
+  /**
+   * Extracts the ID from a message string based on the template:
+   * "... (ID: <ID_VALUE>) ..."
+   *
+   * @param message The message string to parse.
+   * @returns The extracted ID string, or null if no ID is found or the format doesn't match.
+   */
+  extractIdFromMessage(message: string | undefined): string | null {
+    const regex = /\(ID: ([a-zA-Z0-9]+)\)/;
+    const match = message?.match(regex);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+
+    return null;
+  },
+
+  /**
+   * Extracts the PQRS title from a message string based on the template:
+   * "PQRS '<PQRS_TITLE>' ..."
+   *
+   * @param message The message string to parse.
+   * @returns The extracted PQRS title string, or null if no title is found or the format doesn't match.
+   */
+  extractPqrsTitle(message: string | undefined): string | null {
+    const regex = /PQRS '(.*?)'/;
+    const match = message?.match(regex);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+
+    return null;
+  },
+
+  /**
+   * Extracts the due date from a message string.
+   * Assumes the date is the last parameter before the final period,
+   * and is typically preceded by " is due on ".
+   * Example: "... is due on YYYY-MM-DDTHH:MM."
+   *
+   * @param message The message string to parse.
+   * @returns The extracted due date, or null if not found.
+   */
+  extractLastParameterBeforeDot(message: string): Date | null {
+    const regex = /(\S+)\.$/;
+    const match = message.match(regex);
+    if (match && match[1]) {
+      const dateString = match[1];
+      const timestamp = Date.parse(dateString);
+
+      if (isNaN(timestamp)) {
+        return null;
+      }
+
+      return new Date(timestamp);
+    }
+
+    return null;
+  },
+
+  buildUrlToViewPqrs(message: string): string | null {
+    const pqrsId = this.extractIdFromMessage(message);
+    return `pqrs/${pqrsId}/view`;
+  },
+
+  /**
+   * Retrieves the string value from a string-based enum given its key.
+   *
+   * @param enumObject The enum object itself (e.g., NotificationType).
+   * @param key The string key of the enum member (e.g., "PQRS_DUE_DATE_REMINDER").
+   * @param defaultValue An optional value to return if the key is not found in the enum.
+   * @returns The string value associated with the key, or the defaultValue if the key is not found,
+   *          or undefined if the key is not found and no defaultValue is provided.
+   */
+  getEnumValueByKey<TEnum extends Record<string, string>, K extends string>(enumObject: TEnum, key: K, defaultValue: string): string {
+    if (Object.prototype.hasOwnProperty.call(enumObject, key)) {
+      return enumObject[key as keyof TEnum];
+    }
+    return defaultValue;
+  },
 });
 
 export default useDataUtils;
