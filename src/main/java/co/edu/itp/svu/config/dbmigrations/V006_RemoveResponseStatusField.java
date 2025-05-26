@@ -11,14 +11,13 @@ import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@ChangeUnit(id = "remove-estado-from-respuesta-collection", order = "006", author = "luiscarlosjo157")
+@ChangeUnit(id = "remove-state-from-answer-collection", order = "006", author = "luiscarlosjo157")
 public class V006_RemoveResponseStatusField {
 
     private final Logger log = LoggerFactory.getLogger(V006_RemoveResponseStatusField.class);
 
     @Execution
     public void changeSet(MongoDatabase mongoDatabase) {
-        log.info("Executing migration: remove-estado-from-respuesta-collection");
         MongoCollection<Document> respuestaCollection = mongoDatabase.getCollection("respuesta");
         var result = respuestaCollection.updateMany(Filters.exists("estado"), Updates.unset("estado"));
         log.info("Removed 'estado' field from {} documents in 'respuesta' collection.", result.getModifiedCount());
