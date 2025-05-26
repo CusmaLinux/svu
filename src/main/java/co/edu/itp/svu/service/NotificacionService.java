@@ -126,22 +126,14 @@ public class NotificacionService {
     public Page<NotificacionDTO> findAllForCurrentUser(Pageable pageable) {
         LOG.debug("Request to get all Notifications for current user");
 
-        Optional<String> currentUserLoginOpt = SecurityUtils.getCurrentUserLogin();
+        String currentUserLogin = SecurityUtils.getCurrentUserLogin()
+            .orElseThrow(() -> new IllegalStateException("Current user login not found"));
 
-        if (currentUserLoginOpt.isEmpty()) {
-            LOG.error("Current user login not found in security context");
-            return Page.empty(pageable);
-        }
+        User currentUser = userRepository
+            .findOneByLogin(currentUserLogin)
+            .orElseThrow(() -> new IllegalStateException("User not found: " + currentUserLogin));
 
-        String currentUserLogin = currentUserLoginOpt.get();
-
-        Optional<User> userOpt = userRepository.findOneByLogin(currentUserLogin);
-        if (userOpt.isEmpty()) {
-            LOG.warn("User with login {} not found, cannot fetch notifications.", currentUserLogin);
-            return Page.empty(pageable);
-        }
-
-        String recipientId = userOpt.get().getId();
+        String recipientId = currentUser.getId();
 
         return notificacionRepository.findAllByRecipientId(recipientId, pageable).map(notificacionMapper::toDto);
     }
@@ -190,27 +182,32 @@ public class NotificacionService {
     }
 
     public boolean markAsRead(String id) {
-        String currentUserLogin = SecurityUtils.getCurrentUserLogin().orElse(null);
-        if (currentUserLogin == null) {
-            throw new IllegalStateException("Current user login not found for marking notification as read.");
-        }
+        String currentUserLogin = SecurityUtils.getCurrentUserLogin()
+            .orElseThrow(() -> new IllegalStateException("Current user login not found for marking notification as read."));
 
         Optional<Notificacion> notificationOpt = notificacionRepository.findById(id);
-        if (notificationOpt.isPresent()) {
-            Notificacion notificacion = notificationOpt.get();
-            if (notificacion.getRecipient() != null && !notificacion.getRecipient().getLogin().equals(currentUserLogin)) {
-                LOG.warn("User {} attempted to mark notification {} of another user as read.", currentUserLogin, id);
-                return false;
-            }
 
-            if (!Boolean.TRUE.equals(notificacion.getLeido())) {
+        return notificationOpt
+            .map(notificacion -> {
+                if (notificacion.getRecipient() != null && !notificacion.getRecipient().getLogin().equals(currentUserLogin)) {
+                    LOG.warn(
+                        "User {} attempted to mark notification {} of another user ({}) as read.",
+                        currentUserLogin,
+                        id,
+                        notificacion.getRecipient().getLogin()
+                    );
+                    return false;
+                }
+
+                if (Boolean.TRUE.equals(notificacion.getLeido())) {
+                    return true;
+                }
+
                 notificacion.setLeido(true);
                 notificacionRepository.save(notificacion);
                 return true;
-            }
-            return true;
-        }
-        return false;
+            })
+            .orElse(false);
     }
 
     public void markAllAsReadForCurrentUser() {
