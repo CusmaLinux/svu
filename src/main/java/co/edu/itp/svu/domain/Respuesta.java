@@ -30,10 +30,6 @@ public class Respuesta implements Serializable {
     @Field("fecha_respuesta")
     private Instant fechaRespuesta;
 
-    @NotNull
-    @Field("estado")
-    private String estado;
-
     @DBRef
     @Field("archivosAdjuntos")
     @JsonIgnoreProperties(value = { "pqrs", "respuesta" }, allowSetters = true)
@@ -83,19 +79,6 @@ public class Respuesta implements Serializable {
 
     public void setFechaRespuesta(Instant fechaRespuesta) {
         this.fechaRespuesta = fechaRespuesta;
-    }
-
-    public String getEstado() {
-        return this.estado;
-    }
-
-    public Respuesta estado(String estado) {
-        this.setEstado(estado);
-        return this;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
     }
 
     public Set<ArchivoAdjunto> getArchivosAdjuntos() {
@@ -162,7 +145,6 @@ public class Respuesta implements Serializable {
             "id=" + getId() +
             ", contenido='" + getContenido() + "'" +
             ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-            ", estado='" + getEstado() + "'" +
             "}";
     }
 }
