@@ -67,9 +67,6 @@ export default defineComponent({
       fechaRespuesta: {
         required: validations.required(t$('entity.validation.required').toString()),
       },
-      estado: {
-        required: validations.required(t$('entity.validation.required').toString()),
-      },
       pqr: {},
     };
     const v$ = useVuelidate(validationRules, respuesta as any);

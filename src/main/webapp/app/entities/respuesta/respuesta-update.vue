@@ -51,22 +51,6 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.respuesta.estado')" for="respuesta-estado"></label>
-            <input
-              type="text"
-              class="form-control"
-              name="estado"
-              id="respuesta-estado"
-              data-cy="estado"
-              :class="{ valid: !v$.estado.$invalid, invalid: v$.estado.$invalid }"
-              v-model="v$.estado.$model"
-              required
-            />
-            <div v-if="v$.estado.$anyDirty && v$.estado.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.estado.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
-          <div class="form-group">
             <label class="form-control-label" v-text="t$('ventanillaUnicaApp.respuesta.pqr')" for="respuesta-pqr"></label>
             <select class="form-control" id="respuesta-pqr" data-cy="pqr" name="pqr" v-model="respuesta.pqr">
               <option :value="null"></option>
