@@ -39,9 +39,6 @@ class RespuestaResourceIT {
     private static final Instant DEFAULT_FECHA_RESPUESTA = Instant.ofEpochMilli(0L);
     private static final Instant UPDATED_FECHA_RESPUESTA = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
-    private static final String DEFAULT_ESTADO = "AAAAAAAAAA";
-    private static final String UPDATED_ESTADO = "BBBBBBBBBB";
-
     private static final String ENTITY_API_URL = "/api/respuestas";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
@@ -68,7 +65,7 @@ class RespuestaResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Respuesta createEntity() {
-        return new Respuesta().contenido(DEFAULT_CONTENIDO).fechaRespuesta(DEFAULT_FECHA_RESPUESTA).estado(DEFAULT_ESTADO);
+        return new Respuesta().contenido(DEFAULT_CONTENIDO).fechaRespuesta(DEFAULT_FECHA_RESPUESTA);
     }
 
     /**
@@ -78,7 +75,7 @@ class RespuestaResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Respuesta createUpdatedEntity() {
-        return new Respuesta().contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA).estado(UPDATED_ESTADO);
+        return new Respuesta().contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
     }
 
     @BeforeEach
@@ -151,22 +148,6 @@ class RespuestaResourceIT {
     }
 
     @Test
-    void checkEstadoIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        respuesta.setEstado(null);
-
-        // Create the Respuesta, which fails.
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
-
-        restRespuestaMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(respuestaDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
     void getAllRespuestas() throws Exception {
         // Initialize the database
         insertedRespuesta = respuestaRepository.save(respuesta);
@@ -178,8 +159,7 @@ class RespuestaResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(respuesta.getId())))
             .andExpect(jsonPath("$.[*].contenido").value(hasItem(DEFAULT_CONTENIDO.toString())))
-            .andExpect(jsonPath("$.[*].fechaRespuesta").value(hasItem(DEFAULT_FECHA_RESPUESTA.toString())))
-            .andExpect(jsonPath("$.[*].estado").value(hasItem(DEFAULT_ESTADO)));
+            .andExpect(jsonPath("$.[*].fechaRespuesta").value(hasItem(DEFAULT_FECHA_RESPUESTA.toString())));
     }
 
     @Test
@@ -194,8 +174,7 @@ class RespuestaResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.id").value(respuesta.getId()))
             .andExpect(jsonPath("$.contenido").value(DEFAULT_CONTENIDO.toString()))
-            .andExpect(jsonPath("$.fechaRespuesta").value(DEFAULT_FECHA_RESPUESTA.toString()))
-            .andExpect(jsonPath("$.estado").value(DEFAULT_ESTADO));
+            .andExpect(jsonPath("$.fechaRespuesta").value(DEFAULT_FECHA_RESPUESTA.toString()));
     }
 
     @Test
@@ -213,7 +192,7 @@ class RespuestaResourceIT {
 
         // Update the respuesta
         Respuesta updatedRespuesta = respuestaRepository.findById(respuesta.getId()).orElseThrow();
-        updatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA).estado(UPDATED_ESTADO);
+        updatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
         RespuestaDTO respuestaDTO = respuestaMapper.toDto(updatedRespuesta);
 
         restRespuestaMockMvc
@@ -329,7 +308,7 @@ class RespuestaResourceIT {
         Respuesta partialUpdatedRespuesta = new Respuesta();
         partialUpdatedRespuesta.setId(respuesta.getId());
 
-        partialUpdatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA).estado(UPDATED_ESTADO);
+        partialUpdatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
 
         restRespuestaMockMvc
             .perform(
