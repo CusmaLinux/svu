@@ -48,8 +48,7 @@ public class RespuestaAsserts {
         assertThat(expected)
             .as("Verify Respuesta relevant properties")
             .satisfies(e -> assertThat(e.getContenido()).as("check contenido").isEqualTo(actual.getContenido()))
-            .satisfies(e -> assertThat(e.getFechaRespuesta()).as("check fechaRespuesta").isEqualTo(actual.getFechaRespuesta()))
-            .satisfies(e -> assertThat(e.getEstado()).as("check estado").isEqualTo(actual.getEstado()));
+            .satisfies(e -> assertThat(e.getFechaRespuesta()).as("check fechaRespuesta").isEqualTo(actual.getFechaRespuesta()));
     }
 
     /**

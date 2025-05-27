@@ -40,10 +40,6 @@
               <span v-text="t$('ventanillaUnicaApp.respuesta.fechaRespuesta')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'fechaRespuesta'"></jhi-sort-indicator>
             </th>
-            <th scope="row" @click="changeOrder('estado')">
-              <span v-text="t$('ventanillaUnicaApp.respuesta.estado')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'estado'"></jhi-sort-indicator>
-            </th>
             <th scope="row" @click="changeOrder('pqr.id')">
               <span v-text="t$('ventanillaUnicaApp.respuesta.pqr')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'pqr.id'"></jhi-sort-indicator>
@@ -58,7 +54,6 @@
             </td>
             <td>{{ respuesta.contenido }}</td>
             <td>{{ formatDateShort(respuesta.fechaRespuesta) || '' }}</td>
-            <td>{{ respuesta.estado }}</td>
             <td>
               <div v-if="respuesta.pqr">
                 <router-link :to="{ name: 'PqrsView', params: { pqrsId: respuesta.pqr.id } }">{{ respuesta.pqr.id }}</router-link>

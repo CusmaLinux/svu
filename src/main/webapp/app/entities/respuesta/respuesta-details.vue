@@ -19,12 +19,6 @@
             <span v-if="respuesta.fechaRespuesta">{{ formatDateLong(respuesta.fechaRespuesta) }}</span>
           </dd>
           <dt>
-            <span v-text="t$('ventanillaUnicaApp.respuesta.estado')"></span>
-          </dt>
-          <dd>
-            <span>{{ respuesta.estado }}</span>
-          </dd>
-          <dt>
             <span v-text="t$('ventanillaUnicaApp.respuesta.pqr')"></span>
           </dt>
           <dd>

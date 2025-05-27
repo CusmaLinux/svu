@@ -18,9 +18,6 @@ public class RespuestaDTO implements Serializable {
     @NotNull
     private Instant fechaRespuesta;
 
-    @NotNull
-    private String estado;
-
     private PqrsDTO pqr;
 
     public String getId() {
@@ -45,14 +42,6 @@ public class RespuestaDTO implements Serializable {
 
     public void setFechaRespuesta(Instant fechaRespuesta) {
         this.fechaRespuesta = fechaRespuesta;
-    }
-
-    public String getEstado() {
-        return estado;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
     }
 
     public PqrsDTO getPqr() {
@@ -91,7 +80,6 @@ public class RespuestaDTO implements Serializable {
             "id='" + getId() + "'" +
             ", contenido='" + getContenido() + "'" +
             ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-            ", estado='" + getEstado() + "'" +
             ", pqr=" + getPqr() +
             "}";
     }

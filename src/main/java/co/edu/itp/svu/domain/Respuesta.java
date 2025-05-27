@@ -30,10 +30,6 @@ public class Respuesta implements Serializable {
     @Field("fecha_respuesta")
     private Instant fechaRespuesta;
 
-    @NotNull
-    @Field("estado")
-    private String estado;
-
     @DBRef
     @Field("archivosAdjuntos")
     @JsonIgnoreProperties(value = { "pqrs", "respuesta" }, allowSetters = true)
@@ -85,19 +81,6 @@ public class Respuesta implements Serializable {
         this.fechaRespuesta = fechaRespuesta;
     }
 
-    public String getEstado() {
-        return this.estado;
-    }
-
-    public Respuesta estado(String estado) {
-        this.setEstado(estado);
-        return this;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
-
     public Set<ArchivoAdjunto> getArchivosAdjuntos() {
         return this.archivosAdjuntos;
     }
@@ -113,13 +96,13 @@ public class Respuesta implements Serializable {
 
     public Respuesta addArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.add(archivoAdjunto);
-        //archivoAdjunto.setRespuesta(this);
+        // archivoAdjunto.setRespuesta(this);
         return this;
     }
 
     public Respuesta removeArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.remove(archivoAdjunto);
-        //archivoAdjunto.setRespuesta(null);
+        // archivoAdjunto.setRespuesta(null);
         return this;
     }
 
@@ -136,7 +119,8 @@ public class Respuesta implements Serializable {
         return this;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
+    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -151,7 +135,8 @@ public class Respuesta implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -159,10 +144,9 @@ public class Respuesta implements Serializable {
     @Override
     public String toString() {
         return "Respuesta{" +
-            "id=" + getId() +
-            ", contenido='" + getContenido() + "'" +
-            ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-            ", estado='" + getEstado() + "'" +
-            "}";
+                "id=" + getId() +
+                ", contenido='" + getContenido() + "'" +
+                ", fechaRespuesta='" + getFechaRespuesta() + "'" +
+                "}";
     }
 }
