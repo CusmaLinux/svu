@@ -13,19 +13,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
-@ChangeUnit(id = "v007-add-Front-desck-cs-authority", order = "007", author = "luiscarlosjo157")
+@ChangeUnit(id = "v007-add-Front-desk-cs-authority", order = "007", author = "luiscarlosjo157")
 public class V007_AddFrontDeskCsAuthority {
 
-    private final Logger log = LoggerFactory.getLogger(V007_AddFrontDeskCsAuthority.class);
+    private final Logger LOG = LoggerFactory.getLogger(V007_AddFrontDeskCsAuthority.class);
 
-    private MongoTemplate mongoTemplate = null;
-    private final PasswordEncoder passwordEncoder;
+    private MongoTemplate mongoTemplate;
 
-    public V007_AddFrontDeskCsAuthority(MongoTemplate mongoTemplate, PasswordEncoder passwordEncoder) {
+    public V007_AddFrontDeskCsAuthority(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @Execution
@@ -40,20 +37,20 @@ public class V007_AddFrontDeskCsAuthority {
             frontDeskCsAuthority = new Authority();
             frontDeskCsAuthority.setName(frontDeskCsRoleName);
             mongoTemplate.save(frontDeskCsAuthority);
-            log.info("Created Authority: {}", frontDeskCsRoleName);
+            LOG.info("Created Authority: {}", frontDeskCsRoleName);
         } else {
-            log.info("Authority {} already exists. Using existing authority.", frontDeskCsRoleName);
+            LOG.info("Authority {} already exists. Using existing authority.", frontDeskCsRoleName);
         }
 
-        Query userQuery = Query.query(Criteria.where("login").is("frontDesk"));
+        Query userQuery = Query.query(Criteria.where("login").is("frontdesk"));
         boolean userExists = mongoTemplate.exists(userQuery, User.class);
         if (!userExists) {
             User defaultUser = new User();
-            defaultUser.setLogin("frontDesk");
-            defaultUser.setPassword(passwordEncoder.encode("frontDesk"));
+            defaultUser.setLogin("frontdesk");
+            defaultUser.setPassword("$2a$10$Mq1.rf19CNUpuhnia88cH.j/xV5QbNrEyp03iUTNVaqUY7SpY3rp2");
             defaultUser.setFirstName("front Desk");
             defaultUser.setLastName("front Desk");
-            defaultUser.setEmail("frontDesk@gmail");
+            defaultUser.setEmail("frontdesk@gmail");
             defaultUser.setActivated(true);
             defaultUser.setLangKey("es");
 
@@ -64,31 +61,31 @@ public class V007_AddFrontDeskCsAuthority {
             defaultUser.setAuthorities(authorities);
 
             mongoTemplate.save(defaultUser);
-            log.info("Created default user '{}' with authority '{}'", "frontDesk", frontDeskCsRoleName);
+            LOG.info("Created default user '{}' with authority '{}'", "frontdesk", frontDeskCsRoleName);
         } else {
-            log.warn("Default user '{}' already exists. Skipping user creation.", "frontDesk");
+            LOG.warn("Default user '{}' already exists. Skipping user creation.", "frontdesk");
         }
     }
 
     @RollbackExecution
     public void rollback() {
         String frontDeskCsRoleName = AuthoritiesConstants.FRONT_DESK_CS;
-        String defaultUserLogin = "frontDesk";
+        String defaultUserLogin = "frontdesk";
 
         Query userQuery = Query.query(Criteria.where("login").is(defaultUserLogin));
         long deletedUsersCount = mongoTemplate.remove(userQuery, User.class).getDeletedCount();
         if (deletedUsersCount > 0) {
-            log.info("Rolled back (removed) default user: {}", defaultUserLogin);
+            LOG.info("Rolled back (removed) default user: {}", defaultUserLogin);
         } else {
-            log.warn("Default user {} not found during rollback.", defaultUserLogin);
+            LOG.warn("Default user {} not found during rollback.", defaultUserLogin);
         }
 
         Query authorityQuery = Query.query(Criteria.where("name").is(frontDeskCsRoleName));
         long deletedAuthoritiesCount = mongoTemplate.remove(authorityQuery, Authority.class).getDeletedCount();
         if (deletedAuthoritiesCount > 0) {
-            log.info("Rolled back (removed) Authority: {}", frontDeskCsRoleName);
+            LOG.info("Rolled back (removed) Authority: {}", frontDeskCsRoleName);
         } else {
-            log.warn("Authority {} not found during rollback.", frontDeskCsRoleName);
+            LOG.warn("Authority {} not found during rollback.", frontDeskCsRoleName);
         }
     }
 }
