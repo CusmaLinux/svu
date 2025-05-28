@@ -13,7 +13,7 @@ public final class AuthoritiesConstants {
 
     public static final String ANONYMOUS = "ROLE_ANONYMOUS";
 
-    //public static final String VENTANILLA = "ROLE_VENTANILLA";
+    public static final String FRONT_DESK_CS = "ROLE_FRONT_DESK_CS";
 
     private AuthoritiesConstants() {}
 }
