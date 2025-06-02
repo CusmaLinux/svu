@@ -1,15 +1,11 @@
 package co.edu.itp.svu.service.dto;
 
-import co.edu.itp.svu.domain.ArchivoAdjunto;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
  * A DTO for the {@link co.edu.itp.svu.domain.Pqrs} entity.
@@ -24,11 +20,16 @@ public class PqrsDTO implements Serializable {
 
     private String descripcion;
 
+    private String requesterEmail;
+
+    private String accessToken;
+
+    private Integer daysToReply;
+
     private Instant fechaCreacion;
 
     private LocalDateTime fechaLimiteRespuesta;
 
-    @NotNull
     private String estado;
 
     private OficinaDTO oficinaResponder;
@@ -65,6 +66,30 @@ public class PqrsDTO implements Serializable {
 
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
+    }
+
+    public String getRequesterEmail() {
+        return requesterEmail;
+    }
+
+    public void setRequesterEmail(String requesterEmail) {
+        this.requesterEmail = requesterEmail;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public Integer getDaysToReply() {
+        return daysToReply;
+    }
+
+    public void setDaysToReply(Integer daysToReply) {
+        this.daysToReply = daysToReply;
     }
 
     public Instant getFechaCreacion() {
@@ -124,13 +149,16 @@ public class PqrsDTO implements Serializable {
     @Override
     public String toString() {
         return "PqrsDTO{" +
-            "id='" + getId() + "'" +
-            ", titulo='" + getTitulo() + "'" +
-            ", descripcion='" + getDescripcion() + "'" +
-            ", fechaCreacion='" + getFechaCreacion() + "'" +
-            ", fechaLimiteRespuesta='" + getFechaLimiteRespuesta() + "'" +
-            ", estado='" + getEstado() + "'" +
-            ", oficinaResponder=" + getOficinaResponder() +
-            "}";
+                "id='" + getId() + "'" +
+                ", titulo='" + getTitulo() + "'" +
+                ", descripcion='" + getDescripcion() + "'" +
+                ", requesterEmail='" + getRequesterEmail() + "'" +
+                ", accessToken='" + (getAccessToken() != null ? "******" : "null") + "'" +
+                ", daysToReply='" + getDaysToReply() + "'" +
+                ", fechaCreacion='" + getFechaCreacion() + "'" +
+                ", fechaLimiteRespuesta='" + getFechaLimiteRespuesta() + "'" +
+                ", estado='" + getEstado() + "'" +
+                ", oficinaResponder=" + getOficinaResponder() +
+                "}";
     }
 }
