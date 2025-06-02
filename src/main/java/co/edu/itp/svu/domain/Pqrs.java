@@ -1,13 +1,16 @@
 package co.edu.itp.svu.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -30,6 +33,19 @@ public class Pqrs implements Serializable {
 
     @Field("descripcion")
     private String descripcion;
+
+    @Email
+    @Size(min = 5, max = 254)
+    @Indexed
+    @Field("requester_email")
+    private String requesterEmail;
+
+    @Indexed(unique = true, sparse = true)
+    @Field("access_token")
+    private String accessToken;
+
+    @Field("days_to_reply")
+    private Integer daysToReply;
 
     @Field("fecha_creacion")
     private Instant fechaCreacion;
@@ -101,6 +117,30 @@ public class Pqrs implements Serializable {
         return this;
     }
 
+    public Integer getDaysToReply() {
+        return daysToReply;
+    }
+
+    public void setDaysToReply(Integer daysToReply) {
+        this.daysToReply = daysToReply;
+    }
+
+    public String getRequesterEmail() {
+        return requesterEmail;
+    }
+
+    public void setRequesterEmail(String requesterEmail) {
+        this.requesterEmail = requesterEmail;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
     public void setFechaCreacion(Instant fechaCreacion) {
         this.fechaCreacion = fechaCreacion;
     }
@@ -146,13 +186,13 @@ public class Pqrs implements Serializable {
 
     public Pqrs addArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.add(archivoAdjunto);
-        //archivoAdjunto.setPqrs(this);
+        // archivoAdjunto.setPqrs(this);
         return this;
     }
 
     public Pqrs removeArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.remove(archivoAdjunto);
-        //archivoAdjunto.setPqrs(null);
+        // archivoAdjunto.setPqrs(null);
         return this;
     }
 
@@ -169,7 +209,8 @@ public class Pqrs implements Serializable {
         return this;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
+    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -184,7 +225,8 @@ public class Pqrs implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -192,12 +234,15 @@ public class Pqrs implements Serializable {
     @Override
     public String toString() {
         return "Pqrs{" +
-            "id=" + getId() +
-            ", titulo='" + getTitulo() + "'" +
-            ", descripcion='" + getDescripcion() + "'" +
-            ", fechaCreacion='" + getFechaCreacion() + "'" +
-            ", fechaLimiteRespuesta='" + getFechaLimiteRespuesta() + "'" +
-            ", estado='" + getEstado() + "'" +
-            "}";
+                "id=" + getId() +
+                ", titulo='" + getTitulo() + "'" +
+                ", descripcion='" + getDescripcion() + "'" +
+                ", solicitanteEmail='" + getRequesterEmail() + "'" +
+                ", accessToken='" + (getAccessToken() != null ? "******" : "null")+ "'" +
+                ", daysToReply='" + getDaysToReply() + "'" +
+                ", fechaCreacion='" + getFechaCreacion() + "'" +
+                ", fechaLimiteRespuesta='" + getFechaLimiteRespuesta() + "'" +
+                ", estado='" + getEstado() + "'" +
+                "}";
     }
 }

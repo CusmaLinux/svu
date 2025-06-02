@@ -1,6 +1,7 @@
 package co.edu.itp.svu.service.dto;
 
-import jakarta.validation.constraints.*;
+import co.edu.itp.svu.domain.User;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
@@ -19,6 +20,8 @@ public class RespuestaDTO implements Serializable {
     private Instant fechaRespuesta;
 
     private PqrsDTO pqr;
+
+    private User resolver;
 
     public String getId() {
         return id;
@@ -40,16 +43,24 @@ public class RespuestaDTO implements Serializable {
         return fechaRespuesta;
     }
 
-    public void setFechaRespuesta(Instant fechaRespuesta) {
-        this.fechaRespuesta = fechaRespuesta;
-    }
-
     public PqrsDTO getPqr() {
         return pqr;
     }
 
     public void setPqr(PqrsDTO pqr) {
         this.pqr = pqr;
+    }
+
+    public User getResolver() {
+        return resolver;
+    }
+
+    public void setResolver(User resolver) {
+        this.resolver = resolver;
+    }
+
+    public void setFechaRespuesta(Instant fechaRespuesta) {
+        this.fechaRespuesta = fechaRespuesta;
     }
 
     @Override
@@ -77,10 +88,10 @@ public class RespuestaDTO implements Serializable {
     @Override
     public String toString() {
         return "RespuestaDTO{" +
-            "id='" + getId() + "'" +
-            ", contenido='" + getContenido() + "'" +
-            ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-            ", pqr=" + getPqr() +
-            "}";
+                "id='" + getId() + "'" +
+                ", contenido='" + getContenido() + "'" +
+                ", fechaRespuesta='" + getFechaRespuesta() + "'" +
+                ", pqr=" + getPqr() +
+                "}";
     }
 }

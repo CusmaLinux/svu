@@ -1,12 +1,13 @@
 package co.edu.itp.svu.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -29,6 +30,10 @@ public class Respuesta implements Serializable {
     @NotNull
     @Field("fecha_respuesta")
     private Instant fechaRespuesta;
+
+    @DBRef
+    @Field("resolver_user")
+    private User resolver;
 
     @DBRef
     @Field("archivosAdjuntos")
@@ -81,6 +86,14 @@ public class Respuesta implements Serializable {
         this.fechaRespuesta = fechaRespuesta;
     }
 
+    public User getResolver() {
+        return resolver;
+    }
+
+    public void setResolver(User resolver) {
+        this.resolver = resolver;
+    }
+
     public Set<ArchivoAdjunto> getArchivosAdjuntos() {
         return this.archivosAdjuntos;
     }
@@ -119,6 +132,11 @@ public class Respuesta implements Serializable {
         return this;
     }
 
+    @Transient
+    public boolean isByRequester() {
+        return this.resolver == null;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
     // setters here
 
@@ -147,6 +165,7 @@ public class Respuesta implements Serializable {
                 "id=" + getId() +
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
+                ", esDelSolicitante=" + isByRequester() +
                 "}";
     }
 }
