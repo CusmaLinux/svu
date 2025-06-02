@@ -3,6 +3,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { useAccountStore } from '@/shared/config/store/account-store';
 import { useNotificationStore } from '@/shared/config/store/notification-store';
 import { logger } from '@/shared/logger';
+import { NotificationType } from '@/constants';
 
 class SseNotificationService {
   private ctrl: AbortController | null = null;
@@ -65,16 +66,19 @@ class SseNotificationService {
         }
       },
       onmessage: (event: EventSourceMessage) => {
-        if (event.event === 'PQRS_DUE_DATE_REMINDER') {
+        const eventType: string = event.event;
+        if (NotificationType[eventType as keyof typeof NotificationType] !== undefined) {
           try {
             const notificationData = JSON.parse(event.data);
             const sseNotif = notificationStore.addSseEvent(notificationData);
-            if (this.shouldShowNativeNotification()) {
-              if (Notification.permission === 'granted') {
-                new Notification('PQRS Due Date Reminder', {
-                  icon: '/content/images/logo-itp.png',
-                  body: sseNotif.message || `PQRS '${sseNotif.pqrsTitle}' is approaching its due date.`,
-                });
+            if (sseNotif) {
+              if (this.shouldShowNativeNotification()) {
+                if (Notification.permission === 'granted') {
+                  new Notification(event.event, {
+                    icon: '/content/images/logo-itp.png',
+                    body: sseNotif.message || `PQRS '${sseNotif.pqrsTitle}'`,
+                  });
+                }
               }
             }
           } catch (e) {
