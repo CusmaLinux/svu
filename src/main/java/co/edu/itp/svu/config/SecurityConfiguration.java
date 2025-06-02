@@ -74,7 +74,7 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/api/oficina/**")).hasAnyAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/archivo-adjunto/**")).hasAnyAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/informe-pqrs/**")).hasAnyAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers(mvc.pattern("/api/sse-notifications/subscribe")).hasAnyAuthority(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FUNCTIONARY)
+                    .requestMatchers(mvc.pattern("/api/sse-notifications/subscribe")).hasAnyAuthority(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FUNCTIONARY, AuthoritiesConstants.FRONT_DESK_CS)
                     .requestMatchers(mvc.pattern("/api/notifications/**")).permitAll()
                     .requestMatchers(mvc.pattern("/api/oficinas/oficinasUserLogin/*")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
