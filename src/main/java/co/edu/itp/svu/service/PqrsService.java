@@ -3,15 +3,20 @@ package co.edu.itp.svu.service;
 import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
+import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
+import co.edu.itp.svu.security.AuthoritiesConstants;
+import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
+import co.edu.itp.svu.service.notification.PqrsNotificationService;
+import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificationType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,6 +45,8 @@ public class PqrsService {
 
     private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
 
+    private final PqrsNotificationService pqrsNotificationService;
+
     private OficinaMapper oficinaMapper;
 
     public PqrsService(
@@ -51,13 +57,14 @@ public class PqrsService {
         ArchivoAdjuntoRepository archivoAdjuntoRepository,
         ArchivoAdjuntoService archivoAdjuntoService,
         OficinaMapper oficinaMapper,
-        MongoTemplate mongoTemplate
+        PqrsNotificationService pqrsNotificationService
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
         this.oficinaRepository = oficinaRepository;
         this.archivoAdjuntoRepository = archivoAdjuntoRepository;
         this.oficinaMapper = oficinaMapper;
+        this.pqrsNotificationService = pqrsNotificationService;
     }
 
     /**
@@ -177,7 +184,7 @@ public class PqrsService {
     public PqrsDTO create(PqrsDTO pqrsDTO) {
         LOG.debug("Request to create a Pqrs: {}", pqrsDTO);
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
-        pqrs.setEstado("PENDIENTE");
+        pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
 
         Instant globalCurrentDate = Instant.now();
         pqrs.setFechaCreacion(globalCurrentDate);
@@ -200,6 +207,15 @@ public class PqrsService {
         }
 
         pqrs = pqrsRepository.save(pqrs);
+
+        if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.FRONT_DESK_CS, AuthoritiesConstants.ADMIN)) {
+            pqrsNotificationService.sendPqrsNotification(
+                pqrs,
+                PqrsNotificationService.PqrsNotificationType.PQRS_CREATED,
+                AuthoritiesConstants.FRONT_DESK_CS
+            );
+        }
+
         return mapPqrsToDtoWithOffice(pqrs);
     }
 
@@ -216,6 +232,19 @@ public class PqrsService {
 
     public PqrsDTO update(PqrsDTO pqrsDTO) {
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
+
+        if (
+            PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado()) &&
+            SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FUNCTIONARY)
+        ) {
+            Pqrs oldPqrs = pqrsRepository.findById(pqrs.getId()).orElse(null);
+
+            boolean changeState = !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado());
+
+            if (changeState) {
+                pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_RESOLVED, AuthoritiesConstants.FRONT_DESK_CS);
+            }
+        }
 
         if (pqrsDTO.getArchivosAdjuntosDTO() != null) {
             Set<String> archivosAdjuntosIds = pqrsDTO
