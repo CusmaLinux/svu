@@ -48,12 +48,32 @@ export default defineComponent({
     };
 
     const truncateMessage = (notification: NotificationItem, length: number): string => {
-      const messageLang = t$('sse-notification.message', {
-        pqrsTitle: notification.pqrsTitle,
-        pqrsId: notification.pqrsId,
-        pqrsDueDate: dateFormat.formatDateLong(notification.pqrsResponseDueDate),
-      });
+      const messageLang = getTranslationByNotificationType(notification);
+
       return messageLang.length > length ? messageLang.substring(0, length) + '...' : messageLang;
+    };
+
+    const getTranslationByNotificationType = (notification: NotificationItem) => {
+      switch (notification.type) {
+        case 'PQRS_DUE_DATE_REMINDER':
+          return t$('sse-notification.due-date-message', {
+            pqrsTitle: notification.pqrsTitle,
+            pqrsId: notification.pqrsId,
+            pqrsDueDate: dateFormat.formatDateLong(notification.pqrsResponseDueDate),
+          });
+        case 'PQRS_STATE_UPDATE':
+          return t$('sse-notification.state-update-message', {
+            pqrsTitle: notification.pqrsTitle,
+            pqrsId: notification.pqrsId,
+          });
+        case 'PQRS_CREATED':
+          return t$('sse-notification.created-message', {
+            pqrsTitle: notification.pqrsTitle,
+            pqrsId: notification.pqrsId,
+          });
+      }
+
+      return t$('sse-notification.error');
     };
 
     return {

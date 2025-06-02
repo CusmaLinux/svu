@@ -1,10 +1,15 @@
 {
   "sse-notification": {
     "non-type": "Tipo: N/A",
-    "message": "La PQRS '{pqrsTitle}' (ID: {pqrsId}) vence el '{pqrsDueDate}'.",
+    "due-date-message": "La PQRS '{pqrsTitle}' (ID: {pqrsId}) vence el '{pqrsDueDate}'.",
+    "state-update-message": "El estado del PQRS '{pqrsTitle}' (ID: {pqrsId}) se ha actualizado a RESUELTA",
+    "created-message": "La PQRS '{pqrsTitle}' (ID: {pqrsId}) fue CREADA.",
     "pqrs-due-date-reminder": "Recordatorio: Vencimiento del plazo para PQRS",
+    "pqrs-state-update": "Actualización del estado de la PQRS",
+    "pqrs-created": "Nueva PQRS creada",
     "mark-all-as-read": "Marcar todo como leído",
     "view-all-notifications": "Ver todas las notificaciones",
-    "no-new-notifications": "No hay notificaciones nuevas"
+    "no-new-notifications": "No hay notificaciones nuevas",
+    "error": "No se puede mostrar el mensaje de la notificación"
   }
 }

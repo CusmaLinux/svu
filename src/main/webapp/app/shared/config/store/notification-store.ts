@@ -50,21 +50,12 @@ export const useNotificationStore = defineStore('notification', {
   },
   actions: {
     addSseEvent(eventData: any) {
-      const sseNotificationItem: NotificationItem = {
-        id: `sse-${Date.now()}-${Math.random()}`,
-        pqrsId: eventData.id,
-        type: eventData.type || 'PQRS_DUE_DATE_REMINDER',
-        message: eventData.message || `PQRS '${eventData.title}' is due soon.`,
-        pqrsTitle: eventData.title,
-        pqrsResponseDueDate: eventData.pqrsResponseDueDate,
-        creationDate: new Date(),
-        read: false,
-        isSse: true,
-      };
-      this.sseNotifications.unshift(sseNotificationItem);
-
-      if (this.sseNotifications.length > 10) {
-        this.sseNotifications.pop();
+      const sseNotificationItem: NotificationItem = normalizeInput(eventData, true);
+      if (sseNotificationItem) {
+        this.sseNotifications.unshift(sseNotificationItem);
+        if (this.sseNotifications.length > 10) {
+          this.sseNotifications.pop();
+        }
       }
       return sseNotificationItem;
     },
@@ -83,17 +74,8 @@ export const useNotificationStore = defineStore('notification', {
         const response = await notificationService.retrieve(paginationQuery);
         this.totalUnread = Number(response.headers['x-total-count']);
         const notifications: INotification[] = response.data;
-        this.persistentNotifications = notifications.map((n: INotification) => ({
-          id: n.id,
-          pqrsId: dataUtils.extractIdFromMessage(n.mensaje),
-          type: n.tipo,
-          message: n.mensaje,
-          pqrsTitle: dataUtils.extractPqrsTitle(n.mensaje),
-          pqrsResponseDueDate: dataUtils.extractLastParameterBeforeDot(n.mensaje),
-          creationDate: n.fecha,
-          read: n.leido,
-          isSse: false,
-        }));
+        const mappedNotifications: (NotificationItem | null)[] = notifications.map((n: INotification) => normalizeInput(n, false));
+        this.persistentNotifications = mappedNotifications.filter((item): item is NotificationItem => item !== null);
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch notifications';
         logger.error('Error fetching notifications', err);
@@ -126,3 +108,33 @@ export const useNotificationStore = defineStore('notification', {
     },
   },
 });
+
+const normalizeInput = (notification: any, isSse: boolean): NotificationItem => {
+  if (isSse) {
+    const sseData = notification as NotificationItem;
+    return {
+      id: sseData.id,
+      pqrsId: sseData.pqrsId,
+      type: sseData.type,
+      message: sseData.message,
+      pqrsTitle: sseData.pqrsTitle,
+      creationDate: sseData.creationDate,
+      pqrsResponseDueDate: sseData.pqrsResponseDueDate,
+      read: sseData.read,
+      isSse,
+    };
+  } else {
+    const notifyData = notification as INotification;
+    return {
+      id: notifyData.id,
+      pqrsId: dataUtils.extractIdFromMessage(notifyData.mensaje),
+      type: notifyData.tipo,
+      message: notifyData.mensaje,
+      pqrsTitle: dataUtils.extractPqrsTitle(notifyData.mensaje),
+      creationDate: notifyData.fecha,
+      read: notifyData.leido,
+      pqrsResponseDueDate: dataUtils.extractLastParameterBeforeDot(notifyData.mensaje),
+      isSse,
+    };
+  }
+};

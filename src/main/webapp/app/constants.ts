@@ -12,4 +12,6 @@ export enum PqrsStatus {
 
 export enum NotificationType {
   PQRS_DUE_DATE_REMINDER = 'sse-notification.pqrs-due-date-reminder',
+  PQRS_STATE_UPDATE = 'sse-notification.pqrs-state-update',
+  PQRS_CREATED = 'sse-notification.pqrs-created',
 }

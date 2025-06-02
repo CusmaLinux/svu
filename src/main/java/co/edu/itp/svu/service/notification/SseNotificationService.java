@@ -1,4 +1,4 @@
-package co.edu.itp.svu.service;
+package co.edu.itp.svu.service.notification;
 
 import java.io.IOException;
 import java.util.Map;

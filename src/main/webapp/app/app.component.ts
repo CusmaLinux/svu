@@ -9,7 +9,7 @@ import { useDateFormat } from '@/shared/composables';
 import '@/shared/config/dayjs';
 
 import { useAccountStore } from './shared/config/store/account-store';
-import { useNotificationStore } from './shared/config/store/notification-store';
+import { useNotificationStore, type NotificationItem } from './shared/config/store/notification-store';
 import useDataUtils from './shared/data/data-utils.service';
 
 import sseNotificationService from './services/sse-notification.service';
@@ -61,17 +61,7 @@ export default defineComponent({
         const latestItem = newSseItems.find(newItem => !oldSseItems.some(oldItem => oldItem.id === newItem.id));
 
         if (latestItem && latestItem.isSse) {
-          alertService.showInfo(
-            t('sse-notification.message', {
-              pqrsTitle: latestItem.pqrsTitle,
-              pqrsId: latestItem.pqrsId,
-              pqrsDueDate: dateFormat.formatDateLong(latestItem.pqrsResponseDueDate),
-            }),
-            {
-              href: `/pqrs/${latestItem.pqrsId}/view`,
-              title: `${latestItem.pqrsTitle}`,
-            },
-          );
+          getAlertByNotificationType(latestItem);
         }
       },
       { deep: true },
@@ -84,6 +74,45 @@ export default defineComponent({
     onBeforeUnmount(() => {
       sseNotificationService.cleanup();
     });
+
+    const getAlertByNotificationType = (notification: NotificationItem) => {
+      switch (notification.type) {
+        case 'PQRS_DUE_DATE_REMINDER':
+          return alertService.showInfo(
+            t('sse-notification.due-date-message', {
+              pqrsTitle: notification.pqrsTitle,
+              pqrsId: notification.pqrsId,
+              pqrsDueDate: dateFormat.formatDateLong(notification.pqrsResponseDueDate),
+            }),
+            {
+              href: `/pqrs/${notification.pqrsId}/view`,
+              title: `${notification.pqrsTitle}`,
+            },
+          );
+        case 'PQRS_STATE_UPDATE':
+          return alertService.showInfo(
+            t('sse-notification.state-update-message', {
+              pqrsTitle: notification.pqrsTitle,
+              pqrsId: notification.pqrsId,
+            }),
+            {
+              href: `/pqrs/${notification.pqrsId}/view`,
+              title: `${notification.pqrsTitle}`,
+            },
+          );
+        case 'PQRS_CREATED':
+          return alertService.showInfo(
+            t('sse-notification.created-message', {
+              pqrsTitle: notification.pqrsTitle,
+              pqrsId: notification.pqrsId,
+            }),
+            {
+              href: `/pqrs/${notification.pqrsId}/view`,
+              title: `${notification.pqrsTitle}`,
+            },
+          );
+      }
+    };
 
     provide('alertService', useAlertService());
     return {
