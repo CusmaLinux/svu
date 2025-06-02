@@ -152,7 +152,7 @@ public class PqrsDTO implements Serializable {
                 "id='" + getId() + "'" +
                 ", titulo='" + getTitulo() + "'" +
                 ", descripcion='" + getDescripcion() + "'" +
-                ", solicitanteEmail='" + getRequesterEmail() + "'" +
+                ", requesterEmail='" + getRequesterEmail() + "'" +
                 ", accessToken='" + (getAccessToken() != null ? "******" : "null") + "'" +
                 ", daysToReply='" + getDaysToReply() + "'" +
                 ", fechaCreacion='" + getFechaCreacion() + "'" +

@@ -186,13 +186,11 @@ public class Pqrs implements Serializable {
 
     public Pqrs addArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.add(archivoAdjunto);
-        // archivoAdjunto.setPqrs(this);
         return this;
     }
 
     public Pqrs removeArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
         this.archivosAdjuntos.remove(archivoAdjunto);
-        // archivoAdjunto.setPqrs(null);
         return this;
     }
 
@@ -208,9 +206,6 @@ public class Pqrs implements Serializable {
         this.setOficinaResponder(oficina);
         return this;
     }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
-    // setters here
 
     @Override
     public boolean equals(Object o) {
@@ -237,7 +232,7 @@ public class Pqrs implements Serializable {
                 "id=" + getId() +
                 ", titulo='" + getTitulo() + "'" +
                 ", descripcion='" + getDescripcion() + "'" +
-                ", solicitanteEmail='" + getRequesterEmail() + "'" +
+                ", requesterEmail='" + getRequesterEmail() + "'" +
                 ", accessToken='" + (getAccessToken() != null ? "******" : "null")+ "'" +
                 ", daysToReply='" + getDaysToReply() + "'" +
                 ", fechaCreacion='" + getFechaCreacion() + "'" +

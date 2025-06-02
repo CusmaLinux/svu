@@ -45,8 +45,6 @@ public class Respuesta implements Serializable {
     @JsonIgnoreProperties(value = { "archivosAdjuntos", "oficinaResponder" }, allowSetters = true)
     private Pqrs pqr;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
-
     public String getId() {
         return this.id;
     }
@@ -137,9 +135,6 @@ public class Respuesta implements Serializable {
         return this.resolver == null;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and
-    // setters here
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -165,7 +160,8 @@ public class Respuesta implements Serializable {
                 "id=" + getId() +
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-                ", esDelSolicitante=" + isByRequester() +
+                ", resolver='" + getResolver().getId() + "'" +
+                ", isByRequester=" + isByRequester() +
                 "}";
     }
 }

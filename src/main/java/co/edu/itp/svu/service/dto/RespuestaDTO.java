@@ -39,6 +39,10 @@ public class RespuestaDTO implements Serializable {
         this.contenido = contenido;
     }
 
+    public void setFechaRespuesta(Instant fechaRespuesta) {
+        this.fechaRespuesta = fechaRespuesta;
+    }
+
     public Instant getFechaRespuesta() {
         return fechaRespuesta;
     }
@@ -57,10 +61,6 @@ public class RespuestaDTO implements Serializable {
 
     public void setResolver(User resolver) {
         this.resolver = resolver;
-    }
-
-    public void setFechaRespuesta(Instant fechaRespuesta) {
-        this.fechaRespuesta = fechaRespuesta;
     }
 
     @Override
@@ -91,6 +91,7 @@ public class RespuestaDTO implements Serializable {
                 "id='" + getId() + "'" +
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
+                ", resolver='" + getResolver().getId() + "'" +
                 ", pqr=" + getPqr() +
                 "}";
     }
