@@ -60,13 +60,13 @@ export default {
       path: 'pqrs',
       name: 'Pqrs',
       component: Pqrs,
-      meta: { authorities: [Authority.FUNCTIONARY, Authority.ADMIN] },
+      meta: { authorities: [Authority.FUNCTIONARY, Authority.ADMIN, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'pqrs/new',
       name: 'PqrsCreate',
       component: PqrsUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.USER, Authority.FRONT_DESK_CS, Authority.ADMIN] },
     },
     {
       path: 'pqrs/:pqrsId/edit',
@@ -78,7 +78,7 @@ export default {
       path: 'pqrs/:pqrsId/view',
       name: 'PqrsView',
       component: PqrsDetails,
-      meta: { authorities: [Authority.FUNCTIONARY, Authority.ADMIN] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'respuesta',
