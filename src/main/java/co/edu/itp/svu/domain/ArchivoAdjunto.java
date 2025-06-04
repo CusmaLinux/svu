@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -33,6 +34,30 @@ public class ArchivoAdjunto implements Serializable {
     @NotNull
     @Field("fecha_subida")
     private Instant fechaSubida;
+
+    @DBRef
+    @Field("response_attachment")
+    private Respuesta responseAttachment;
+
+    @DBRef
+    @Field("pqrs_attachment")
+    private Pqrs pqrsAttachment;
+
+    public Respuesta getResponseAttachment() {
+        return responseAttachment;
+    }
+
+    public void setResponseAttachment(Respuesta responseAttachment) {
+        this.responseAttachment = responseAttachment;
+    }
+
+    public Pqrs getPqrsAttachment() {
+        return pqrsAttachment;
+    }
+
+    public void setPqrsAttachment(Pqrs pqrsAttachment) {
+        this.pqrsAttachment = pqrsAttachment;
+    }
 
     public String getId() {
         return this.id;
@@ -112,7 +137,8 @@ public class ArchivoAdjunto implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        // see
+        // https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
@@ -120,11 +146,11 @@ public class ArchivoAdjunto implements Serializable {
     @Override
     public String toString() {
         return "ArchivoAdjunto{" +
-            "id=" + getId() +
-            ", nombre='" + getNombre() + "'" +
-            ", tipo='" + getTipo() + "'" +
-            ", urlArchivo='" + getUrlArchivo() + "'" +
-            ", fechaSubida='" + getFechaSubida() + "'" +
-            "}";
+                "id=" + getId() +
+                ", nombre='" + getNombre() + "'" +
+                ", tipo='" + getTipo() + "'" +
+                ", urlArchivo='" + getUrlArchivo() + "'" +
+                ", fechaSubida='" + getFechaSubida() + "'" +
+                "}";
     }
 }
