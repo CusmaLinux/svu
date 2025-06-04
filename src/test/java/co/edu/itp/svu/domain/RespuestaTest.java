@@ -37,10 +37,10 @@ class RespuestaTest {
         Respuesta respuesta = getRespuestaRandomSampleGenerator();
         Pqrs pqrsBack = getPqrsRandomSampleGenerator();
 
-        respuesta.setPqr(pqrsBack);
-        assertThat(respuesta.getPqr()).isEqualTo(pqrsBack);
+        respuesta.setPqrs(pqrsBack);
+        assertThat(respuesta.getPqrs()).isEqualTo(pqrsBack);
 
-        respuesta.pqr(null);
-        assertThat(respuesta.getPqr()).isNull();
+        respuesta.pqrs(null);
+        assertThat(respuesta.getPqrs()).isNull();
     }
 }
