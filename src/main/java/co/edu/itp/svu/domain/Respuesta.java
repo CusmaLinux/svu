@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
@@ -36,14 +35,20 @@ public class Respuesta implements Serializable {
     private User resolver;
 
     @DBRef
-    @Field("archivosAdjuntos")
-    @JsonIgnoreProperties(value = { "pqrs", "respuesta" }, allowSetters = true)
-    private Set<ArchivoAdjunto> archivosAdjuntos = new HashSet<>();
-
-    @DBRef
-    @Field("pqr")
+    @Field("pqrs")
     @JsonIgnoreProperties(value = { "archivosAdjuntos", "oficinaResponder" }, allowSetters = true)
-    private Pqrs pqr;
+    private Pqrs pqrs;
+
+    @Transient
+    private transient Set<ArchivoAdjunto> _transientAttachments;
+
+    public Set<ArchivoAdjunto> get_transientAttachments() {
+        return _transientAttachments;
+    }
+
+    public void set_transientAttachments(Set<ArchivoAdjunto> attachments) {
+        this._transientAttachments = attachments;
+    }
 
     public String getId() {
         return this.id;
@@ -92,41 +97,16 @@ public class Respuesta implements Serializable {
         this.resolver = resolver;
     }
 
-    public Set<ArchivoAdjunto> getArchivosAdjuntos() {
-        return this.archivosAdjuntos;
+    public Pqrs getPqrs() {
+        return this.pqrs;
     }
 
-    public void setArchivosAdjuntos(Set<ArchivoAdjunto> archivoAdjuntos) {
-        this.archivosAdjuntos = archivoAdjuntos;
+    public void setPqrs(Pqrs pqrs) {
+        this.pqrs = pqrs;
     }
 
-    public Respuesta archivosAdjuntos(Set<ArchivoAdjunto> archivoAdjuntos) {
-        this.setArchivosAdjuntos(archivoAdjuntos);
-        return this;
-    }
-
-    public Respuesta addArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
-        this.archivosAdjuntos.add(archivoAdjunto);
-        // archivoAdjunto.setRespuesta(this);
-        return this;
-    }
-
-    public Respuesta removeArchivosAdjuntos(ArchivoAdjunto archivoAdjunto) {
-        this.archivosAdjuntos.remove(archivoAdjunto);
-        // archivoAdjunto.setRespuesta(null);
-        return this;
-    }
-
-    public Pqrs getPqr() {
-        return this.pqr;
-    }
-
-    public void setPqr(Pqrs pqrs) {
-        this.pqr = pqrs;
-    }
-
-    public Respuesta pqr(Pqrs pqrs) {
-        this.setPqr(pqrs);
+    public Respuesta pqrs(Pqrs pqrs) {
+        this.setPqrs(pqrs);
         return this;
     }
 
