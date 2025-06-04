@@ -19,7 +19,7 @@ public class RespuestaDTO implements Serializable {
     @NotNull
     private Instant fechaRespuesta;
 
-    private PqrsDTO pqr;
+    private PqrsDTO pqrs;
 
     private User resolver;
 
@@ -47,12 +47,12 @@ public class RespuestaDTO implements Serializable {
         return fechaRespuesta;
     }
 
-    public PqrsDTO getPqr() {
-        return pqr;
+    public PqrsDTO getPqrs() {
+        return pqrs;
     }
 
-    public void setPqr(PqrsDTO pqr) {
-        this.pqr = pqr;
+    public void setPqrs(PqrsDTO pqrs) {
+        this.pqrs = pqrs;
     }
 
     public User getResolver() {
@@ -92,7 +92,7 @@ public class RespuestaDTO implements Serializable {
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
                 ", resolver='" + getResolver().getId() + "'" +
-                ", pqr=" + getPqr() +
+                ", pqrs=" + getPqrs() +
                 "}";
     }
 }
