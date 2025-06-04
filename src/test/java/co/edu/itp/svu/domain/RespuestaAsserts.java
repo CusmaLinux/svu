@@ -60,6 +60,6 @@ public class RespuestaAsserts {
     public static void assertRespuestaUpdatableRelationshipsEquals(Respuesta expected, Respuesta actual) {
         assertThat(expected)
             .as("Verify Respuesta relationships")
-            .satisfies(e -> assertThat(e.getPqr()).as("check pqr").isEqualTo(actual.getPqr()));
+            .satisfies(e -> assertThat(e.getPqrs()).as("check pqr").isEqualTo(actual.getPqrs()));
     }
 }
