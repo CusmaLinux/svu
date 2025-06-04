@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -67,7 +68,27 @@ public class Pqrs implements Serializable {
     @JsonIgnoreProperties(value = { "notificacions" }, allowSetters = true)
     private Oficina oficinaResponder;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @Transient
+    private transient Set<ArchivoAdjunto> _transientAttachments;
+
+    @Transient
+    private transient Set<Respuesta> _transientResponses;
+
+    public Set<ArchivoAdjunto> get_transientAttachments() {
+        return _transientAttachments;
+    }
+
+    public void set_transientAttachments(Set<ArchivoAdjunto> attachments) {
+        this._transientAttachments = attachments;
+    }
+
+    public Set<Respuesta> get_transientResponses() {
+        return _transientResponses;
+    }
+
+    public void set_transientResponses(Set<Respuesta> responses) {
+        this._transientResponses = responses;
+    }
 
     public String getId() {
         return this.id;
@@ -233,7 +254,7 @@ public class Pqrs implements Serializable {
                 ", titulo='" + getTitulo() + "'" +
                 ", descripcion='" + getDescripcion() + "'" +
                 ", requesterEmail='" + getRequesterEmail() + "'" +
-                ", accessToken='" + (getAccessToken() != null ? "******" : "null")+ "'" +
+                ", accessToken='" + (getAccessToken() != null ? "******" : "null") + "'" +
                 ", daysToReply='" + getDaysToReply() + "'" +
                 ", fechaCreacion='" + getFechaCreacion() + "'" +
                 ", fechaLimiteRespuesta='" + getFechaLimiteRespuesta() + "'" +
