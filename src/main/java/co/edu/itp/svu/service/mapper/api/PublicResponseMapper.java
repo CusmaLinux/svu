@@ -15,7 +15,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring", uses = { UserMapper.class, ArchivoAdjuntoMapper.class })
 public interface PublicResponseMapper extends EntityMapper<PublicResponseDTO, Respuesta> {
     @Override
-    @Mapping(source = "resolver", target = "resolver")
+    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(respuesta.getResolver() != null)")
     @Mapping(source = "_transientAttachments", target = "_transientAttachments")
     @Mapping(target = "byRequester", ignore = true)
     PublicResponseDTO toDto(Respuesta respuesta);
@@ -31,14 +31,14 @@ public interface PublicResponseMapper extends EntityMapper<PublicResponseDTO, Re
     }
 
     @Override
-    @Mapping(source = "resolver", target = "resolver")
+    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(publicResponseDTO.getResolver() != null)")
     @Mapping(source = "_transientAttachments", target = "_transientAttachments")
     @Mapping(target = "pqrs", ignore = true)
     Respuesta toEntity(PublicResponseDTO publicResponseDTO);
 
     @Override
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(source = "resolver", target = "resolver")
+    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(respuesta.getResolver() != null)")
     @Mapping(source = "_transientAttachments", target = "_transientAttachments")
     @Mapping(target = "pqrs", ignore = true)
     void partialUpdate(@MappingTarget Respuesta respuesta, PublicResponseDTO publicResponseDTO);
