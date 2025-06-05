@@ -12,7 +12,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring")
 public interface PublicOfficeMapper extends EntityMapper<PublicOfficeDTO, Oficina> {
     @Override
-    PublicOfficeDTO toDto(Oficina oficina);
+    PublicOfficeDTO toDto(Oficina office);
 
     @Override
     @Mapping(target = "nivel", ignore = true)
@@ -27,5 +27,5 @@ public interface PublicOfficeMapper extends EntityMapper<PublicOfficeDTO, Oficin
     @Mapping(target = "oficinaSuperior", ignore = true)
     @Mapping(target = "pqrsList", ignore = true)
     @Mapping(target = "responsable", ignore = true)
-    void partialUpdate(@MappingTarget Oficina oficina, PublicOfficeDTO publicOficinaDTO);
+    void partialUpdate(@MappingTarget Oficina office, PublicOfficeDTO publicOficinaDTO);
 }
