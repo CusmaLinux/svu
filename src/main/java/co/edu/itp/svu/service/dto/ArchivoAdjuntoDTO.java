@@ -89,12 +89,12 @@ public class ArchivoAdjuntoDTO implements Serializable {
     @Override
     public String toString() {
         return "ArchivoAdjuntoDTO{" +
-            "id='" + getId() + "'" +
-            ", nombre='" + getNombre() + "'" +
-            ", tipo='" + getTipo() + "'" +
-            ", urlArchivo='" + getUrlArchivo() + "'" +
-            ", fechaSubida='" + getFechaSubida() + "'" +
+                "id='" + getId() + "'" +
+                ", nombre='" + getNombre() + "'" +
+                ", tipo='" + getTipo() + "'" +
+                ", urlArchivo='" + getUrlArchivo() + "'" +
+                ", fechaSubida='" + getFechaSubida() + "'" +
 
-            "}";
+                "}";
     }
 }
