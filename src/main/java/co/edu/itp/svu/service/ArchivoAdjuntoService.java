@@ -22,7 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Service Implementation for managing {@link co.edu.itp.svu.domain.ArchivoAdjunto}.
+ * Service Implementation for managing
+ * {@link co.edu.itp.svu.domain.ArchivoAdjunto}.
  */
 @Service
 public class ArchivoAdjuntoService {
@@ -195,6 +196,38 @@ public class ArchivoAdjuntoService {
         attachedFile = this.archivoAdjuntoRepository.save(attachedFile);
         attachedFileDTO = this.archivoAdjuntoMapper.toDto(attachedFile);
         return attachedFileDTO;
+    }
+
+    public ArchivoAdjunto saveFileMetadata(MultipartFile file) {
+        LOG.debug("Request to save one or more files");
+        Path rootLocation = Path.of(this.uploadDir);
+
+        String originalName = Objects.requireNonNull(file.getOriginalFilename());
+        String extension = originalName.substring(originalName.lastIndexOf('.'));
+        String uniqueName = originalName + "_" + UUID.randomUUID() + extension;
+        Path pathFile = rootLocation.resolve(uniqueName);
+
+        if (!Files.exists(rootLocation)) {
+            try {
+                Files.createDirectories(rootLocation);
+            } catch (IOException e) {
+                throw new RuntimeException("It was not possible to create the file", e);
+            }
+        }
+
+        try {
+            file.transferTo(pathFile);
+        } catch (IOException e) {
+            throw new RuntimeException("Error when saving the file", e);
+        }
+
+        ArchivoAdjunto attachedFile = new ArchivoAdjunto();
+        attachedFile.setNombre(originalName);
+        attachedFile.setTipo(file.getContentType());
+        attachedFile.setUrlArchivo(uniqueName);
+        attachedFile.setFechaSubida(Instant.now());
+
+        return attachedFile;
     }
 
     private ArchivoAdjuntoDTO convertToDTO(ArchivoAdjunto archivo) {

@@ -3,20 +3,27 @@ package co.edu.itp.svu.service;
 import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
+import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
+import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
+import co.edu.itp.svu.service.dto.api.PublicPqrsDTO;
+import co.edu.itp.svu.service.dto.api.PublicResponseDTO;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
+import co.edu.itp.svu.service.mapper.api.PublicPqrsMapper;
+import co.edu.itp.svu.service.mapper.api.PublicResponseMapper;
 import co.edu.itp.svu.service.notification.PqrsNotificationService;
 import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificationType;
+import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,6 +35,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Service Implementation for managing {@link co.edu.itp.svu.domain.Pqrs}.
@@ -43,9 +52,17 @@ public class PqrsService {
 
     private final OficinaRepository oficinaRepository;
 
-    private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
+    private final ArchivoAdjuntoRepository attachedFileRepository;
+
+    private final ArchivoAdjuntoService attachedFileService;
+
+    private final RespuestaRepository responseRepository;
 
     private final PqrsNotificationService pqrsNotificationService;
+
+    private final PublicPqrsMapper publicPqrsMapper;
+
+    private final PublicResponseMapper publicResponseMapper;
 
     private OficinaMapper oficinaMapper;
 
@@ -54,17 +71,24 @@ public class PqrsService {
         PqrsMapper pqrsMapper,
         ArchivoAdjuntoMapper archivoAdjuntoMapper,
         OficinaRepository oficinaRepository,
-        ArchivoAdjuntoRepository archivoAdjuntoRepository,
-        ArchivoAdjuntoService archivoAdjuntoService,
+        ArchivoAdjuntoRepository attachedFileRepository,
+        ArchivoAdjuntoService attachedFileService,
         OficinaMapper oficinaMapper,
-        PqrsNotificationService pqrsNotificationService
+        PqrsNotificationService pqrsNotificationService,
+        PublicPqrsMapper publicPqrsMapper,
+        RespuestaRepository responseRepository,
+        PublicResponseMapper publicResponseMapper
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
         this.oficinaRepository = oficinaRepository;
-        this.archivoAdjuntoRepository = archivoAdjuntoRepository;
+        this.attachedFileRepository = attachedFileRepository;
+        this.attachedFileService = attachedFileService;
         this.oficinaMapper = oficinaMapper;
         this.pqrsNotificationService = pqrsNotificationService;
+        this.publicPqrsMapper = publicPqrsMapper;
+        this.responseRepository = responseRepository;
+        this.publicResponseMapper = publicResponseMapper;
     }
 
     /**
@@ -253,11 +277,108 @@ public class PqrsService {
                 .map(ArchivoAdjuntoDTO::getId)
                 .collect(Collectors.toSet());
 
-            Set<ArchivoAdjunto> archivosAdjuntos = new HashSet<>(archivoAdjuntoRepository.findAllById(archivosAdjuntosIds));
+            Set<ArchivoAdjunto> archivosAdjuntos = new HashSet<>(attachedFileRepository.findAllById(archivosAdjuntosIds));
             pqrs.setArchivosAdjuntos(archivosAdjuntos);
         }
 
         pqrs = pqrsRepository.save(pqrs);
         return pqrsMapper.toDto(pqrs);
+    }
+
+    public PublicPqrsDTO createPublicPqrs(PublicPqrsDTO publicPqrsDTO) {
+        LOG.debug("Request to create public Pqrs : {}", publicPqrsDTO);
+        Pqrs pqrs = publicPqrsMapper.toEntity(publicPqrsDTO);
+
+        pqrs.setAccessToken(UUID.randomUUID().toString());
+        pqrs.setFechaCreacion(Instant.now());
+        if (pqrs.getEstado() == null) {
+            pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
+        }
+
+        Pqrs savedPqrs = pqrsRepository.save(pqrs);
+
+        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
+
+        if (publicPqrsDTO.get_transientAttachments() != null && !publicPqrsDTO.get_transientAttachments().isEmpty()) {
+            for (ArchivoAdjuntoDTO adjuntoDTO : publicPqrsDTO.get_transientAttachments()) {
+                if (adjuntoDTO.getId() != null) {
+                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
+                    if (adjuntoOpt.isPresent()) {
+                        ArchivoAdjunto adjuntoToLink = adjuntoOpt.get();
+                        adjuntoToLink.setPqrsAttachment(savedPqrs);
+                        attachedFileRepository.save(adjuntoToLink);
+                        successfullyLinkedAttachments.add(adjuntoToLink);
+                    } else {
+                        LOG.warn(
+                            "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
+                            adjuntoDTO.getId(),
+                            savedPqrs.getId()
+                        );
+                    }
+                } else {
+                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
+                }
+            }
+        }
+
+        if (!successfullyLinkedAttachments.isEmpty()) {
+            savedPqrs.set_transientAttachments(successfullyLinkedAttachments);
+        } else {
+            savedPqrs.set_transientAttachments(new HashSet<>());
+        }
+
+        return publicPqrsMapper.toDto(savedPqrs);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PublicPqrsDTO> findPublicPqrsByAccessToken(String accessToken) {
+        LOG.debug("Request to get public Pqrs by access token : {}", accessToken);
+        Optional<Pqrs> pqrsOpt = pqrsRepository.findByAccessToken(accessToken);
+
+        return pqrsOpt.map(pqrs -> {
+            Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
+            pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
+
+            List<Respuesta> responsesFromDb = responseRepository.findByPqrsId(pqrs.getId());
+            Set<Respuesta> populatedResponses = new HashSet<>();
+            for (Respuesta response : responsesFromDb) {
+                Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
+                response.set_transientAttachments(responseAttachments != null ? responseAttachments : new HashSet<>());
+                populatedResponses.add(response);
+            }
+            pqrs.set_transientResponses(populatedResponses);
+
+            return publicPqrsMapper.toDto(pqrs);
+        });
+    }
+
+    public PublicResponseDTO addPublicResponseToPqrs(String accessToken, PublicResponseDTO publicResponseDTO, List<MultipartFile> files) {
+        LOG.debug("Request to add public response to Pqrs with access token: {}", accessToken);
+        Pqrs pqrs = pqrsRepository
+            .findByAccessToken(accessToken)
+            .orElseThrow(() -> new BadRequestAlertException("Pqrs not found for the given access token", "Pqrs", "accessTokenNotFound"));
+
+        Respuesta response = new Respuesta();
+        response.setContenido(publicResponseDTO.getContenido());
+        response.setFechaRespuesta(publicResponseDTO.getFechaRespuesta());
+        response.setPqrs(pqrs);
+        response.setResolver(null);
+
+        response = responseRepository.save(response);
+
+        Set<ArchivoAdjunto> savedAttachments = new HashSet<>();
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    ArchivoAdjunto attachedFile = attachedFileService.saveFileMetadata(file);
+                    attachedFile.setResponseAttachment(response);
+
+                    savedAttachments.add(attachedFileRepository.save(attachedFile));
+                }
+            }
+        }
+
+        response.set_transientAttachments(savedAttachments);
+        return publicResponseMapper.toDto(response);
     }
 }
