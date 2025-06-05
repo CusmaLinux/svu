@@ -4,6 +4,7 @@ import co.edu.itp.svu.domain.Pqrs;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -37,4 +38,6 @@ public interface PqrsRepository extends MongoRepository<Pqrs, String> {
     );
 
     List<Pqrs> findAllByFechaLimiteRespuestaBetweenAndEstadoNotIn(Instant now, Instant upcomingDate, List<String> states);
+
+    Optional<Pqrs> findByAccessToken(String accessToken);
 }
