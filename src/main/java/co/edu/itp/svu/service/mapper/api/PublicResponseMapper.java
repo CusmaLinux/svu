@@ -15,16 +15,16 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring", uses = { UserMapper.class, ArchivoAdjuntoMapper.class })
 public interface PublicResponseMapper extends EntityMapper<PublicResponseDTO, Respuesta> {
     @Override
-    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(respuesta.getResolver() != null)")
+    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(response.getResolver() != null)")
     @Mapping(source = "_transientAttachments", target = "_transientAttachments")
     @Mapping(target = "byRequester", ignore = true)
-    PublicResponseDTO toDto(Respuesta respuesta);
+    PublicResponseDTO toDto(Respuesta response);
 
     @AfterMapping
-    default void setDerivedFields(Respuesta respuesta, @MappingTarget PublicResponseDTO dto) {
-        if (respuesta != null) {
-            dto.setByRequester(respuesta.isByRequester());
-            if (respuesta.isByRequester()) {
+    default void setDerivedFields(Respuesta response, @MappingTarget PublicResponseDTO dto) {
+        if (response != null) {
+            dto.setByRequester(response.isByRequester());
+            if (response.isByRequester()) {
                 dto.setResolver(null);
             }
         }
@@ -38,8 +38,8 @@ public interface PublicResponseMapper extends EntityMapper<PublicResponseDTO, Re
 
     @Override
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(respuesta.getResolver() != null)")
+    @Mapping(source = "resolver", target = "resolver", conditionExpression = "java(response.getResolver() != null)")
     @Mapping(source = "_transientAttachments", target = "_transientAttachments")
     @Mapping(target = "pqrs", ignore = true)
-    void partialUpdate(@MappingTarget Respuesta respuesta, PublicResponseDTO publicResponseDTO);
+    void partialUpdate(@MappingTarget Respuesta response, PublicResponseDTO publicResponseDTO);
 }
