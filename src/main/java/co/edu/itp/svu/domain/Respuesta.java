@@ -136,11 +136,19 @@ public class Respuesta implements Serializable {
     // prettier-ignore
     @Override
     public String toString() {
+        User resolverUser = getResolver();
+        String resolverString;
+        if (resolverUser != null) {
+            resolverString = "User{id='" + resolverUser.getId() + "', login='" + resolverUser.getLogin() + "'}";
+        } else {
+            resolverString = "null";
+        }
+
         return "Respuesta{" +
                 "id=" + getId() +
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-                ", resolver='" + getResolver().getId() + "'" +
+                ", resolver=" + resolverString +
                 ", isByRequester=" + isByRequester() +
                 "}";
     }
