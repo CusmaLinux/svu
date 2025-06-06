@@ -1,5 +1,6 @@
 package co.edu.itp.svu.service.dto;
 
+import co.edu.itp.svu.domain.enumeration.PqrsType;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
@@ -14,6 +15,11 @@ import java.util.Set;
 public class PqrsDTO implements Serializable {
 
     private String id;
+
+    private String fileNumber;
+
+    @NotNull
+    private PqrsType type;
 
     @NotNull
     private String titulo;
@@ -50,6 +56,22 @@ public class PqrsDTO implements Serializable {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getFileNumber() {
+        return fileNumber;
+    }
+
+    public void setFileNumber(String fileNumber) {
+        this.fileNumber = fileNumber;
+    }
+
+    public PqrsType getType() {
+        return type;
+    }
+
+    public void setType(PqrsType type) {
+        this.type = type;
     }
 
     public String getTitulo() {
@@ -150,6 +172,8 @@ public class PqrsDTO implements Serializable {
     public String toString() {
         return "PqrsDTO{" +
                 "id='" + getId() + "'" +
+                ", type='" + getTitulo() + "'" +
+                ", fileNumber='" + getFileNumber() + "'" +
                 ", titulo='" + getTitulo() + "'" +
                 ", descripcion='" + getDescripcion() + "'" +
                 ", requesterEmail='" + getRequesterEmail() + "'" +
