@@ -1,5 +1,6 @@
 package co.edu.itp.svu.domain;
 
+import co.edu.itp.svu.domain.enumeration.PqrsType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
@@ -27,6 +28,13 @@ public class Pqrs implements Serializable {
 
     @Id
     private String id;
+
+    @Field("file_number")
+    private String fileNumber;
+
+    @NotNull
+    @Field("type")
+    private PqrsType type;
 
     @NotNull
     @Field("titulo")
@@ -101,6 +109,22 @@ public class Pqrs implements Serializable {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getFileNumber() {
+        return fileNumber;
+    }
+
+    public void setFileNumber(String fileNumber) {
+        this.fileNumber = fileNumber;
+    }
+
+    public PqrsType getType() {
+        return type;
+    }
+
+    public void setType(PqrsType type) {
+        this.type = type;
     }
 
     public String getTitulo() {
@@ -251,6 +275,8 @@ public class Pqrs implements Serializable {
     public String toString() {
         return "Pqrs{" +
                 "id=" + getId() +
+                ", type='" + getType() + "'" +
+                ", fileNumber='" + getFileNumber() + "'" +
                 ", titulo='" + getTitulo() + "'" +
                 ", descripcion='" + getDescripcion() + "'" +
                 ", requesterEmail='" + getRequesterEmail() + "'" +
