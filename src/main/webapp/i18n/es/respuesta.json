@@ -8,6 +8,14 @@
         "createOrEditLabel": "Crear o editar Respuesta",
         "notFound": "Ningún Respuestas encontrado"
       },
+      "respondingToPqrs": "Respondiendo a la PQRS",
+      "associatedPqrs": "PQRS Asociada",
+      "errors": {
+        "pqrsNotSelected": "Debe seleccionar una PQRS.",
+        "loadSpecific": "Error al cargar la PQRS específica."
+      },
+      "responseFromStaff": "Respuesta del Personal",
+      "responseFromRequester": "Comentario del Solicitante",
       "created": "Un nuevo Respuesta ha sido creado con el identificador { param }",
       "updated": "Un Respuesta ha sido actualizado con el identificador { param }",
       "deleted": "Un Respuesta ha sido eliminado con el identificador { param }",
@@ -22,6 +30,11 @@
       "fechaRespuesta": "Fecha Respuesta",
       "archivosAdjuntos": "Archivos Adjuntos",
       "pqr": "Pqr"
+    }
+  },
+  "global": {
+    "field": {
+      "attachments": "Archivos Adjuntos"
     }
   }
 }
