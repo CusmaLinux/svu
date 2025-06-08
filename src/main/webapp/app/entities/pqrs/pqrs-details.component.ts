@@ -10,16 +10,21 @@ import { type IPqrs } from '@/shared/model/pqrs.model';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { useAccountStore } from '@/shared/config/store/account-store';
 
+import PqrsActionsSidebar from './sidebar.vue';
+
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'PqrsDetails',
+  components: {
+    PqrsActionsSidebar,
+  },
   setup() {
     const { t } = useI18n();
     const dateFormat = useDateFormat();
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
     const { formatDateLong } = useDateFormat();
-    const pqrsId = computed(() => route.params.pqrsId as string);
+    const pqrsIdFromRoute = computed(() => route.params.pqrsId as string);
     const loading = ref(false);
 
     const dataUtils = useDataUtils();
@@ -30,7 +35,7 @@ export default defineComponent({
     const accountStore = useAccountStore();
 
     const previousState = () => router.go(-1);
-    const pqrs: Ref<IPqrs | null> = ref({});
+    const pqrs: Ref<IPqrs | null> = ref(null);
 
     const isConfirmCloseModalVisible = ref(false);
     const confirmCloseModalRef = ref(null);
@@ -43,15 +48,15 @@ export default defineComponent({
       return accountStore.account?.authorities?.includes('ROLE_ADMIN') ?? false;
     });
 
-    const retrievePqrs = async (pqrsId: string | string[]) => {
-      if (!pqrsId) {
+    const retrievePqrs = async (id: string | string[]) => {
+      if (!id) {
         pqrs.value = null;
         alertService.showError('PQRS ID is missing');
         return;
       }
       loading.value = true;
       try {
-        const res = await pqrsService().find(pqrsId);
+        const res = await pqrsService().find(id);
         pqrs.value = res;
       } catch (error: any) {
         alertService.showHttpError(error.response);
@@ -61,10 +66,6 @@ export default defineComponent({
     };
 
     const toggleStatusPqrs = async () => {
-      if (!isFunctionary.value) {
-        return;
-      }
-
       if (pqrs.value && pqrs.value.id) {
         let newState: string;
         let successMessageKey: string;
@@ -97,9 +98,6 @@ export default defineComponent({
     };
 
     const openConfirmCloseModal = () => {
-      if (!isAdmin.value) {
-        return;
-      }
       isConfirmCloseModalVisible.value = true;
     };
 
@@ -140,7 +138,7 @@ export default defineComponent({
     });
 
     watch(
-      pqrsId,
+      pqrsIdFromRoute,
       async (newId, oldId) => {
         if (newId && newId !== oldId) {
           await retrievePqrs(newId);
@@ -149,11 +147,11 @@ export default defineComponent({
       { immediate: false },
     );
 
-    onMounted(() => {
-      if (pqrsId.value) {
-        retrievePqrs(pqrsId.value);
-      }
-    });
+    // onMounted(() => {
+    //   if (pqrsId.value) {
+    //     retrievePqrs(pqrsId.value);
+    //   }
+    // });
 
     return {
       ...dateFormat,
@@ -166,7 +164,7 @@ export default defineComponent({
       isAdmin,
       openConfirmCloseModal,
       handleConfirmClose,
-      pqrsId,
+      pqrsId: pqrsIdFromRoute,
       loading,
 
       ...dataUtils,
