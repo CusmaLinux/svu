@@ -179,7 +179,8 @@ jhipster:
   #   allow-credentials: true
   #   max-age: 1800
   mail:
-    from: VentanillaUnica@localhost
+    enabled: true
+    from: ${SPRING_MAIL_USERNAME}
   api-docs:
     default-include-pattern: /api/**
     management-include-pattern: /management/**

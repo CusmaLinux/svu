@@ -35,10 +35,16 @@ spring:
     mongodb:
       uri: mongodb://localhost:27017/VentanillaUnica
   mail:
-    host: localhost
-    port: 25
-    username:
-    password:
+    host: smtp.gmail.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   thymeleaf:
     cache: true
 
@@ -91,12 +97,12 @@ jhipster:
         # - In the Consul configserver
         # - In a separate `application-prod.yml` file, in the same folder as your executable JAR file
         # - In the `JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET` environment variable
-        base64-secret: NmQ3NWUyMzBhNGUyOWM2OTVmMWUwZjk3YjU2Mjc3YTUxMmY2NjY0ZjJmNGEwNGUzNTkyNDI4MDRlYjRhOTQ1NGUxODIxNTBhYTNlMjY0ZjY2MWY5MjJiNmY3NjcwOWE1MTkxNWRkMmMzMjEwZTU5YTE5ZGI2YjY5N2E3MGI5OGY=
+        base64-secret: ${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}
         # Token is valid 24 hours
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
-    base-url: http://my-server-url-to-change # Modify according to your server's URL
+    base-url: https://svu.keliumju.com # Modify according to your server's URL
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration
