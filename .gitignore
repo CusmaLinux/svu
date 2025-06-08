@@ -151,3 +151,9 @@ Desktop.ini
 ######################
 /coverage/
 /.nyc_output/
+
+
+######################
+# System environment variables
+######################
+.env

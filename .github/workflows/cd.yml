@@ -39,7 +39,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VM using SSH
+      - name: Deploy to VM using SSH and create .env file
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.GCP_VM_HOST }}
@@ -47,6 +47,11 @@ jobs:
           key: ${{ secrets.GCP_VM_SSH_KEY }}
           script: |
             cd ~/svu/
+
+            echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > .env
+            echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> .env
+            echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> .env
+
 
             docker pull ${{ env.IMAGE_NAME }}:latest
 

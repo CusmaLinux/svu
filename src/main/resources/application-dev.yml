@@ -21,6 +21,8 @@ logging:
     co.edu.itp.svu: DEBUG
 
 spring:
+  config:
+    import: optional:classpath:.env[.properties]
   servlet:
     multipart:
       max-file-size: 50MB
@@ -38,10 +40,16 @@ spring:
     mongodb:
       uri: mongodb://localhost:27017/VentanillaUnica
   mail:
-    host: localhost
-    port: 25
-    username: svumongo
-    password: forx45661
+    host: smtp.gmail.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   messages:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   thymeleaf:

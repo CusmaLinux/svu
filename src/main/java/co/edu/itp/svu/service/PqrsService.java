@@ -303,18 +303,19 @@ public class PqrsService {
             for (ArchivoAdjuntoDTO adjuntoDTO : publicPqrsDTO.get_transientAttachments()) {
                 if (adjuntoDTO.getId() != null) {
                     Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
-                    if (adjuntoOpt.isPresent()) {
-                        ArchivoAdjunto adjuntoToLink = adjuntoOpt.get();
-                        adjuntoToLink.setPqrsAttachment(savedPqrs);
-                        attachedFileRepository.save(adjuntoToLink);
-                        successfullyLinkedAttachments.add(adjuntoToLink);
-                    } else {
-                        LOG.warn(
-                            "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
-                            adjuntoDTO.getId(),
-                            savedPqrs.getId()
-                        );
-                    }
+                    adjuntoOpt.ifPresentOrElse(
+                        adjuntoToLink -> {
+                            adjuntoToLink.setPqrsAttachment(savedPqrs);
+                            attachedFileRepository.save(adjuntoToLink);
+                            successfullyLinkedAttachments.add(adjuntoToLink);
+                        },
+                        () ->
+                            LOG.warn(
+                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
+                                adjuntoDTO.getId(),
+                                savedPqrs.getId()
+                            )
+                    );
                 } else {
                     LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
                 }
