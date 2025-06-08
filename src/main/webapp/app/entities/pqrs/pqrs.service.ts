@@ -2,15 +2,32 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
+import { type IPublicPqrs } from '@/shared/model/pqrs.model';
+
 import { type IPqrs } from '@/shared/model/pqrs.model';
 
 const baseApiUrl = 'api/pqrs';
+
+const publicApiUrl = 'api/public/pqrs';
 
 export default class PqrsService {
   public find(id: string | string[]): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public findPublicByAccessToken(accessToken: string): Promise<IPublicPqrs> {
+    return new Promise<IPublicPqrs>((resolve, reject) => {
+      axios
+        .get(`${publicApiUrl}/${accessToken}`)
         .then(res => {
           resolve(res.data);
         })
