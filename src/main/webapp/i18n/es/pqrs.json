@@ -30,7 +30,9 @@
         "resolve": "Marcar como Resuelta",
         "inProgres": "En Proceso",
         "closePqrs": "CERRAR PQRS",
-        "confirm": "Confirmar"
+        "confirm": "Confirmar",
+        "title": "acciones",
+        "createResponse": "Dar Respuesta"
       },
       "messages": {
         "resolvedSuccess": "Estado de PQRS cambio a \"RESUELTA\".",

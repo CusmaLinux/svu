@@ -8,6 +8,7 @@
         "createOrEditLabel": "Create or edit a Respuesta",
         "notFound": "No Respuestas found"
       },
+
       "created": "A new Respuesta is created with identifier { param }",
       "updated": "A Respuesta is updated with identifier { param }",
       "deleted": "A Respuesta is deleted with identifier { param }",
