@@ -59,27 +59,6 @@
             <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.edit')"></span>
           </button>
         </router-link>
-
-        <button
-          v-if="isFunctionary && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
-          @click="toggleStatusPqrs()"
-          :class="['btn', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success', 'ms-2']"
-          data-cy="toggleStatusButton"
-        >
-          <font-awesome-icon :icon="pqrs.estado === PqrsStatus.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
-          <span v-if="pqrs.estado === PqrsStatus.Resolved" v-text="t('ventanillaUnicaApp.pqrs.action.inProgres')"></span>
-          <span v-else v-text="t('ventanillaUnicaApp.pqrs.action.resolve')"></span>
-        </button>
-
-        <button
-          v-if="pqrs.id && pqrs.estado !== PqrsStatus.Closed && isAdmin"
-          @click="openConfirmCloseModal"
-          class="btn btn-danger ms-2"
-          data-cy="closePqrsButton"
-        >
-          <font-awesome-icon icon="times-circle"></font-awesome-icon>
-          <span v-text="t('ventanillaUnicaApp.pqrs.action.closePqrs')"></span>
-        </button>
         <b-modal
           id="confirmClosePqrsModal"
           ref="confirmCloseModalRef"
@@ -95,6 +74,16 @@
           <p v-text="t('ventanillaUnicaApp.pqrs.messages.messageClosePqrs')"></p>
         </b-modal>
       </div>
+    </div>
+    <div class="col-md-3">
+      <PqrsActionsSidebar
+        v-if="pqrs"
+        :pqrs="pqrs"
+        :is-functionary="isFunctionary"
+        :is-admin="isAdmin"
+        @toggle-status="toggleStatusPqrs"
+        @open-close-modal="openConfirmCloseModal"
+      />
     </div>
   </div>
 </template>
