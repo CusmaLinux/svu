@@ -2,8 +2,6 @@ import axios from 'axios';
 
 import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
-import { type IPublicPqrs } from '@/shared/model/pqrs.model';
-
 import { type IPqrs } from '@/shared/model/pqrs.model';
 
 const baseApiUrl = 'api/pqrs';
@@ -24,8 +22,8 @@ export default class PqrsService {
     });
   }
 
-  public findPublicByAccessToken(accessToken: string): Promise<IPublicPqrs> {
-    return new Promise<IPublicPqrs>((resolve, reject) => {
+  public findPublicByAccessToken(accessToken: string): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
       axios
         .get(`${publicApiUrl}/${accessToken}`)
         .then(res => {
@@ -67,6 +65,19 @@ export default class PqrsService {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}`, entity)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public submitAnonymousRequest(entity: IPqrs): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
+      axios
+        .post(`${publicApiUrl}`, entity)
         .then(res => {
           resolve(res.data);
         })

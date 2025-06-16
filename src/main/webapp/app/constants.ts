@@ -15,3 +15,11 @@ export enum NotificationType {
   PQRS_STATE_UPDATE = 'sse-notification.pqrs-state-update',
   PQRS_CREATED = 'sse-notification.pqrs-created',
 }
+
+export enum PqrsType {
+  REQUEST = 'Petición',
+  COMPLAINT = 'Queja',
+  CLAIM = 'Reclamo',
+  SUGGESTION = 'Sugerencia',
+  DEMAND = 'Demanda',
+}

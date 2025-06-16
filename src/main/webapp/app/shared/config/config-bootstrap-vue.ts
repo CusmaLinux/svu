@@ -31,6 +31,7 @@ import {
   ToastPlugin,
   IconsPlugin,
   VBModal,
+  VBTooltip,
 } from 'bootstrap-vue';
 
 export function initBootstrapVue(vue: any) {
@@ -67,4 +68,5 @@ export function initBootstrapVue(vue: any) {
   vue.component('b-dropdown-text', BDropdownText);
   vue.component('b-dropdown-divider', BDropdownDivider);
   vue.component('b-spinner', BSpinner);
+  vue.directive('b-tooltip', VBTooltip);
 }

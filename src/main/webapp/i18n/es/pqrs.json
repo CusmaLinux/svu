@@ -41,6 +41,13 @@
         "inProgresSuccess": "Estado de PQRS cambio a \"EN PROCESO\".",
         "messageClosePqrs": "Esta seguro de cerrar la PQRS",
         "confirmClosePqrs": "Mensaje de Confirmación"
+      },
+      "public": {
+        "requesterEmail": {
+          "info": "Este campo es opcional. Complétalo si deseas recibir información adicional."
+        },
+        "title": "CREAR REQUERIMIENTO ANÓNIMO",
+        "type": "Tipo de requerimiento"
       }
     }
   }

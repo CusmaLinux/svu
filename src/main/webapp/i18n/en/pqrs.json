@@ -38,6 +38,14 @@
         "inProgresSuccess": "PQRS marked as In Process successfully.",
         "messageClosePqrs": "You are sure to close the PQRS?",
         "confirmClosePqrs": "Confirmation Message"
+      },
+
+      "public": {
+        "requesterEmail": {
+          "info": "This field is optional. Fill it in if you would like to receive additional information."
+        },
+        "title": "CREATE ANONYMOUS REQUEST",
+        "type": "Select a requirement"
       }
     }
   }

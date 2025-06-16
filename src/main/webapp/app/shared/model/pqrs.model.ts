@@ -8,7 +8,7 @@ export interface IPqrs {
   type?: string;
   titulo?: string;
   descripcion?: string;
-  requesterEmail?: string;
+  requesterEmail?: string | null;
   accessToken?: string;
   daysToReply?: string;
   fechaCreacion?: Date | undefined | null;
@@ -27,7 +27,7 @@ export class Pqrs implements IPqrs {
     public type?: string,
     public titulo?: string,
     public descripcion?: string,
-    public requesterEmail?: string,
+    public requesterEmail?: string | null,
     public accessToken?: string,
     public daysToReply?: string,
     public fechaCreacion?: Date | undefined,
