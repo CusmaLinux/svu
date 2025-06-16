@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/main/webapp//**/*", "src/main/webapp/app/**/*.vue"],
+  "include": ["src/main/webapp//**/*", "src/main/webapp/app/**/*.vue", "src/main/webapp/vite-env.d.ts"],
   "exclude": ["src/main/webapp/app/**/*.spec.ts"],
   "compilerOptions": {
     "composite": true,
@@ -8,6 +8,7 @@
     "outDir": "target/out-tsc/dist",
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "types": ["vite/client"]
   }
 }
