@@ -29,7 +29,6 @@ public class PublicPqrsDTO implements Serializable {
 
     private Instant fechaCreacion;
 
-    @NotNull
     private String estado;
 
     // Fields specific to anonymous/public context
