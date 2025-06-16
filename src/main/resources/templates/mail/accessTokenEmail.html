@@ -1,0 +1,24 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="#{email.access_token.title}">Sistema de Ventanilla Única(SVU) token de acceso</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="icon" th:href="@{|${baseUrl}/favicon.ico|}" />
+  </head>
+  <body>
+    <p th:text="#{email.access_token.greeting(${pqrs.requesterEmail})}">Estimado Usuario</p>
+    <p th:text="#{email.access_token.text1}">
+      Se genero una URL para realizarle seguimiento a su requerimiento, haga clic en la URL a continuacion para visualizarla:
+    </p>
+    <p>
+      <a th:with="url=(@{|${baseUrl}/public/pqrs/track/${pqrs.accessToken}|})" th:href="${url}" th:text="${url}"
+        >Seguimiento al requerimiento</a
+      >
+    </p>
+    <p>
+      <span th:text="#{email.access_token.text2}">Atentamente, </span>
+      <br />
+      <em th:text="#{email.signature}">Equipo de Ventanilla Unica.</em>
+    </p>
+  </body>
+</html>
