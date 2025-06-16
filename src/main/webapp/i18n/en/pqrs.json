@@ -46,6 +46,21 @@
         },
         "title": "CREATE ANONYMOUS REQUEST",
         "type": "Select a requirement"
+      },
+
+      "verify": {
+        "title": "Thank you for submitting your information!",
+        "intro": "We have received your request and are processing it. Below you will find important information on how you can track its status.",
+        "alert": {
+          "title": "Important! Save this link.",
+          "body": "Use the following link to check the status of your request at any time. It is crucial that you save it in a safe place, as we will not be able to recover it for you."
+        },
+        "link": {
+          "description": "You can track the status of your request by accessing the following link:",
+          "copyTitle": "Copy link",
+          "copiedMessage": "Link copied to clipboard!"
+        },
+        "footer": "If you have any questions or need further assistance, do not hesitate to contact our support team."
       }
     }
   }

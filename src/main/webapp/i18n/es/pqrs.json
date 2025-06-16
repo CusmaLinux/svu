@@ -48,6 +48,21 @@
         },
         "title": "CREAR REQUERIMIENTO ANÓNIMO",
         "type": "Tipo de requerimiento"
+      },
+
+      "verify": {
+        "title": "¡Gracias por enviar su información!",
+        "intro": "Hemos recibido su solicitud y la estamos procesando. A continuación, encontrará información importante sobre cómo puede hacer seguimiento a su estado.",
+        "alert": {
+          "title": "¡Importante! Guarde este enlace.",
+          "body": "Utilice el siguiente enlace para verificar el estado de su solicitud en cualquier momento. Es crucial que lo guarde en un lugar seguro, ya que no podremos recuperarlo por usted."
+        },
+        "link": {
+          "description": "Puede seguir el estado de su solicitud accediendo al siguiente enlace:",
+          "copyTitle": "Copiar enlace",
+          "copiedMessage": "¡Enlace copiado al portapapeles!"
+        },
+        "footer": "Si tiene alguna pregunta o necesita asistencia adicional, no dude en ponerse en contacto con nuestro equipo de soporte."
       }
     }
   }
