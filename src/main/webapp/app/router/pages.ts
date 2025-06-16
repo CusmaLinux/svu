@@ -3,7 +3,8 @@ import { Authority } from '@/shared/security/authority';
 const OficinaUserCreate = () => import('@/pages/oficina/oficina-user-create.vue');
 const OficinaUserHome = () => import('@/pages/oficina/oficina-user-home.vue');
 const PublicPqrsTrack = () => import('@/entities/pqrs/pqrs-details.vue');
-const PublicPqrsNew = () => import('@/entities/pqrs/pqrs-update.vue');
+const PublicPqrsNew = () => import('@/entities/pqrs/api/public-pqrs-create.vue');
+const PublicPqrsVerify = () => import('@/entities/pqrs/api/public-pqrs-verify.vue');
 
 export default [
   {
@@ -28,5 +29,12 @@ export default [
     name: 'PublicPqrsTrack',
     component: PublicPqrsTrack,
     props: true,
+  },
+
+  {
+    path: '/public/pqrs/verify',
+    name: 'PublicPqrsVerify',
+    component: PublicPqrsVerify,
+    props: (route: { query: { accessToken: string } }) => ({ accessToken: route.query.accessToken }),
   },
 ];
