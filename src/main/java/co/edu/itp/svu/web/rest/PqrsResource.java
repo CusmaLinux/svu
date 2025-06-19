@@ -193,7 +193,7 @@ public class PqrsResource {
     @PostMapping("/public/pqrs")
     public ResponseEntity<PublicPqrsDTO> createPublicPqrs(@Valid @RequestBody PublicPqrsDTO publicPqrsDTO) throws URISyntaxException {
         LOG.debug("REST request to create public Pqrs : {}", publicPqrsDTO);
-        if (publicPqrsDTO.getId() != null) {
+        if (publicPqrsDTO.getAccessToken() != null) {
             throw new BadRequestAlertException("A new public pqrs cannot already have an ID", "pqrs", "idexists");
         }
         PublicPqrsDTO result = pqrsService.createPublicPqrs(publicPqrsDTO);
@@ -204,7 +204,7 @@ public class PqrsResource {
             .toUri();
 
         return ResponseEntity.created(locationUri)
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getAccessToken()))
             .body(result);
     }
 

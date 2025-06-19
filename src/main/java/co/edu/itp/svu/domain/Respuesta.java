@@ -26,7 +26,6 @@ public class Respuesta implements Serializable {
     @Field("contenido")
     private String contenido;
 
-    @NotNull
     @Field("fecha_respuesta")
     private Instant fechaRespuesta;
 

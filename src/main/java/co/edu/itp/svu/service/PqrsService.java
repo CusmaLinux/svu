@@ -426,7 +426,7 @@ public class PqrsService {
 
         Respuesta response = new Respuesta();
         response.setContenido(publicResponseDTO.getContenido());
-        response.setFechaRespuesta(publicResponseDTO.getFechaRespuesta());
+        response.setFechaRespuesta(Instant.now());
         response.setPqrs(pqrs);
         response.setResolver(null);
 

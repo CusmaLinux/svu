@@ -1,10 +1,19 @@
 package co.edu.itp.svu.service;
 
+import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Respuesta;
+import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
-import co.edu.itp.svu.service.dto.RespuestaDTO;
-import co.edu.itp.svu.service.mapper.RespuestaMapper;
+import co.edu.itp.svu.repository.UserRepository;
+import co.edu.itp.svu.security.SecurityUtils;
+import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
+import co.edu.itp.svu.service.dto.ResponseDTO;
+import co.edu.itp.svu.service.mapper.ResponseMapper;
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -21,57 +30,112 @@ public class RespuestaService {
 
     private final RespuestaRepository respuestaRepository;
 
-    private final RespuestaMapper respuestaMapper;
+    private final ArchivoAdjuntoRepository attachedFileRepository;
 
-    public RespuestaService(RespuestaRepository respuestaRepository, RespuestaMapper respuestaMapper) {
+    private final ResponseMapper responseMapper;
+
+    private final UserRepository userRepository;
+
+    public RespuestaService(
+        RespuestaRepository respuestaRepository,
+        ResponseMapper responseMapper,
+        UserRepository userRepository,
+        ArchivoAdjuntoRepository attachedFileRepository
+    ) {
         this.respuestaRepository = respuestaRepository;
-        this.respuestaMapper = respuestaMapper;
+        this.responseMapper = responseMapper;
+        this.userRepository = userRepository;
+        this.attachedFileRepository = attachedFileRepository;
     }
 
     /**
-     * Save a respuesta.
+     * Save a response.
      *
      * @param respuestaDTO the entity to save.
      * @return the persisted entity.
      */
-    public RespuestaDTO save(RespuestaDTO respuestaDTO) {
-        LOG.debug("Request to save Respuesta : {}", respuestaDTO);
-        Respuesta respuesta = respuestaMapper.toEntity(respuestaDTO);
-        respuesta = respuestaRepository.save(respuesta);
-        return respuestaMapper.toDto(respuesta);
+    public ResponseDTO save(ResponseDTO responseDTO) {
+        LOG.debug("Request to save Respuesta : {}", responseDTO);
+
+        String currentUserLogin = SecurityUtils.getCurrentUserLogin()
+            .orElseThrow(() -> new IllegalStateException("Current user login not found"));
+
+        User currentUser = userRepository
+            .findOneByLogin(currentUserLogin)
+            .orElseThrow(() -> new IllegalStateException("User with login '" + currentUserLogin + "' not found"));
+
+        Respuesta response = responseMapper.toEntity(responseDTO);
+
+        response.setFechaRespuesta(Instant.now());
+        response.setResolver(currentUser);
+
+        Respuesta resultResponse = respuestaRepository.save(response);
+
+        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
+
+        if (responseDTO.get_transientAttachments() != null && !responseDTO.get_transientAttachments().isEmpty()) {
+            for (ArchivoAdjuntoDTO adjuntoDTO : responseDTO.get_transientAttachments()) {
+                if (adjuntoDTO.getId() != null) {
+                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
+                    adjuntoOpt.ifPresentOrElse(
+                        adjuntoToLink -> {
+                            adjuntoToLink.setResponseAttachment(resultResponse);
+                            attachedFileRepository.save(adjuntoToLink);
+                            successfullyLinkedAttachments.add(adjuntoToLink);
+                        },
+                        () ->
+                            LOG.warn(
+                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
+                                adjuntoDTO.getId(),
+                                resultResponse.getId()
+                            )
+                    );
+                } else {
+                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
+                }
+            }
+        }
+
+        if (!successfullyLinkedAttachments.isEmpty()) {
+            resultResponse.set_transientAttachments(successfullyLinkedAttachments);
+        } else {
+            resultResponse.set_transientAttachments(new HashSet<>());
+        }
+
+        return responseMapper.toDto(response);
     }
 
     /**
-     * Update a respuesta.
+     * Update a response.
      *
      * @param respuestaDTO the entity to save.
      * @return the persisted entity.
      */
-    public RespuestaDTO update(RespuestaDTO respuestaDTO) {
+    public ResponseDTO update(ResponseDTO respuestaDTO) {
         LOG.debug("Request to update Respuesta : {}", respuestaDTO);
-        Respuesta respuesta = respuestaMapper.toEntity(respuestaDTO);
-        respuesta = respuestaRepository.save(respuesta);
-        return respuestaMapper.toDto(respuesta);
+        Respuesta response = responseMapper.toEntity(respuestaDTO);
+        response = respuestaRepository.save(response);
+        return responseMapper.toDto(response);
     }
 
     /**
-     * Partially update a respuesta.
+     * Partially update a response.
      *
      * @param respuestaDTO the entity to update partially.
      * @return the persisted entity.
      */
-    public Optional<RespuestaDTO> partialUpdate(RespuestaDTO respuestaDTO) {
+    public Optional<ResponseDTO> partialUpdate(ResponseDTO respuestaDTO) {
         LOG.debug("Request to partially update Respuesta : {}", respuestaDTO);
 
         return respuestaRepository
             .findById(respuestaDTO.getId())
             .map(existingRespuesta -> {
-                respuestaMapper.partialUpdate(existingRespuesta, respuestaDTO);
+                responseMapper.partialUpdate(existingRespuesta, respuestaDTO);
 
                 return existingRespuesta;
             })
             .map(respuestaRepository::save)
-            .map(respuestaMapper::toDto);
+            .map(responseMapper::toDto);
     }
 
     /**
@@ -80,24 +144,24 @@ public class RespuestaService {
      * @param pageable the pagination information.
      * @return the list of entities.
      */
-    public Page<RespuestaDTO> findAll(Pageable pageable) {
+    public Page<ResponseDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all Respuestas");
-        return respuestaRepository.findAll(pageable).map(respuestaMapper::toDto);
+        return respuestaRepository.findAll(pageable).map(responseMapper::toDto);
     }
 
     /**
-     * Get one respuesta by id.
+     * Get one response by id.
      *
      * @param id the id of the entity.
      * @return the entity.
      */
-    public Optional<RespuestaDTO> findOne(String id) {
+    public Optional<ResponseDTO> findOne(String id) {
         LOG.debug("Request to get Respuesta : {}", id);
-        return respuestaRepository.findById(id).map(respuestaMapper::toDto);
+        return respuestaRepository.findById(id).map(responseMapper::toDto);
     }
 
     /**
-     * Delete the respuesta by id.
+     * Delete the response by id.
      *
      * @param id the id of the entity.
      */

@@ -5,6 +5,7 @@ import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,8 +15,6 @@ import java.util.Set;
 public class PublicPqrsDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    private String id;
 
     private String fileNumber;
 
@@ -28,6 +27,8 @@ public class PublicPqrsDTO implements Serializable {
     private String descripcion;
 
     private Instant fechaCreacion;
+
+    private LocalDateTime fechaLimiteRespuesta;
 
     private String estado;
 
@@ -45,13 +46,13 @@ public class PublicPqrsDTO implements Serializable {
 
     public PublicPqrsDTO() {}
 
-    public String getId() {
-        return id;
-    }
+    // public String getId() {
+    // return id;
+    // }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    // public void setId(String id) {
+    // this.id = id;
+    // }
 
     public String getFileNumber() {
         return fileNumber;
@@ -91,6 +92,14 @@ public class PublicPqrsDTO implements Serializable {
 
     public void setFechaCreacion(Instant fechaCreacion) {
         this.fechaCreacion = fechaCreacion;
+    }
+
+    public LocalDateTime getFechaLimiteRespuesta() {
+        return fechaLimiteRespuesta;
+    }
+
+    public void setFechaLimiteRespuesta(LocalDateTime fechaLimiteRespuesta) {
+        this.fechaLimiteRespuesta = fechaLimiteRespuesta;
     }
 
     public String getEstado() {
@@ -147,20 +156,18 @@ public class PublicPqrsDTO implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PublicPqrsDTO that = (PublicPqrsDTO) o;
-        return java.util.Objects.equals(id, that.id); // Typically ID is enough for DTO equality
+        return java.util.Objects.equals(accessToken, that.accessToken); // Typically ID is enough for DTO equality
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(id);
+        return java.util.Objects.hash(accessToken);
     }
 
     @Override
     public String toString() {
         return (
             "PublicPqrsDTO{" +
-            "id='" +
-            id +
             '\'' +
             "type='" +
             type +
