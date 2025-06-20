@@ -18,15 +18,15 @@
             <label for="id" v-text="t$('global.field.id')"></label>
             <input type="text" class="form-control" id="id" name="id" v-model="respuesta.id" readonly />
           </div>
-          <div class="form-group" v-if="!respuesta.pqr && !isPqrsFixed">
+          <div class="form-group" v-if="!respuesta.pqrs && !isPqrsFixed">
             <label class="form-control-label" v-text="t$('ventanillaUnicaApp.respuesta.pqr')" for="respuesta-pqr"></label>
             <select
               class="form-control"
               id="respuesta-pqr"
-              data-cy="pqr"
-              name="pqr"
-              v-model="v$.pqr.$model"
-              :class="{ valid: !v$.pqr.$invalid, invalid: v$.pqr.$invalid }"
+              data-cy="pqrs"
+              name="pqrs"
+              v-model="v$.pqrs.$model"
+              :class="{ valid: !v$.pqrs.$invalid, invalid: v$.pqrs.$invalid }"
               required
               :disabled="isPqrsFixed && !respuesta.id"
             >
@@ -35,8 +35,8 @@
                 {{ pqrsOption.titulo || pqrsOption.id }}
               </option>
             </select>
-            <div v-if="v$.pqr.$anyDirty && v$.pqr.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.pqr.$errors" :key="error.$uid">{{ error.$message }}</small>
+            <div v-if="v$.pqrs.$anyDirty && v$.pqrs.$invalid">
+              <small class="form-text text-danger" v-for="error of v$.pqrs.$errors" :key="error.$uid">{{ error.$message }}</small>
             </div>
           </div>
           <div class="form-group">

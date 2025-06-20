@@ -54,9 +54,9 @@ export default defineComponent({
       contenido: {
         required: validations.required(t$('entity.validation.required').toString()),
       },
-      pqr: {
+      pqrs: {
         required: helpers.withMessage(t$('entity.validation.required').toString(), value => {
-          return !!respuesta.value.pqr || !!value;
+          return !!respuesta.value.pqrs || !!value;
         }),
       },
     };
@@ -71,8 +71,8 @@ export default defineComponent({
       try {
         const res = await respuestaService().find(respuestaId);
         respuesta.value = res;
-        if (res.pqr) {
-          selectedPqrsInfo.value = res.pqr;
+        if (res.pqrs) {
+          selectedPqrsInfo.value = res.pqrs;
         }
 
         if (res.archivosAdjuntosDTO) {
@@ -81,7 +81,7 @@ export default defineComponent({
           existingFilesInfo.value = [];
         }
         files.value = [];
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -93,13 +93,13 @@ export default defineComponent({
         try {
           const foundPqrs = await pqrsService().find(pqrsIdFromQuery);
           if (foundPqrs) {
-            respuesta.value.pqr = foundPqrs;
+            respuesta.value.pqrs = foundPqrs;
             selectedPqrsInfo.value = foundPqrs;
           }
         } catch (error: any) {
           alertService.showHttpError(error.response);
         }
-      } else if (!respuesta.value.pqr) {
+      } else if (!respuesta.value.pqrs) {
         try {
           const res = await pqrsService().retrieve();
           allPqrs.value = res.data;
@@ -149,7 +149,7 @@ export default defineComponent({
         return await archivoAdjuntoService().uploadFiles(formData);
       } catch (error) {
         alertService.showError(t$('ventanillaUnicaApp.respuesta.errors.upload'));
-        throw error; // Propagar el error para detener el proceso de guardado
+        throw error;
       } finally {
         isUploading.value = false;
       }
@@ -172,14 +172,13 @@ export default defineComponent({
       }
     };
 
-    // --- Función de Guardado Unificada ---
     const save = async () => {
       v$.value.$touch();
       if (v$.value.$invalid) {
         alertService.showError(t$('entity.validation.invalid'));
         return;
       }
-      if (!respuesta.value.pqr && !isPqrsFixed.value) {
+      if (!respuesta.value.pqrs && !isPqrsFixed.value) {
         alertService.showError(t$('ventanillaUnicaApp.respuesta.errors.pqrsNotSelected'));
         return;
       }
@@ -187,32 +186,20 @@ export default defineComponent({
       isSaving.value = true;
 
       try {
-        // 1. Eliminar archivos marcados para borrar
         if (filesToDelete.value.length > 0) {
           await archivoAdjuntoService().deleteMultiple(filesToDelete.value);
           filesToDelete.value = [];
         }
 
-        // 2. Subir nuevos archivos
-        const nuevosArchivosAdjuntos = await uploadFiles();
+        const newAttachments: IArchivoAdjunto[] = await uploadFiles();
+        respuesta.value._transientAttachments = newAttachments.map(attachedFile => ({ id: attachedFile.id }));
 
-        // 3. Preparar el payload
         const payload: IRespuesta = { ...respuesta.value };
 
-        // Combinar archivos existentes (que no se borraron) con los nuevos
-        const archivosActuales = existingFilesInfo.value.map(file => ({
-          id: file.id,
-          urlArchivo: file.urlArchivo,
-          nombreArchivo: file.nombre,
-        }));
-        payload.archivosAdjuntosDTO = [...archivosActuales, ...nuevosArchivosAdjuntos];
-
-        // Limpiar la referencia a Pqrs para enviar solo el ID si existe
-        if (payload.pqr && payload.pqr.id) {
-          payload.pqr = { id: payload.pqr.id } as IPqrs;
+        if (payload.pqrs && payload.pqrs.id) {
+          payload.pqrs = { id: payload.pqrs.id } as IPqrs;
         }
 
-        // 4. Guardar la entidad Respuesta (crear o actualizar)
         let result;
         if (payload.id) {
           result = await respuestaService().update(payload);
@@ -223,9 +210,7 @@ export default defineComponent({
         }
         previousState();
       } catch (error: any) {
-        // El error ya se debería mostrar desde el servicio o la función de upload
         if (!isUploading.value) {
-          // Si el error no fue de la subida de archivos
           alertService.showHttpError(error.response);
         }
       } finally {
@@ -233,7 +218,6 @@ export default defineComponent({
       }
     };
 
-    // --- Hook onMounted ---
     onMounted(async () => {
       filesToDelete.value = [];
       if (route.params?.respuestaId) {
