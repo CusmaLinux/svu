@@ -28,7 +28,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.IsoFields;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +73,10 @@ public class PqrsService {
 
     private OficinaMapper oficinaMapper;
 
+    private final SequenceGeneratorService sequenceGenerator;
+
+    private final MailService mailService;
+
     public PqrsService(
         PqrsRepository pqrsRepository,
         PqrsMapper pqrsMapper,
@@ -77,7 +88,10 @@ public class PqrsService {
         PqrsNotificationService pqrsNotificationService,
         PublicPqrsMapper publicPqrsMapper,
         RespuestaRepository responseRepository,
-        PublicResponseMapper publicResponseMapper
+        PublicResponseMapper publicResponseMapper,
+        SequenceGeneratorService sequenceGenerator,
+        MailService mailService,
+        OAuth2MailService oAuth2MailService
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
@@ -89,6 +103,8 @@ public class PqrsService {
         this.publicPqrsMapper = publicPqrsMapper;
         this.responseRepository = responseRepository;
         this.publicResponseMapper = publicResponseMapper;
+        this.sequenceGenerator = sequenceGenerator;
+        this.mailService = mailService;
     }
 
     /**
@@ -289,11 +305,19 @@ public class PqrsService {
         LOG.debug("Request to create public Pqrs : {}", publicPqrsDTO);
         Pqrs pqrs = publicPqrsMapper.toEntity(publicPqrsDTO);
 
+        pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
+        pqrs.setDaysToReply(15);
         pqrs.setAccessToken(UUID.randomUUID().toString());
         pqrs.setFechaCreacion(Instant.now());
-        if (pqrs.getEstado() == null) {
-            pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
-        }
+        pqrs.setFileNumber(generateFileNumber());
+
+        ZoneId zoneSystem = ZoneId.systemDefault();
+        LocalDateTime currentDate = LocalDateTime.ofInstant(Instant.now(), zoneSystem);
+        LocalDateTime dueDate = currentDate.plusDays(15);
+        pqrs.setFechaLimiteRespuesta(dueDate);
+
+        Oficina office = oficinaRepository.findByNombre("Ventanilla única");
+        pqrs.setOficinaResponder(office);
 
         Pqrs savedPqrs = pqrsRepository.save(pqrs);
 
@@ -328,7 +352,48 @@ public class PqrsService {
             savedPqrs.set_transientAttachments(new HashSet<>());
         }
 
+        if (pqrs != null) {
+            pqrsNotificationService.sendPqrsNotification(
+                pqrs,
+                PqrsNotificationService.PqrsNotificationType.PQRS_CREATED,
+                AuthoritiesConstants.FRONT_DESK_CS
+            );
+        }
+
+        if (pqrs.getRequesterEmail() != null) {
+            mailService.sendAccessToken(savedPqrs);
+        }
+
         return publicPqrsMapper.toDto(savedPqrs);
+    }
+
+    /**
+     * Generates a unique, sequential "numero de radicado" for a new PQRS.
+     *
+     * The number is formatted as {@code R<yyyyMMdd><#####>}, where:
+     * <ul>
+     * <li>{@code R} is a static prefix.</li>
+     * <li>{@code yyyyMMdd} is the current date.</li>
+     * <li>{@code #####} is a 5-digit padded consecutive number that resets
+     * quarterly.</li>
+     * </ul>
+     * This method relies on the {@link SequenceGeneratorService} to atomically
+     * generate the consecutive number, ensuring uniqueness even under concurrent
+     * requests.
+     *
+     * @return A unique {@code String} representing the file number.
+     */
+    private String generateFileNumber() {
+        LocalDate today = LocalDate.now();
+        int year = today.getYear();
+
+        int quarter = today.get(IsoFields.QUARTER_OF_YEAR);
+        String sequenceKey = String.format("PQRS_%d_Q%d", year, quarter);
+
+        long consecutiveNumber = sequenceGenerator.getNextSequence(sequenceKey);
+
+        String formattedDate = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return String.format("R%s%05d", formattedDate, consecutiveNumber);
     }
 
     @Transactional(readOnly = true)
@@ -361,7 +426,7 @@ public class PqrsService {
 
         Respuesta response = new Respuesta();
         response.setContenido(publicResponseDTO.getContenido());
-        response.setFechaRespuesta(publicResponseDTO.getFechaRespuesta());
+        response.setFechaRespuesta(Instant.now());
         response.setPqrs(pqrs);
         response.setResolver(null);
 

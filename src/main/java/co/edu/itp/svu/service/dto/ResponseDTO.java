@@ -1,27 +1,28 @@
 package co.edu.itp.svu.service.dto;
 
-import co.edu.itp.svu.domain.User;
-import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A DTO for the {@link co.edu.itp.svu.domain.Respuesta} entity.
  */
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class RespuestaDTO implements Serializable {
+public class ResponseDTO implements Serializable {
 
     private String id;
 
     private String contenido;
 
-    @NotNull
     private Instant fechaRespuesta;
 
     private PqrsDTO pqrs;
 
-    private User resolver;
+    private UserDTO resolver;
+
+    private Set<ArchivoAdjuntoDTO> _transientAttachments = new HashSet<>();
 
     public String getId() {
         return id;
@@ -55,12 +56,20 @@ public class RespuestaDTO implements Serializable {
         this.pqrs = pqrs;
     }
 
-    public User getResolver() {
+    public UserDTO getResolver() {
         return resolver;
     }
 
-    public void setResolver(User resolver) {
+    public void setResolver(UserDTO resolver) {
         this.resolver = resolver;
+    }
+
+    public Set<ArchivoAdjuntoDTO> get_transientAttachments() {
+        return _transientAttachments;
+    }
+
+    public void set_transientAttachments(Set<ArchivoAdjuntoDTO> _transientAttachments) {
+        this._transientAttachments = _transientAttachments;
     }
 
     @Override
@@ -68,11 +77,11 @@ public class RespuestaDTO implements Serializable {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof RespuestaDTO)) {
+        if (!(o instanceof ResponseDTO)) {
             return false;
         }
 
-        RespuestaDTO respuestaDTO = (RespuestaDTO) o;
+        ResponseDTO respuestaDTO = (ResponseDTO) o;
         if (this.id == null) {
             return false;
         }
@@ -87,12 +96,16 @@ public class RespuestaDTO implements Serializable {
     // prettier-ignore
     @Override
     public String toString() {
+        String resolverId = (getResolver() != null) ? getResolver().getId() : "null";
+
         return "RespuestaDTO{" +
                 "id='" + getId() + "'" +
                 ", contenido='" + getContenido() + "'" +
                 ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-                ", resolver='" + getResolver().getId() + "'" +
+                ", resolver='" + resolverId + "'" +
                 ", pqrs=" + getPqrs() +
+                ", _transientAttachmentsCount=" +
+                (_transientAttachments != null ? _transientAttachments.size() : 0) +
                 "}";
     }
 }

@@ -2,7 +2,6 @@ package co.edu.itp.svu.service.dto.api;
 
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.UserDTO;
-import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.HashSet;
@@ -16,7 +15,6 @@ public class PublicResponseDTO implements Serializable {
 
     private String contenido;
 
-    @NotNull
     private Instant fechaRespuesta;
 
     private UserDTO resolver;

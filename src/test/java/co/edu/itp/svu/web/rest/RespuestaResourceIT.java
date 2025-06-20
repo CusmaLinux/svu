@@ -10,8 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.repository.RespuestaRepository;
-import co.edu.itp.svu.service.dto.RespuestaDTO;
-import co.edu.itp.svu.service.mapper.RespuestaMapper;
+import co.edu.itp.svu.service.dto.ResponseDTO;
+import co.edu.itp.svu.service.mapper.ResponseMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -49,7 +49,7 @@ class RespuestaResourceIT {
     private RespuestaRepository respuestaRepository;
 
     @Autowired
-    private RespuestaMapper respuestaMapper;
+    private ResponseMapper respuestaMapper;
 
     @Autowired
     private MockMvc restRespuestaMockMvc;
@@ -95,7 +95,7 @@ class RespuestaResourceIT {
     void createRespuesta() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
         var returnedRespuestaDTO = om.readValue(
             restRespuestaMockMvc
                 .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(respuestaDTO)))
@@ -103,7 +103,7 @@ class RespuestaResourceIT {
                 .andReturn()
                 .getResponse()
                 .getContentAsString(),
-            RespuestaDTO.class
+            ResponseDTO.class
         );
 
         // Validate the Respuesta in the database
@@ -118,7 +118,7 @@ class RespuestaResourceIT {
     void createRespuestaWithExistingId() throws Exception {
         // Create the Respuesta with an existing ID
         respuesta.setId("existing_id");
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         long databaseSizeBeforeCreate = getRepositoryCount();
 
@@ -138,7 +138,7 @@ class RespuestaResourceIT {
         respuesta.setFechaRespuesta(null);
 
         // Create the Respuesta, which fails.
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         restRespuestaMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(respuestaDTO)))
@@ -193,7 +193,7 @@ class RespuestaResourceIT {
         // Update the respuesta
         Respuesta updatedRespuesta = respuestaRepository.findById(respuesta.getId()).orElseThrow();
         updatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(updatedRespuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(updatedRespuesta);
 
         restRespuestaMockMvc
             .perform(
@@ -214,7 +214,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restRespuestaMockMvc
@@ -235,7 +235,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restRespuestaMockMvc
@@ -256,7 +256,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restRespuestaMockMvc
@@ -330,7 +330,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restRespuestaMockMvc
@@ -351,7 +351,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restRespuestaMockMvc
@@ -372,7 +372,7 @@ class RespuestaResourceIT {
         respuesta.setId(UUID.randomUUID().toString());
 
         // Create the Respuesta
-        RespuestaDTO respuestaDTO = respuestaMapper.toDto(respuesta);
+        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
 
         // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restRespuestaMockMvc

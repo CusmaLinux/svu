@@ -6,11 +6,39 @@ import { type IPqrs } from '@/shared/model/pqrs.model';
 
 const baseApiUrl = 'api/pqrs';
 
+const publicApiUrl = 'api/public/pqrs';
+
 export default class PqrsService {
   public find(id: string | string[]): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public findPublicByAccessToken(accessToken: string): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
+      axios
+        .get(`${publicApiUrl}/${accessToken}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public submitPublicResponse(accessToken: string, formData: FormData): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
+      axios
+        .post(`${publicApiUrl}/${accessToken}/responses`, formData)
         .then(res => {
           resolve(res.data);
         })
@@ -50,6 +78,19 @@ export default class PqrsService {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
         .post(`${baseApiUrl}`, entity)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public submitAnonymousRequest(entity: IPqrs): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
+      axios
+        .post(`${publicApiUrl}`, entity)
         .then(res => {
           resolve(res.data);
         })

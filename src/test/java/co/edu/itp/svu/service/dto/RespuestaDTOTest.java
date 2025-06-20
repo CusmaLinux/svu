@@ -9,10 +9,10 @@ class RespuestaDTOTest {
 
     @Test
     void dtoEqualsVerifier() throws Exception {
-        TestUtil.equalsVerifier(RespuestaDTO.class);
-        RespuestaDTO respuestaDTO1 = new RespuestaDTO();
+        TestUtil.equalsVerifier(ResponseDTO.class);
+        ResponseDTO respuestaDTO1 = new ResponseDTO();
         respuestaDTO1.setId("id1");
-        RespuestaDTO respuestaDTO2 = new RespuestaDTO();
+        ResponseDTO respuestaDTO2 = new ResponseDTO();
         assertThat(respuestaDTO1).isNotEqualTo(respuestaDTO2);
         respuestaDTO2.setId(respuestaDTO1.getId());
         assertThat(respuestaDTO1).isEqualTo(respuestaDTO2);

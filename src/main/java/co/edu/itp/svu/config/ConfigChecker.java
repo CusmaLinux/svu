@@ -14,19 +14,18 @@ public class ConfigChecker {
     @Value("${spring.mail.username:USERNAME_NOT_FOUND}")
     private String mailUsername;
 
-    @Value("${spring.mail.password:PASSWORD_NOT_FOUND}")
-    private String mailPassword;
+    @Value("${spring.security.oauth2.client.registration.google.client-secret:CLIENT_SECRET_NOT_FOUND}")
+    private String clientSecret;
 
     @PostConstruct
     public void checkConfig() {
         LOG.info("====================================================================");
-        LOG.info("               CHECKING SPRING MAIL CONFIGURATION                   ");
+        LOG.info("               CHECKING SPRING MAIL OAUTH2.0 CONFIGURATION                   ");
         LOG.info("Mail Username: {}", mailUsername);
-
-        if (mailPassword != null && !mailPassword.equals("PASSWORD_NOT_FOUND")) {
-            LOG.info("Mail Password: <is set>");
+        if (clientSecret != null && !clientSecret.equals("CLIENT_SECRET_NOT_FOUND")) {
+            LOG.info("Client Secret: <is set>");
         } else {
-            LOG.info("Mail Password: {}", mailPassword);
+            LOG.info("Client Secret: {}", clientSecret);
         }
         LOG.info("====================================================================");
     }
