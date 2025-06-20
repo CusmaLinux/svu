@@ -35,6 +35,19 @@ export default class PqrsService {
     });
   }
 
+  public submitPublicResponse(accessToken: string, formData: FormData): Promise<IPqrs> {
+    return new Promise<IPqrs>((resolve, reject) => {
+      axios
+        .post(`${publicApiUrl}/${accessToken}/responses`, formData)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   public retrieve(paginationQuery?: any): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios
