@@ -64,7 +64,6 @@ export default defineComponent({
 
     const navigateToVerifyPage = (accessToken: string | undefined) => {
       filesToDelete.value = [];
-      console.log('access token value: ', pqrs.value.accessToken);
       router.push({
         name: 'PublicPqrsVerify',
         query: {
