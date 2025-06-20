@@ -2,7 +2,7 @@ import { Authority } from '@/shared/security/authority';
 
 const OficinaUserCreate = () => import('@/pages/oficina/oficina-user-create.vue');
 const OficinaUserHome = () => import('@/pages/oficina/oficina-user-home.vue');
-const PublicPqrsTrack = () => import('@/entities/pqrs/pqrs-details.vue');
+const PublicPqrsDetails = () => import('@/entities/pqrs/api/public-pqrs-details.vue');
 const PublicPqrsNew = () => import('@/entities/pqrs/api/public-pqrs-create.vue');
 const PublicPqrsVerify = () => import('@/entities/pqrs/api/public-pqrs-verify.vue');
 
@@ -26,8 +26,8 @@ export default [
   },
   {
     path: '/public/pqrs/track/:accessToken',
-    name: 'PublicPqrsTrack',
-    component: PublicPqrsTrack,
+    name: 'PublicPqrsDetails',
+    component: PublicPqrsDetails,
     props: true,
   },
 
