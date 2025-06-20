@@ -6,13 +6,13 @@ import static co.edu.itp.svu.domain.RespuestaTestSamples.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class RespuestaMapperTest {
+class ResponseMapperTest {
 
-    private RespuestaMapper respuestaMapper;
+    private ResponseMapper respuestaMapper;
 
     @BeforeEach
     void setUp() {
-        respuestaMapper = new RespuestaMapperImpl();
+        respuestaMapper = new ResponseMapperImpl();
     }
 
     @Test
