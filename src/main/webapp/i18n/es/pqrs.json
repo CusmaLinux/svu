@@ -1,68 +1,83 @@
 {
   "ventanillaUnicaApp": {
     "pqrs": {
-      "home": {
-        "title": "Pqrs",
-        "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Pqrs",
-        "createOrEditLabel": "Crear o editar Pqrs",
-        "notFound": "Ningún Pqrs encontrado"
-      },
-      "created": "Un nuevo Pqrs ha sido creado con el identificador { param }",
-      "updated": "Un Pqrs ha sido actualizado con el identificador { param }",
-      "deleted": "Un Pqrs ha sido eliminado con el identificador { param }",
-      "delete": {
-        "question": "¿Seguro que quiere eliminar Pqrs { id }?"
-      },
-      "detail": {
-        "title": "Pqrs"
-      },
-      "id": "ID",
-      "titulo": "Titulo",
-      "descripcion": "Descripcion",
-      "fechaCreacion": "Fecha Creacion",
-      "daysForResponse": "Días para Respuesta",
-      "fechaLimiteRespuesta": "Fecha Limite Respuesta",
-      "estado": "Seleciona un Estado",
-      "archivosAdjuntos": "Archivos Adjuntos",
-      "oficinaResponder": "Oficina Responsable",
       "action": {
-        "resolve": "Marcar como Resuelta",
-        "inProgres": "En Proceso",
+        "title": "Acciones",
         "closePqrs": "CERRAR PQRS",
         "confirm": "Confirmar",
-        "title": "acciones",
-        "createResponse": "Dar Respuesta"
+        "inProgres": "En Proceso",
+        "resolve": "Marcar como Resuelto",
+        "createResponse": "Responder"
       },
+      "archivosAdjuntos": "Archivos Adjuntos",
+      "created": "Un nuevo PQRS ha sido creado con el identificador { param }",
+      "delete": {
+        "question": "¿Está seguro que desea eliminar el PQRS { id }?"
+      },
+      "deleted": "Un PQRS ha sido eliminado con el identificador { param }",
+      "descripcion": "Descripción",
+      "detail": {
+        "addReply": "Añadir una Respuesta",
+        "attachments": "Archivos Adjuntos",
+        "communicationHistory": "Historial de Comunicación",
+        "noAttachments": "No hay archivos adjuntos.",
+        "noCommunications": "Aún no hay historial de comunicación.",
+        "originalDescription": "Descripción Original",
+        "replyPlaceholder": "Escriba su mensaje aquí...",
+        "fileNumberDetails": "Detalles del Radicado",
+        "fileNumberId": "Número de Radicado",
+        "title": "Detalles del PQRS"
+      },
+      "errors": {
+        "idMissing": "El identificador del PQRS no se encuentra en la URL.",
+        "notFound": "El PQRS solicitado no pudo ser encontrado.",
+        "replyEmpty": "El mensaje de respuesta no puede estar vacío."
+      },
+      "estado": "Seleccione un Estado",
+      "fechaCreacion": "Fecha de Creación",
+      "fechaLimiteRespuesta": "Fecha Límite de Respuesta",
+      "fileNumber": "Número de Radicado",
+      "home": {
+        "createLabel": "Crear nuevo PQRS",
+        "createOrEditLabel": "Crear o editar un PQRS",
+        "notFound": "No se encontraron PQRS",
+        "refreshListLabel": "Actualizar lista",
+        "title": "PQRS"
+      },
+      "id": "ID",
       "messages": {
-        "resolvedSuccess": "Estado de PQRS cambio a \"RESUELTA\".",
-        "resolvedError": "Error al marcar la PQRS como resuelta.",
-        "notFound": "PQRS no encontrada.",
-        "inProgresSuccess": "Estado de PQRS cambio a \"EN PROCESO\".",
-        "messageClosePqrs": "Esta seguro de cerrar la PQRS",
-        "confirmClosePqrs": "Mensaje de Confirmación"
+        "confirmClosePqrs": "Mensaje de Confirmación",
+        "inProgresSuccess": "PQRS marcado como 'En Proceso' exitosamente.",
+        "messageClosePqrs": "¿Está seguro que desea cerrar este PQRS?",
+        "notFound": "PQRS no encontrado.",
+        "replySent": "Su respuesta ha sido enviada exitosamente.",
+        "resolvedError": "Error al marcar el PQRS como resuelto.",
+        "resolvedSuccess": "PQRS marcado como resuelto exitosamente."
       },
+      "oficinaResponder": "Oficina Responsable",
       "public": {
         "requesterEmail": {
-          "info": "Este campo es opcional. Complétalo si deseas recibir información adicional."
+          "info": "Este campo es opcional. Rellénelo si desea recibir información adicional."
         },
-        "title": "CREAR REQUERIMIENTO ANÓNIMO",
-        "type": "Tipo de requerimiento"
+        "title": "CREAR SOLICITUD ANÓNIMA",
+        "type": "Seleccione un tipo de solicitud"
       },
-
+      "titulo": "Título",
+      "type": "Tipo",
+      "updated": "Un PQRS ha sido actualizado con el identificador { param }",
       "verify": {
-        "title": "¡Gracias por enviar su información!",
-        "intro": "Hemos recibido su solicitud y la estamos procesando. A continuación, encontrará información importante sobre cómo puede hacer seguimiento a su estado.",
         "alert": {
-          "title": "¡Importante! Guarde este enlace.",
-          "body": "Utilice el siguiente enlace para verificar el estado de su solicitud en cualquier momento. Es crucial que lo guarde en un lugar seguro, ya que no podremos recuperarlo por usted."
+          "body": "Use el siguiente enlace para consultar el estado de su solicitud en cualquier momento. Es crucial que lo guarde en un lugar seguro, ya que no podremos recuperarlo por usted.",
+          "title": "¡Importante! Guarde este enlace."
         },
+        "footer": "Si tiene alguna pregunta o necesita más ayuda, no dude en contactar a nuestro equipo de soporte.",
+        "intro": "Hemos recibido su solicitud y la estamos procesando. A continuación, encontrará información importante sobre cómo puede seguir su estado.",
         "link": {
-          "description": "Puede seguir el estado de su solicitud accediendo al siguiente enlace:",
+          "copiedMessage": "¡Enlace copiado al portapapeles!",
           "copyTitle": "Copiar enlace",
-          "copiedMessage": "¡Enlace copiado al portapapeles!"
+          "description": "Puede seguir el estado de su solicitud accediendo al siguiente enlace:"
         },
-        "footer": "Si tiene alguna pregunta o necesita asistencia adicional, no dude en ponerse en contacto con nuestro equipo de soporte."
+        "title": "¡Gracias por enviar su información!"
       }
     }
   }

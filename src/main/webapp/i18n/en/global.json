@@ -86,7 +86,8 @@
       }
     },
     "field": {
-      "id": "ID"
+      "id": "ID",
+      "attachments": "Attachments"
     },
     "ribbon": {
       "dev": "Development"
@@ -99,6 +100,8 @@
       "addimage": "Add image",
       "back": "Back",
       "cancel": "Cancel",
+      "send": "Send",
+      "title": "Actions",
       "confirm": "Confirm",
       "delete": "Delete",
       "edit": "Edit",

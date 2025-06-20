@@ -87,7 +87,8 @@
       }
     },
     "field": {
-      "id": "ID"
+      "id": "ID",
+      "attachments": "Archivos adjuntos"
     },
     "ribbon": {
       "dev": "Development"
@@ -100,6 +101,8 @@
       "addimage": "Añadir imagen",
       "back": "Volver",
       "cancel": "Cancelar",
+      "send": "Enviar",
+      "title": "Acciones",
       "confirm": "Confimar",
       "delete": "Eliminar",
       "edit": "Editar",

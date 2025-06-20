@@ -1,45 +1,60 @@
 {
   "ventanillaUnicaApp": {
     "pqrs": {
-      "home": {
-        "title": "Pqrs",
-        "refreshListLabel": "Refresh list",
-        "createLabel": "Create a new Pqrs",
-        "createOrEditLabel": "Create or edit a Pqrs",
-        "notFound": "No Pqrs found"
+      "action": {
+        "title": "Actions",
+        "closePqrs": "CLOSE PQRS",
+        "confirm": "Confirm",
+        "inProgres": "In Process",
+        "resolve": "Mark as Solved",
+        "createResponse": "Responder"
       },
+      "archivosAdjuntos": "Attachments",
       "created": "A new Pqrs is created with identifier { param }",
-      "updated": "A Pqrs is updated with identifier { param }",
-      "deleted": "A Pqrs is deleted with identifier { param }",
       "delete": {
         "question": "Are you sure you want to delete Pqrs { id }?"
       },
+      "deleted": "A Pqrs is deleted with identifier { param }",
+      "descripcion": "Description",
       "detail": {
+        "addReply": "Add a Reply",
+        "attachments": "Attachments",
+        "communicationHistory": "Communication History",
+        "noAttachments": "No files attached.",
+        "noCommunications": "No communication history yet.",
+        "originalDescription": "Original Description",
+        "replyPlaceholder": "Type your message here...",
+        "fileNumberDetails": "File Number Details",
+        "fileNumberId": "File Number",
+        "title": "PQRS Details"
+      },
+      "errors": {
+        "idMissing": "PQRS identifier is missing from the URL.",
+        "notFound": "The requested PQRS could not be found.",
+        "replyEmpty": "The reply message cannot be empty."
+      },
+      "estado": "Select a State",
+      "fechaCreacion": "Date Created",
+      "fechaLimiteRespuesta": "Deadline Response",
+      "fileNumber": "File Number",
+      "home": {
+        "createLabel": "Create a new Pqrs",
+        "createOrEditLabel": "Create or edit a Pqrs",
+        "notFound": "No Pqrs found",
+        "refreshListLabel": "Refresh list",
         "title": "Pqrs"
       },
       "id": "ID",
-      "titulo": "Title",
-      "descripcion": "Description",
-      "fechaCreacion": "Date Created",
-      "fechaLimiteRespuesta": "Deadline Response",
-      "estado": "Select a State",
-      "archivosAdjuntos": "Attachments",
-      "oficinaResponder": "Responsible Office",
-      "action": {
-        "resolve": "Mark as Solved",
-        "inProgres": "In Process",
-        "closePqrs": "CLOSE PQRS",
-        "confirm": "Confirm"
-      },
       "messages": {
-        "resolvedSuccess": "PQRS marked as successfully resolved.",
-        "resolvedError": "Error when marking the PQRS as resolved.",
-        "notFound": "PQRS not found.",
+        "confirmClosePqrs": "Confirmation Message",
         "inProgresSuccess": "PQRS marked as In Process successfully.",
-        "messageClosePqrs": "You are sure to close the PQRS?",
-        "confirmClosePqrs": "Confirmation Message"
+        "messageClosePqrs": "Are you sure you want to close this PQRS?",
+        "notFound": "PQRS not found.",
+        "replySent": "Your reply has been sent successfully.",
+        "resolvedError": "Error when marking the PQRS as resolved.",
+        "resolvedSuccess": "PQRS marked as successfully resolved."
       },
-
+      "oficinaResponder": "Responsible Office",
       "public": {
         "requesterEmail": {
           "info": "This field is optional. Fill it in if you would like to receive additional information."
@@ -47,20 +62,22 @@
         "title": "CREATE ANONYMOUS REQUEST",
         "type": "Select a requirement"
       },
-
+      "titulo": "Title",
+      "type": "Type",
+      "updated": "A Pqrs is updated with identifier { param }",
       "verify": {
-        "title": "Thank you for submitting your information!",
-        "intro": "We have received your request and are processing it. Below you will find important information on how you can track its status.",
         "alert": {
-          "title": "Important! Save this link.",
-          "body": "Use the following link to check the status of your request at any time. It is crucial that you save it in a safe place, as we will not be able to recover it for you."
+          "body": "Use the following link to check the status of your request at any time. It is crucial that you save it in a safe place, as we will not be able to recover it for you.",
+          "title": "Important! Save this link."
         },
+        "footer": "If you have any questions or need further assistance, do not hesitate to contact our support team.",
+        "intro": "We have received your request and are processing it. Below you will find important information on how you can track its status.",
         "link": {
-          "description": "You can track the status of your request by accessing the following link:",
+          "copiedMessage": "Link copied to clipboard!",
           "copyTitle": "Copy link",
-          "copiedMessage": "Link copied to clipboard!"
+          "description": "You can track the status of your request by accessing the following link:"
         },
-        "footer": "If you have any questions or need further assistance, do not hesitate to contact our support team."
+        "title": "Thank you for submitting your information!"
       }
     }
   }
