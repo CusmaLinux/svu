@@ -44,6 +44,10 @@ export default defineComponent({
       return accountStore.account?.authorities?.includes('ROLE_FUNCTIONARY') ?? false;
     });
 
+    const isFrontdesk = computed(() => {
+      return accountStore.account?.authorities?.includes('ROLE_FRONT_DESK_CS') ?? false;
+    });
+
     const isAdmin = computed(() => {
       return accountStore.account?.authorities?.includes('ROLE_ADMIN') ?? false;
     });
@@ -147,12 +151,6 @@ export default defineComponent({
       { immediate: false },
     );
 
-    // onMounted(() => {
-    //   if (pqrsId.value) {
-    //     retrievePqrs(pqrsId.value);
-    //   }
-    // });
-
     return {
       ...dateFormat,
       alertService,
@@ -162,6 +160,7 @@ export default defineComponent({
       confirmCloseModalRef,
       isFunctionary,
       isAdmin,
+      isFrontdesk,
       openConfirmCloseModal,
       handleConfirmClose,
       pqrsId: pqrsIdFromRoute,

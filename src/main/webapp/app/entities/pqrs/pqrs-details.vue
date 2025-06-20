@@ -81,6 +81,7 @@
         :pqrs="pqrs"
         :is-functionary="isFunctionary"
         :is-admin="isAdmin"
+        :is-frontdesk="isFrontdesk"
         @toggle-status="toggleStatusPqrs"
         @open-close-modal="openConfirmCloseModal"
       />
