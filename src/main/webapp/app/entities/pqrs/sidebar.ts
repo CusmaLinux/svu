@@ -20,6 +20,10 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    isFrontdesk: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: ['toggle-status', 'open-close-modal'],
   setup(props, { emit }) {

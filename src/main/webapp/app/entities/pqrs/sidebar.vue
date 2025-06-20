@@ -26,7 +26,7 @@
         </button>
 
         <button
-          v-if="pqrs && pqrs.id && (isFunctionary || isAdmin) && pqrs.estado !== PqrsStatus.Closed"
+          v-if="pqrs && pqrs.id && (isFunctionary || isAdmin || isFrontdesk) && pqrs.estado !== PqrsStatus.Closed"
           @click="navigateToCreateResponse"
           class="btn btn-info"
           data-cy="sidebarCreateResponseButton"
@@ -40,11 +40,3 @@
 </template>
 
 <script lang="ts" src="./sidebar.ts"></script>
-
-<style scoped lang="scss">
-.pqrs-actions-sidebar {
-  // Estilos básicos para el sidebar. Ajusta según sea necesario.
-  // position: sticky; // Si quieres que se quede fijo al hacer scroll en la página principal
-  // top: 20px; // Ajusta el top offset
-}
-</style>
