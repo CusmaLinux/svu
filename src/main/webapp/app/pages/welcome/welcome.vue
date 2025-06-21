@@ -96,15 +96,16 @@
       </b-container>
     </main>
 
+    <!-- Mobile action buttons -->
     <div class="d-md-none fixed-bottom bg-dark p-3 shadow-lg d-flex justify-content-around">
-      <a href="#" class="d-flex flex-column align-items-center text-light text-decoration-none">
+      <router-link to="/public/pqrs/new" href="#" class="d-flex flex-column align-items-center text-light text-decoration-none">
         <font-awesome-icon icon="plus-circle" size="lg" />
         <span class="small mt-1">Crear</span>
-      </a>
-      <a href="#" class="d-flex flex-column align-items-center text-light text-decoration-none">
+      </router-link>
+      <router-link to="/" class="d-flex flex-column align-items-center text-light text-decoration-none">
         <font-awesome-icon icon="search" size="lg" />
         <span class="small mt-1">Consultar</span>
-      </a>
+      </router-link>
     </div>
   </div>
 </template>
