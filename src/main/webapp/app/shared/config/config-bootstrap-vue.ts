@@ -28,15 +28,22 @@ import {
   BDropdownText,
   BDropdownDivider,
   BSpinner,
+  BImg,
   ToastPlugin,
   IconsPlugin,
   VBModal,
   VBTooltip,
+  LayoutPlugin,
+  CardPlugin,
+  CollapsePlugin,
 } from 'bootstrap-vue';
 
 export function initBootstrapVue(vue: any) {
   vue.use(ToastPlugin);
   vue.use(IconsPlugin);
+  vue.use(LayoutPlugin);
+  vue.use(CardPlugin);
+  vue.use(CollapsePlugin);
 
   vue.component('b-badge', BBadge);
   vue.component('b-dropdown', BDropdown);
@@ -69,4 +76,5 @@ export function initBootstrapVue(vue: any) {
   vue.component('b-dropdown-divider', BDropdownDivider);
   vue.component('b-spinner', BSpinner);
   vue.directive('b-tooltip', VBTooltip);
+  vue.component('b-img', BImg);
 }

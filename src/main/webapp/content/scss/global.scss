@@ -275,4 +275,46 @@ ui bootstrap tweaks
 .cursor-pointer {
   cursor: pointer;
 }
+
+.gap-1 {
+  gap: 0.25rem;
+}
+.gap-2 {
+  gap: 0.5rem;
+}
+.gap-3 {
+  gap: 1rem;
+}
+.gap-4 {
+  gap: 1.5rem;
+}
+.gap-5 {
+  gap: 3rem;
+}
+
+.br-sm {
+  border-radius: 0.125rem !important;
+}
+.br {
+  border-radius: 0.25rem !important;
+}
+.br-md {
+  border-radius: 0.375rem !important;
+}
+.br-lg {
+  border-radius: 0.5rem !important;
+}
+.br-xl {
+  border-radius: 0.75rem !important;
+}
+.br-2xl {
+  border-radius: 1rem !important;
+}
+.br-3xl {
+  border-radius: 1.5rem !important;
+}
+.br-full {
+  border-radius: 9999px !important;
+}
+
 /* jhipster-needle-scss-add-main JHipster will add new css style */
