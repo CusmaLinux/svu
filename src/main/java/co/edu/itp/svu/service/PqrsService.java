@@ -198,6 +198,18 @@ public class PqrsService {
         return pqrsRepository
             .findById(id)
             .map(pqrs -> {
+                Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
+                pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
+
+                List<Respuesta> responsesFromDb = responseRepository.findByPqrsId(pqrs.getId());
+                Set<Respuesta> populatedResponses = new HashSet<>();
+                for (Respuesta response : responsesFromDb) {
+                    Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
+                    response.set_transientAttachments(responseAttachments != null ? responseAttachments : new HashSet<>());
+                    populatedResponses.add(response);
+                }
+                pqrs.set_transientResponses(populatedResponses);
+
                 PqrsDTO dto = pqrsMapper.toDto(pqrs);
                 Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
                 oficinaOpt.ifPresent(oficina -> {
