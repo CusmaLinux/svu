@@ -253,4 +253,23 @@ public class PqrsResource {
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getId()))
             .body(result);
     }
+
+    /**
+     * {@code GET /public/pqrs/consult/{fileNumber}} : Retrieves an access token for
+     * a given file number
+     * This endpoint is designed to be public.
+     *
+     * @param fileNumber the unique number of the file to consult.
+     * @return the ResponseEntity with status 200 (OK) and the access token as a
+     *         string in the body,
+     *         or with status 404 (Not Found) if the file number does not exist.
+     */
+    @GetMapping(value = "/public/pqrs/consult/{fileNumber}", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<String> retrieveAccessTokenByFileNumber(@PathVariable String fileNumber) {
+        LOG.debug("REST request to get access token for file number: {}", fileNumber);
+
+        Optional<String> accessToken = pqrsService.findAccessTokenByFileNumber(fileNumber);
+
+        return accessToken.map(token -> ResponseEntity.ok(token)).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
 }
