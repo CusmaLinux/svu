@@ -22,6 +22,19 @@ export default class PqrsService {
     });
   }
 
+  public retrieveAccessTokenByFileNumber(fileNumber: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      axios
+        .get(`${publicApiUrl}/consult/${fileNumber}`)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   public findPublicByAccessToken(accessToken: string): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios

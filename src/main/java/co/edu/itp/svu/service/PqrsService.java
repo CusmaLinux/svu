@@ -447,4 +447,20 @@ public class PqrsService {
         response.set_transientAttachments(savedAttachments);
         return publicResponseMapper.toDto(response);
     }
+
+    /**
+     * Finds the accessToken for a given fileNumber.
+     *
+     * @param fileNumber the file number to search for.
+     * @return an Optional containing the accessToken string if the file is found,
+     *         otherwise empty.
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> findAccessTokenByFileNumber(String fileNumber) {
+        LOG.debug("Request to find accessToken for file number: {}", fileNumber);
+
+        Optional<Pqrs> pqrsOptional = pqrsRepository.findByFileNumber(fileNumber);
+
+        return pqrsOptional.map(Pqrs::getAccessToken);
+    }
 }

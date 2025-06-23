@@ -40,4 +40,6 @@ public interface PqrsRepository extends MongoRepository<Pqrs, String> {
     List<Pqrs> findAllByFechaLimiteRespuestaBetweenAndEstadoNotIn(Instant now, Instant upcomingDate, List<String> states);
 
     Optional<Pqrs> findByAccessToken(String accessToken);
+
+    Optional<Pqrs> findByFileNumber(String fileNumber);
 }
