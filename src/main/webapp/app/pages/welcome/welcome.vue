@@ -16,7 +16,7 @@
               <font-awesome-icon icon="plus-circle" class="me-2" />
               Crear PQRSD
             </b-button>
-            <b-button variant="secondary" size="lg" to="" class="d-flex align-items-center br-lg">
+            <b-button variant="secondary" size="lg" to="/public/pqrs/consult" class="d-flex align-items-center br-lg">
               <font-awesome-icon icon="search" class="me-2" />
               Consultar PQRSD
             </b-button>
@@ -102,7 +102,7 @@
         <font-awesome-icon icon="plus-circle" size="lg" />
         <span class="small mt-1">Crear</span>
       </router-link>
-      <router-link to="/" class="d-flex flex-column align-items-center text-light text-decoration-none">
+      <router-link to="/public/pqrs/consult" class="d-flex flex-column align-items-center text-light text-decoration-none">
         <font-awesome-icon icon="search" size="lg" />
         <span class="small mt-1">Consultar</span>
       </router-link>
