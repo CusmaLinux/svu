@@ -22,8 +22,8 @@
             <span v-text="t$('ventanillaUnicaApp.respuesta.pqr')"></span>
           </dt>
           <dd>
-            <div v-if="respuesta.pqr">
-              <router-link :to="{ name: 'PqrsView', params: { pqrsId: respuesta.pqr.id } }">{{ respuesta.pqr.id }}</router-link>
+            <div v-if="respuesta.pqrs">
+              <router-link :to="{ name: 'PqrsView', params: { pqrsId: respuesta.pqrs.id } }">{{ respuesta.pqrs.id }}</router-link>
             </div>
           </dd>
         </dl>

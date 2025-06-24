@@ -11,12 +11,16 @@ import { useAlertService } from '@/shared/alert/alert.service';
 import { useAccountStore } from '@/shared/config/store/account-store';
 
 import PqrsActionsSidebar from './sidebar.vue';
+import ResponseItem from '@/entities/respuesta/response-item.vue';
+import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'PqrsDetails',
   components: {
-    PqrsActionsSidebar,
+    sidebar: PqrsActionsSidebar,
+    'response-item': ResponseItem,
+    'attachment-list': AttachmentList,
   },
   setup() {
     const { t } = useI18n();
@@ -50,6 +54,20 @@ export default defineComponent({
 
     const isAdmin = computed(() => {
       return accountStore.account?.authorities?.includes('ROLE_ADMIN') ?? false;
+    });
+
+    const statusClass = computed(() => {
+      if (!pqrs.value?.estado) return 'status-default';
+      switch (pqrs.value.estado.toUpperCase()) {
+        case PqrsStatus.Pending:
+          return 'status-open';
+        case PqrsStatus.Resolved:
+          return 'status-closed';
+        case PqrsStatus.InProcess:
+          return 'status-in-progress';
+        default:
+          return 'status-default';
+      }
     });
 
     const retrievePqrs = async (id: string | string[]) => {
@@ -165,6 +183,7 @@ export default defineComponent({
       handleConfirmClose,
       pqrsId: pqrsIdFromRoute,
       loading,
+      statusClass,
 
       ...dataUtils,
 

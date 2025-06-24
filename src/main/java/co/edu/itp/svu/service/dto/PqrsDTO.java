@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -41,6 +42,10 @@ public class PqrsDTO implements Serializable {
     private OficinaDTO oficinaResponder;
 
     private Set<ArchivoAdjuntoDTO> archivosAdjuntosDTO;
+
+    private Set<ArchivoAdjuntoDTO> _transientAttachments = new HashSet<>();
+
+    private Set<ResponseDTO> _transientResponses = new HashSet<>();
 
     public Set<ArchivoAdjuntoDTO> getArchivosAdjuntosDTO() {
         return archivosAdjuntosDTO;
@@ -144,6 +149,22 @@ public class PqrsDTO implements Serializable {
 
     public void setOficinaResponder(OficinaDTO oficinaResponder) {
         this.oficinaResponder = oficinaResponder;
+    }
+
+    public Set<ResponseDTO> get_transientResponses() {
+        return _transientResponses;
+    }
+
+    public void set_transientResponses(Set<ResponseDTO> _transientResponses) {
+        this._transientResponses = _transientResponses;
+    }
+
+    public Set<ArchivoAdjuntoDTO> get_transientAttachments() {
+        return _transientAttachments;
+    }
+
+    public void set_transientAttachments(Set<ArchivoAdjuntoDTO> _transientAttachments) {
+        this._transientAttachments = _transientAttachments;
     }
 
     @Override
