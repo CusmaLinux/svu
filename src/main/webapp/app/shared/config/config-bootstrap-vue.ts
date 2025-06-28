@@ -36,6 +36,7 @@ import {
   LayoutPlugin,
   CardPlugin,
   CollapsePlugin,
+  TablePlugin,
 } from 'bootstrap-vue';
 
 export function initBootstrapVue(vue: any) {
@@ -44,6 +45,7 @@ export function initBootstrapVue(vue: any) {
   vue.use(LayoutPlugin);
   vue.use(CardPlugin);
   vue.use(CollapsePlugin);
+  vue.use(TablePlugin);
 
   vue.component('b-badge', BBadge);
   vue.component('b-dropdown', BDropdown);

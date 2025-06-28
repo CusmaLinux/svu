@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container>
     <h2 id="page-heading" data-cy="PqrsHeading">
       <span v-text="t$('ventanillaUnicaApp.pqrs.home.title')" id="pqrs-heading"></span>
       <div class="d-flex justify-content-end">
@@ -8,9 +8,8 @@
           <span v-text="t$('ventanillaUnicaApp.pqrs.home.refreshListLabel')"></span>
         </button>
         <router-link :to="{ name: 'PqrsCreate' }" custom v-slot="{ navigate }">
-          <!--<button @click="navigate" id="jh-create-entity" data-cy="entityCreateButton" class="btn btn-primary jh-create-entity create-pqrs"> -->
           <button
-            v-if="esAdmin"
+            v-if="isAdmin"
             @click="navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
@@ -22,78 +21,98 @@
         </router-link>
       </div>
     </h2>
+    <!-- Filter begin -->
+    <b-card class="shadow mb-4">
+      <h3 class="font-weight-bold mb-4">Filtrar PQRS</h3>
+      <b-form name="consultForm" no-validate>
+        <b-form-group>
+          <template #label> Número de Radicado <span class="text-danger">*</span> </template>
+
+          <b-input-group class="d-flex flex-row">
+            <b-input-group-prepend is-text>
+              <font-awesome-icon icon="file-lines" class="text-secondary" />
+            </b-input-group-prepend>
+            <b-form-input
+              id="numero_radicado"
+              name="numero_radicado"
+              type="text"
+              data-cy="pqrsSearchInput"
+              v-model="searchQuery"
+              placeholder="Busca por Titulo o Nro de Radicado"
+              required
+            >
+            </b-form-input>
+            <b-input-group-prepend>
+              <button class="btn btn-danger" type="button" v-if="searchQuery" @click="clearSearch()">
+                <font-awesome-icon icon="trash-can"></font-awesome-icon>
+              </button>
+            </b-input-group-prepend>
+          </b-input-group>
+        </b-form-group>
+      </b-form>
+    </b-card>
+    <!-- Filter end -->
     <br />
+
     <div class="alert alert-warning" v-if="!isFetching && pqrs && pqrs.length === 0">
       <span v-text="t$('ventanillaUnicaApp.pqrs.home.notFound')"></span>
     </div>
-    <div class="table-responsive" v-if="pqrs && pqrs.length > 0">
-      <table class="table table-striped" aria-describedby="pqrs">
-        <thead>
-          <tr>
-            <th scope="row" @click="changeOrder('id')">
-              <span v-text="t$('global.field.id')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'id'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('titulo')">
+
+    <!-- Begin of the table -->
+    <div v-if="pqrs && pqrs.length > 0">
+      <b-table-simple striped hover responsive aria-describedby="pqrs">
+        <b-thead>
+          <b-tr>
+            <b-th @click="changeOrder('fileNumber')">
+              <span v-text="t$('ventanillaUnicaApp.pqrs.fileNumber')"></span>
+              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'fileNumber'"></jhi-sort-indicator>
+            </b-th>
+            <b-th @click="changeOrder('titulo')">
               <span v-text="t$('ventanillaUnicaApp.pqrs.titulo')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'titulo'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('descripcion')">
-              <span v-text="t$('ventanillaUnicaApp.pqrs.descripcion')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'descripcion'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('fechaCreacion')">
-              <span v-text="t$('ventanillaUnicaApp.pqrs.fechaCreacion')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'fechaCreacion'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('fechaLimiteRespuesta')">
-              <span v-text="t$('ventanillaUnicaApp.pqrs.fechaLimiteRespuesta')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'fechaLimiteRespuesta'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('estado')">
-              <span v-text="t$('ventanillaUnicaApp.pqrs.estado')"></span>
+            </b-th>
+            <b-th @click="changeOrder('estado')">
+              <span>Estado</span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'estado'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('oficinaResponder.id')">
-              <span v-text="t$('ventanillaUnicaApp.pqrs.oficinaResponder')"></span>
+            </b-th>
+            <b-th @click="changeOrder('oficinaResponder.id')">
+              <span>Oficina</span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'oficinaResponder.id'"></jhi-sort-indicator>
-            </th>
-            <th scope="row"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="pqrs in pqrs" :key="pqrs.id" data-cy="entityTable">
-            <td>
-              <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqrs.id } }">{{ pqrs.id }}</router-link>
-            </td>
-            <td>{{ pqrs.titulo }}</td>
-            <td>{{ pqrs.descripcion }}</td>
-            <td>{{ formatDateShort(pqrs.fechaCreacion) || '' }}</td>
-            <td>{{ formatDateShort(pqrs.fechaLimiteRespuesta) || '' }}</td>
-            <td>{{ pqrs.estado }}</td>
-            <td>
-              <div v-if="pqrs.oficinaResponder">
-                <router-link :to="{ name: 'OficinaView', params: { oficinaId: pqrs.oficinaResponder.id } }">{{
-                  pqrs.oficinaResponder.nombre
+            </b-th>
+            <b-th></b-th>
+          </b-tr>
+        </b-thead>
+        <b-tbody>
+          <b-tr v-for="pqr in pqrs" :key="pqr.id" data-cy="entityTable">
+            <b-td>
+              <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqr.id } }">{{ pqr.fileNumber }}</router-link>
+            </b-td>
+            <b-td>{{ pqr.titulo }}</b-td>
+            <b-td>{{ pqr.estado }}</b-td>
+            <b-td>
+              <div v-if="pqr.oficinaResponder">
+                <router-link :to="{ name: 'OficinaView', params: { oficinaId: pqr.oficinaResponder.id } }">{{
+                  pqr.oficinaResponder.nombre
                 }}</router-link>
               </div>
-            </td>
-            <td class="text-right">
+            </b-td>
+            <b-td class="text-right">
               <div class="btn-group">
-                <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqrs.id } }" custom v-slot="{ navigate }">
+                <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqr.id } }" custom v-slot="{ navigate }">
                   <button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
                     <font-awesome-icon icon="eye"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>
                 </router-link>
-                <router-link :to="{ name: 'PqrsEdit', params: { pqrsId: pqrs.id } }" custom v-slot="{ navigate }">
+                <router-link :to="{ name: 'PqrsEdit', params: { pqrsId: pqr.id } }" custom v-slot="{ navigate }">
                   <button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>
                 </router-link>
                 <b-button
-                  @click="prepareRemove(pqrs)"
+                  v-if="isAdmin"
+                  @click="prepareRemove(pqr)"
                   variant="danger"
                   class="btn btn-sm"
                   data-cy="entityDeleteButton"
@@ -103,11 +122,13 @@
                   <span class="d-none d-md-inline" v-text="t$('entity.action.delete')"></span>
                 </b-button>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </b-td>
+          </b-tr>
+        </b-tbody>
+      </b-table-simple>
     </div>
+    <!--End of the table-->
+
     <b-modal ref="removeEntity" id="removeEntity">
       <template #modal-title>
         <span id="ventanillaUnicaApp.pqrs.delete.question" data-cy="pqrsDeleteDialogHeading" v-text="t$('entity.delete.title')"></span>
@@ -137,7 +158,7 @@
         <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
       </div>
     </div>
-  </div>
+  </b-container>
 </template>
 
 <script lang="ts" src="./pqrs.component.ts"></script>

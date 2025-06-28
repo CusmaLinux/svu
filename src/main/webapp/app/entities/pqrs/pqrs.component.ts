@@ -8,6 +8,7 @@ import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { useAccountStore } from '@/shared/config/store/account-store';
 import type LoginService from '@/account/login.service';
+import { Authority } from '@/shared/security/authority';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -24,9 +25,9 @@ export default defineComponent({
     const authenticated = inject<ComputedRef<boolean>>('authenticated');
     const username = inject<ComputedRef<string>>('currentUsername');
 
-    const esAdmin = ref(false);
+    const isAdmin = ref(false);
     const itemsPerPage = ref(20);
-    const queryCount: Ref<number> = ref(null);
+    const queryCount: Ref<number | null> = ref(null);
     const page: Ref<number> = ref(1);
     const propOrder = ref('id');
     const reverse = ref(false);
@@ -35,9 +36,27 @@ export default defineComponent({
     const pqrs: Ref<IPqrs[]> = ref([]);
 
     const isFetching = ref(false);
+    const searchQuery: Ref<string> = ref('');
+
+    /**
+     * A utility function to delay the execution of a function.
+     * @param fn The function to execute after the delay.
+     * @param delay The delay in milliseconds.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    const debounce = (fn: Function, delay: number) => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      return (...args: any[]) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => fn(...args), delay);
+      };
+    };
 
     const clear = () => {
       page.value = 1;
+      searchQuery.value = '';
     };
 
     const sort = (): Array<any> => {
@@ -56,11 +75,11 @@ export default defineComponent({
           size: itemsPerPage.value,
           sort: sort(),
         };
-        const res = await pqrsService().retrieve(paginationQuery);
+        const res = await pqrsService().search(paginationQuery, searchQuery.value);
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
         pqrs.value = res.data;
-      } catch (err) {
+      } catch (err: any) {
         alertService.showHttpError(err.response);
       } finally {
         isFetching.value = false;
@@ -76,19 +95,11 @@ export default defineComponent({
 
       if (authenticated?.value) {
         const userRole = loginService?.getUserRole();
-        console.log('🔍 Usuario autenticado con rol (onMounted):', userRole);
-        //esAdmin.value = userRole === 'ROLE_ADMIN';
-        if (userRole === 'ROLE_ADMIN') {
-          esAdmin.value = true; //  Corrección aquí
-          console.log(' esAdmin cambiado a TRUE');
-        } else {
-          esAdmin.value = false; //  Corrección aquí
-          console.log(' esAdmin cambiado a FALSE');
-        }
+        isAdmin.value = userRole === Authority.ADMIN;
       }
     });
 
-    const removeId: Ref<string> = ref(null);
+    const removeId: Ref<string | null | undefined> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IPqrs) => {
       removeId.value = instance.id;
@@ -99,13 +110,13 @@ export default defineComponent({
     };
     const removePqrs = async () => {
       try {
-        await pqrsService().delete(removeId.value);
+        if (removeId.value) await pqrsService().delete(removeId.value);
         const message = t$('ventanillaUnicaApp.pqrs.deleted', { param: removeId.value }).toString();
         alertService.showInfo(message, { variant: 'danger' });
         removeId.value = null;
         retrievePqrss();
         closeDialog();
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -117,20 +128,27 @@ export default defineComponent({
         reverse.value = false;
       }
       propOrder.value = newOrder;
+
+      page.value = 1;
+      retrievePqrss();
     };
 
-    // Whenever order changes, reset the pagination
-    watch([propOrder, reverse], async () => {
-      if (page.value === 1) {
-        // first page, retrieve new data
-        await retrievePqrss();
+    const clearSearch = () => {
+      searchQuery.value = '';
+    };
+
+    const debouncedSearch = debounce(() => {
+      if (page.value !== 1) {
+        page.value = 1;
       } else {
-        // reset the pagination
-        clear();
+        retrievePqrss();
       }
+    }, 500);
+
+    watch(searchQuery, () => {
+      debouncedSearch();
     });
 
-    // Whenever page changes, switch to the new page.
     watch(page, async () => {
       await retrievePqrss();
     });
@@ -147,6 +165,8 @@ export default defineComponent({
       prepareRemove,
       closeDialog,
       removePqrs,
+      searchQuery,
+      clearSearch,
       itemsPerPage,
       queryCount,
       page,
@@ -155,9 +175,9 @@ export default defineComponent({
       totalItems,
       changeOrder,
       t$,
-      authenticated, //** */
+      authenticated,
       username,
-      esAdmin, // ** /
+      isAdmin,
       ...dataUtils,
     };
   },
