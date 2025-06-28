@@ -51,6 +51,7 @@ import { faIdCard } from '@fortawesome/free-solid-svg-icons/faIdCard';
 import { faFolderOpen } from '@fortawesome/free-solid-svg-icons/faFolderOpen';
 import { faComments } from '@fortawesome/free-solid-svg-icons/faComments';
 import { faComment } from '@fortawesome/free-solid-svg-icons/faComment';
+import { faTrashCan } from '@fortawesome/free-solid-svg-icons/faTrashCan';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -159,6 +160,7 @@ export function initFortAwesome(vue) {
     faFolderOpen,
     faComments,
     faComment,
+    faTrashCan,
   );
 }
 export function initI18N(opts: any = {}) {

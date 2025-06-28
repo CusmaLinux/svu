@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -105,7 +106,7 @@ public class PqrsResource {
         @RequestParam(defaultValue = "CERRADA", required = false) String state,
         @RequestParam(required = false) String idOffice,
         @RequestParam(name = "date", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
-        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get a page of Pqrs");
         if (date == null) {
@@ -113,6 +114,17 @@ public class PqrsResource {
         }
         LocalDate deadline = date.plusDays(1);
         Page<PqrsDTO> page = pqrsService.findAll(state, idOffice, deadline, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    @GetMapping("/pqrs/search")
+    public ResponseEntity<List<PqrsDTO>> searchPqrs(
+        @RequestParam(required = false, defaultValue = "") String query,
+        @ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to search for a page of Pqrs with query: {}", query);
+        Page<PqrsDTO> page = pqrsService.search(query, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }

@@ -36,9 +36,9 @@
       "estado": "Seleccione un Estado",
       "fechaCreacion": "Fecha de Creación",
       "fechaLimiteRespuesta": "Fecha Límite de Respuesta",
-      "fileNumber": "Número de Radicado",
+      "fileNumber": "Nro de Radicado",
       "home": {
-        "createLabel": "Crear nuevo PQRS",
+        "createLabel": "Crear nueva PQRS",
         "createOrEditLabel": "Crear o editar un PQRS",
         "notFound": "No se encontraron PQRS",
         "refreshListLabel": "Actualizar lista",

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the Pqrs entity.
  */
 @Repository
-public interface PqrsRepository extends MongoRepository<Pqrs, String> {
+public interface PqrsRepository extends MongoRepository<Pqrs, String>, PqrsQueryRepository {
     List<Pqrs> findByOficinaResponder_Id(String oficinaId);
 
     List<Pqrs> findByEstadoAndFechaCreacionLessThanEqual(String state, LocalDate date, Pageable pageable);

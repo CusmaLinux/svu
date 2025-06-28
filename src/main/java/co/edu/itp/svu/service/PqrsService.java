@@ -152,6 +152,12 @@ public class PqrsService {
         return pqrsRepository.findAll(pageable).map(pqrsMapper::toDto);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PqrsDTO> search(String query, Pageable pageable) {
+        LOG.debug("Request to search for a page of Pqrs for query {}", query);
+        return pqrsRepository.search(query, pageable).map(pqrsMapper::toDto);
+    }
+
     /**
      * Get one pqrs by id.
      *
