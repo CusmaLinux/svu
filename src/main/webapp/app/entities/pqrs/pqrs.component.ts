@@ -6,7 +6,6 @@ import { type IPqrs } from '@/shared/model/pqrs.model';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
-import { useAccountStore } from '@/shared/config/store/account-store';
 import type LoginService from '@/account/login.service';
 import { Authority } from '@/shared/security/authority';
 
@@ -20,7 +19,6 @@ export default defineComponent({
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
-    const store = useAccountStore();
     const loginService = inject<LoginService>('loginService');
     const authenticated = inject<ComputedRef<boolean>>('authenticated');
     const username = inject<ComputedRef<string>>('currentUsername');
@@ -75,7 +73,7 @@ export default defineComponent({
           size: itemsPerPage.value,
           sort: sort(),
         };
-        const res = await pqrsService().search(paginationQuery, searchQuery.value);
+        const res = await pqrsService().search(paginationQuery, searchQuery.value.trim());
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
         pqrs.value = res.data;

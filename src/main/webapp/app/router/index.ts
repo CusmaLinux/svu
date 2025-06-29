@@ -1,6 +1,6 @@
 import { createRouter as createVueRouter, createWebHistory } from 'vue-router';
 
-const Welcome = () => import('@/pages/welcome/welcome.vue');
+const Root = () => import('@/pages/root/root.vue');
 const Error = () => import('@/core/error/error.vue');
 import account from '@/router/account';
 import admin from '@/router/admin';
@@ -14,7 +14,7 @@ export const createRouter = () =>
       {
         path: '/',
         name: 'Welcome',
-        component: Welcome,
+        component: Root,
       },
       {
         path: '/forbidden',

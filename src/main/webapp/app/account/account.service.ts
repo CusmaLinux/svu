@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { type AccountStore } from '@/store';
+import { Authority } from '@/shared/security/authority';
 
 export default class AccountService {
   constructor(private store: AccountStore) {}
@@ -71,6 +72,17 @@ export default class AccountService {
       authorities = [authorities];
     }
     return this.checkAuthorities(authorities);
+  }
+
+  public retrieveMainRole() {
+    for (const value of Object.values(Authority)) {
+      if (typeof value === 'string') {
+        console.log('value: ', value);
+        if (this.checkAuthorities([value])) {
+          return value;
+        }
+      }
+    }
   }
 
   public get authenticated(): boolean {

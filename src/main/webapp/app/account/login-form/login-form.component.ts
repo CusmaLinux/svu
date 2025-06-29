@@ -38,9 +38,13 @@ export default defineComponent({
 
         authenticationError.value = false;
         loginService.hideLogin();
-        await accountService.retrieveAccount();
+        const verifyLogin = await accountService.retrieveAccount();
         if (route.path === '/forbidden') {
           previousState();
+        } else {
+          if (verifyLogin) {
+            router.push({ name: 'Welcome', replace: true });
+          }
         }
       } catch (_error) {
         authenticationError.value = true;
