@@ -155,6 +155,10 @@ const app = createApp({
       'currentUsername',
       computed(() => store.account?.login),
     );
+    provide(
+      'mainRole',
+      computed(() => accountService.retrieveMainRole()),
+    );
 
     provide('translationService', translationService);
     provide('accountService', accountService);
