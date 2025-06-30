@@ -2,6 +2,7 @@ package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.domain.InformePqrs;
 import co.edu.itp.svu.repository.InformePqrsRepository;
+import co.edu.itp.svu.service.dto.InformPqrsCounts;
 import co.edu.itp.svu.service.dto.InformePqrsDTO;
 import co.edu.itp.svu.service.mapper.InformePqrsMapper;
 import java.util.Optional;
@@ -12,7 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
- * Service Implementation for managing {@link co.edu.itp.svu.domain.InformePqrs}.
+ * Service Implementation for managing
+ * {@link co.edu.itp.svu.domain.InformePqrs}.
  */
 @Service
 public class InformePqrsService {
@@ -29,33 +31,44 @@ public class InformePqrsService {
     }
 
     /**
-     * Save a informePqrs.
+     * Save a informPqrs.
      *
      * @param informePqrsDTO the entity to save.
      * @return the persisted entity.
      */
     public InformePqrsDTO save(InformePqrsDTO informePqrsDTO) {
         LOG.debug("Request to save InformePqrs : {}", informePqrsDTO);
-        InformePqrs informePqrs = informePqrsMapper.toEntity(informePqrsDTO);
-        informePqrs = informePqrsRepository.save(informePqrs);
-        return informePqrsMapper.toDto(informePqrs);
+        InformePqrs informPqrs = informePqrsMapper.toEntity(informePqrsDTO);
+
+        String oficinaId = (informPqrs.getOficina() != null) ? informPqrs.getOficina().getId() : null;
+
+        InformPqrsCounts counts = informePqrsRepository
+            .calculatePqrsTotals(informPqrs.getFechaInicio(), informPqrs.getFechaFin(), oficinaId)
+            .orElse(new InformPqrsCounts());
+
+        informPqrs.setTotalPqrs(counts.getTotalPqrs() != null ? counts.getTotalPqrs() : 0);
+        informPqrs.setTotalResueltas(counts.getTotalResueltas() != null ? counts.getTotalResueltas() : 0);
+        informPqrs.setTotalPendientes(counts.getTotalPendientes() != null ? counts.getTotalPendientes() : 0);
+
+        informPqrs = informePqrsRepository.save(informPqrs);
+        return informePqrsMapper.toDto(informPqrs);
     }
 
     /**
-     * Update a informePqrs.
+     * Update a informPqrs.
      *
      * @param informePqrsDTO the entity to save.
      * @return the persisted entity.
      */
     public InformePqrsDTO update(InformePqrsDTO informePqrsDTO) {
         LOG.debug("Request to update InformePqrs : {}", informePqrsDTO);
-        InformePqrs informePqrs = informePqrsMapper.toEntity(informePqrsDTO);
-        informePqrs = informePqrsRepository.save(informePqrs);
-        return informePqrsMapper.toDto(informePqrs);
+        InformePqrs informPqrs = informePqrsMapper.toEntity(informePqrsDTO);
+        informPqrs = informePqrsRepository.save(informPqrs);
+        return informePqrsMapper.toDto(informPqrs);
     }
 
     /**
-     * Partially update a informePqrs.
+     * Partially update a informPqrs.
      *
      * @param informePqrsDTO the entity to update partially.
      * @return the persisted entity.
@@ -75,7 +88,7 @@ public class InformePqrsService {
     }
 
     /**
-     * Get all the informePqrs.
+     * Get all the informPqrs.
      *
      * @param pageable the pagination information.
      * @return the list of entities.
@@ -86,7 +99,7 @@ public class InformePqrsService {
     }
 
     /**
-     * Get one informePqrs by id.
+     * Get one informPqrs by id.
      *
      * @param id the id of the entity.
      * @return the entity.
@@ -97,7 +110,7 @@ public class InformePqrsService {
     }
 
     /**
-     * Delete the informePqrs by id.
+     * Delete the informPqrs by id.
      *
      * @param id the id of the entity.
      */

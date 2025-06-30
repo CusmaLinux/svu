@@ -19,13 +19,10 @@ public class InformePqrsDTO implements Serializable {
     @NotNull
     private Instant fechaFin;
 
-    @NotNull
     private Integer totalPqrs;
 
-    @NotNull
     private Integer totalResueltas;
 
-    @NotNull
     private Integer totalPendientes;
 
     private OficinaDTO oficina;

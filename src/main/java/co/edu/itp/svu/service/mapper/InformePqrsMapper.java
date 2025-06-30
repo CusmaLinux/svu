@@ -17,5 +17,6 @@ public interface InformePqrsMapper extends EntityMapper<InformePqrsDTO, InformeP
     @Named("oficinaId")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
+    @Mapping(target = "nombre", source = "nombre")
     OficinaDTO toDtoOficinaId(Oficina oficina);
 }
