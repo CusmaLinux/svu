@@ -31,13 +31,13 @@ export default defineComponent({
 
     const previousState = () => router.go(-1);
 
-    const retrieveInformePqrs = async informePqrsId => {
+    const retrieveInformePqrs = async (informePqrsId: string | string[]) => {
       try {
         const res = await informePqrsService().find(informePqrsId);
         res.fechaInicio = new Date(res.fechaInicio);
         res.fechaFin = new Date(res.fechaFin);
         informePqrs.value = res;
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -64,18 +64,6 @@ export default defineComponent({
       },
       fechaFin: {
         required: validations.required(t$('entity.validation.required').toString()),
-      },
-      totalPqrs: {
-        required: validations.required(t$('entity.validation.required').toString()),
-        integer: validations.integer(t$('entity.validation.number').toString()),
-      },
-      totalResueltas: {
-        required: validations.required(t$('entity.validation.required').toString()),
-        integer: validations.integer(t$('entity.validation.number').toString()),
-      },
-      totalPendientes: {
-        required: validations.required(t$('entity.validation.required').toString()),
-        integer: validations.integer(t$('entity.validation.number').toString()),
       },
       oficina: {},
     };

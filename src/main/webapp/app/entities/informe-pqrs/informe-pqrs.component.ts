@@ -16,7 +16,7 @@ export default defineComponent({
     const alertService = inject('alertService', () => useAlertService(), true);
 
     const itemsPerPage = ref(20);
-    const queryCount: Ref<number> = ref(null);
+    const queryCount: Ref<number | null> = ref(null);
     const page: Ref<number> = ref(1);
     const propOrder = ref('id');
     const reverse = ref(false);
@@ -50,7 +50,7 @@ export default defineComponent({
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
         informePqrs.value = res.data;
-      } catch (err) {
+      } catch (err: any) {
         alertService.showHttpError(err.response);
       } finally {
         isFetching.value = false;
@@ -65,7 +65,7 @@ export default defineComponent({
       await retrieveInformePqrss();
     });
 
-    const removeId: Ref<string> = ref(null);
+    const removeId: Ref<string | null | undefined> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IInformePqrs) => {
       removeId.value = instance.id;
@@ -76,13 +76,13 @@ export default defineComponent({
     };
     const removeInformePqrs = async () => {
       try {
-        await informePqrsService().delete(removeId.value);
+        if (removeId.value) await informePqrsService().delete(removeId.value);
         const message = t$('ventanillaUnicaApp.informePqrs.deleted', { param: removeId.value }).toString();
         alertService.showInfo(message, { variant: 'danger' });
         removeId.value = null;
         retrieveInformePqrss();
         closeDialog();
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };

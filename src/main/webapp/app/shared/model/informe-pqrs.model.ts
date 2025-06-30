@@ -2,8 +2,8 @@ import { type IOficina } from '@/shared/model/oficina.model';
 
 export interface IInformePqrs {
   id?: string;
-  fechaInicio?: Date;
-  fechaFin?: Date;
+  fechaInicio?: string | number | Date;
+  fechaFin?: string | number | Date;
   totalPqrs?: number;
   totalResueltas?: number;
   totalPendientes?: number;
@@ -13,8 +13,8 @@ export interface IInformePqrs {
 export class InformePqrs implements IInformePqrs {
   constructor(
     public id?: string,
-    public fechaInicio?: Date,
-    public fechaFin?: Date,
+    public fechaInicio?: string | number | Date,
+    public fechaFin?: string | number | Date,
     public totalPqrs?: number,
     public totalResueltas?: number,
     public totalPendientes?: number,

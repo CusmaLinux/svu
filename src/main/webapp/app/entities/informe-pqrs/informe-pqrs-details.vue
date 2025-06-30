@@ -42,7 +42,7 @@
           <dd>
             <div v-if="informePqrs.oficina">
               <router-link :to="{ name: 'OficinaView', params: { oficinaId: informePqrs.oficina.id } }">{{
-                informePqrs.oficina.id
+                informePqrs.oficina.nombre
               }}</router-link>
             </div>
           </dd>

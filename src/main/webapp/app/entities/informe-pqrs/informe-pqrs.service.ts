@@ -7,7 +7,7 @@ import { type IInformePqrs } from '@/shared/model/informe-pqrs.model';
 const baseApiUrl = 'api/informe-pqrs';
 
 export default class InformePqrsService {
-  public find(id: string): Promise<IInformePqrs> {
+  public find(id: string | string[]): Promise<IInformePqrs> {
     return new Promise<IInformePqrs>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)

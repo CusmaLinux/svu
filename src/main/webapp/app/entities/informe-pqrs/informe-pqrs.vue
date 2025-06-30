@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container>
     <h2 id="page-heading" data-cy="InformePqrsHeading">
       <span v-text="t$('ventanillaUnicaApp.informePqrs.home.title')" id="informe-pqrs-heading"></span>
       <div class="d-flex justify-content-end">
@@ -40,18 +40,6 @@
               <span v-text="t$('ventanillaUnicaApp.informePqrs.fechaFin')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'fechaFin'"></jhi-sort-indicator>
             </th>
-            <th scope="row" @click="changeOrder('totalPqrs')">
-              <span v-text="t$('ventanillaUnicaApp.informePqrs.totalPqrs')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'totalPqrs'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('totalResueltas')">
-              <span v-text="t$('ventanillaUnicaApp.informePqrs.totalResueltas')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'totalResueltas'"></jhi-sort-indicator>
-            </th>
-            <th scope="row" @click="changeOrder('totalPendientes')">
-              <span v-text="t$('ventanillaUnicaApp.informePqrs.totalPendientes')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'totalPendientes'"></jhi-sort-indicator>
-            </th>
             <th scope="row" @click="changeOrder('oficina.id')">
               <span v-text="t$('ventanillaUnicaApp.informePqrs.oficina')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'oficina.id'"></jhi-sort-indicator>
@@ -66,13 +54,10 @@
             </td>
             <td>{{ formatDateShort(informePqrs.fechaInicio) || '' }}</td>
             <td>{{ formatDateShort(informePqrs.fechaFin) || '' }}</td>
-            <td>{{ informePqrs.totalPqrs }}</td>
-            <td>{{ informePqrs.totalResueltas }}</td>
-            <td>{{ informePqrs.totalPendientes }}</td>
             <td>
               <div v-if="informePqrs.oficina">
                 <router-link :to="{ name: 'OficinaView', params: { oficinaId: informePqrs.oficina.id } }">{{
-                  informePqrs.oficina.id
+                  informePqrs.oficina.nombre
                 }}</router-link>
               </div>
             </td>
@@ -139,7 +124,7 @@
         <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
       </div>
     </div>
-  </div>
+  </b-container>
 </template>
 
 <script lang="ts" src="./informe-pqrs.component.ts"></script>
