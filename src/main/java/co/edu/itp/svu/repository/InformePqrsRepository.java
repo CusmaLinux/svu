@@ -8,4 +8,4 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the InformePqrs entity.
  */
 @Repository
-public interface InformePqrsRepository extends MongoRepository<InformePqrs, String> {}
+public interface InformePqrsRepository extends MongoRepository<InformePqrs, String>, InformPqrsQueryRepository {}
