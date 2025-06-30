@@ -5,9 +5,9 @@
 
       <div class="d-flex flex-column gap-3">
         <b-button
-          v-if="pqrs && pqrs.id && isFunctionary && pqrs.estado !== PqrsStatus.Closed"
+          v-if="pqrs && pqrs.id && (isFunctionary || isFrontdesk) && pqrs.estado !== PqrsStatus.Closed"
           @click="$emit('toggle-status')"
-          :class="['w-100 font-weight-bold', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success']"
+          :class="['w-100 font-weight-bold br-lg', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success']"
           data-cy="sidebarToggleStatusButton"
         >
           <font-awesome-icon :icon="pqrs.estado === PqrsStatus.Resolved ? 'undo-alt' : 'check-circle'"></font-awesome-icon>
