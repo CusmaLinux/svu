@@ -91,8 +91,10 @@
     "bootstrap-vue": "2.23.1",
     "dayjs": "1.11.13",
     "deepmerge": "4.3.1",
+    "echarts": "^5.6.0",
     "pinia": "2.2.2",
     "vue": "3.5.6",
+    "vue-echarts": "^7.0.3",
     "vue-i18n": "10.0.1",
     "vue-router": "4.4.5"
   },
