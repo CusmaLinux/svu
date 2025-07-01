@@ -59,6 +59,11 @@
           <button @click="navigate" class="btn btn-primary">
             <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.edit')"></span>
           </button>
+          <button type="button" class="btn btn-info" @click="downloadReport(informePqrs.id)" :disabled="isDownloading">
+            <font-awesome-icon icon="download"></font-awesome-icon>
+            <span v-if="!isDownloading">Descargar Informe (.xlsx)</span>
+            <span v-else>Descargando...</span>
+          </button>
         </router-link>
       </div>
     </div>
