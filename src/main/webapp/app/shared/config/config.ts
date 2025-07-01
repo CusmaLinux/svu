@@ -56,6 +56,7 @@ import { faGear } from '@fortawesome/free-solid-svg-icons/faGear';
 import { faRotateLeft } from '@fortawesome/free-solid-svg-icons/faRotateLeft';
 import { faCheckCircle } from '@fortawesome/free-solid-svg-icons/faCheckCircle';
 import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload';
+import { faPenToSquare } from '@fortawesome/free-solid-svg-icons/faPenToSquare';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -169,6 +170,7 @@ export function initFortAwesome(vue) {
     faRotateLeft,
     faCheckCircle,
     faDownload,
+    faPenToSquare,
   );
 }
 export function initI18N(opts: any = {}) {
