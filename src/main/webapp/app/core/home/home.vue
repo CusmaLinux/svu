@@ -2,8 +2,8 @@
   <b-container class="py-5">
     <b-card no-body class="shadow-lg overflow-hidden">
       <b-row no-gutters>
-        <b-col lg="6" class="z-index-1">
-          <b-img alt="Bienvenida PQRSD" src="/content/images/home-svu.webp" class="welcome-image" fluid-grow />
+        <b-col lg="6" class="position-relative">
+          <b-img class="welcome-image" alt="Bienvenida PQRSD" src="/content/images/home-svu.webp" fluid-grow />
         </b-col>
 
         <b-col lg="6">
