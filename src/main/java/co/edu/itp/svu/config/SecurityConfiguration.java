@@ -13,11 +13,6 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.client.InMemoryOAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.AuthenticatedPrincipalOAuth2AuthorizedClientRepository;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
@@ -30,51 +25,6 @@ import tech.jhipster.config.JHipsterProperties;
 @Configuration
 @EnableMethodSecurity(securedEnabled = true)
 public class SecurityConfiguration {
-
-    /**
-     * Creates an in-memory service for storing and retrieving authorized OAuth2
-     * clients.
-     * <p>
-     * This bean is essential for the server-to-server OAuth2 flow used by the
-     * {@code OAuth2MailService}.
-     * It provides a non-persistent, in-memory storage for
-     * {@link org.springframework.security.oauth2.client.OAuth2AuthorizedClient}
-     * objects, which contain the access and refresh tokens. This implementation is
-     * suitable for a single-instance
-     * application where state does not need to be preserved across restarts.
-     *
-     * @param clientRegistrationRepository The repository of configured OAuth2
-     *                                     clients (e.g., "google").
-     * @return An in-memory implementation of {@link OAuth2AuthorizedClientService}.
-     * @see co.edu.itp.svu.service.OAuth2MailService
-     */
-    @Bean
-    public OAuth2AuthorizedClientService authorizedClientService(ClientRegistrationRepository clientRegistrationRepository) {
-        return new InMemoryOAuth2AuthorizedClientService(clientRegistrationRepository);
-    }
-
-    /**
-     * Creates a repository for managing authorized clients, associating them with
-     * the authenticated principal.
-     * <p>
-     * This bean is primarily used by Spring Security's web-aware components. It
-     * uses the underlying
-     * {@link OAuth2AuthorizedClientService} to persist authorized client
-     * information between requests,
-     * typically by storing a reference in the {@code HttpSession}. While our mail
-     * service uses a non-web
-     * manager, defining this bean ensures full compatibility with the Spring
-     * Security OAuth2 client framework.
-     *
-     * @param authorizedClientService The service that handles the actual storage of
-     *                                authorized clients.
-     * @return A repository that links authorized clients to the current user's
-     *         session.
-     */
-    @Bean
-    public OAuth2AuthorizedClientRepository authorizedClientRepository(OAuth2AuthorizedClientService authorizedClientService) {
-        return new AuthenticatedPrincipalOAuth2AuthorizedClientRepository(authorizedClientService);
-    }
 
     private final JHipsterProperties jHipsterProperties;
 

@@ -90,8 +90,7 @@ public class PqrsService {
         RespuestaRepository responseRepository,
         PublicResponseMapper publicResponseMapper,
         SequenceGeneratorService sequenceGenerator,
-        MailService mailService,
-        OAuth2MailService oAuth2MailService
+        MailService mailService
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
