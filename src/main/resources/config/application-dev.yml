@@ -43,36 +43,17 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: ${SPRING_MAIL_USERNAME}
-    protocol: smtp
+    password: ${SPRING_MAIL_PASSWORD}
     properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-      mail.smtp.auth.mechanisms: XOAUTH2
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_OAUTH_CLIENT_ID}
-            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
-            # The authorization-uri and token-uri are standard for Google.
-            authorization-grant-type: authorization_code
-            redirect-uri: '{baseUrl}/login/oauth2/code/{registrationId}'
-            scope: https://mail.google.com/
-        provider:
-          google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   messages:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   thymeleaf:
     cache: false
-
-gmail:
-  oauth2:
-    refresh-token: ${GOOGLE_OAUTH_REFRESH_TOKEN}
-    client-registration-id: google # Must match the key under `registration`
-    user: ${SPRING_MAIL_USERNAME}
 
 server:
   port: 8080
@@ -105,7 +86,7 @@ jhipster:
     authentication:
       jwt:
         # This token must be encoded using Base64 and be at least 256 bits long (you can type `openssl rand -base64 64` on your command line to generate a 512 bits one)
-        base64-secret: NmQ3NWUyMzBhNGUyOWM2OTVmMWUwZjk3YjU2Mjc3YTUxMmY2NjY0ZjJmNGEwNGUzNTkyNDI4MDRlYjRhOTQ1NGUxODIxNTBhYTNlMjY0ZjY2MWY5MjJiNmY3NjcwOWE1MTkxNWRkMmMzMjEwZTU5YTE5ZGI2YjY5N2E3MGI5OGY=
+        base64-secret: ${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}
         # Token is valid 24 hours
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000

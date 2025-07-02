@@ -49,9 +49,7 @@ jobs:
             cd ~/svu/
 
             echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > .env
-            echo "GOOGLE_OAUTH_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_CLIENT_ID}}" >> .env
-            echo "GOOGLE_OAUTH_CLIENT_SECRET=${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET}}" >> .env
-            echo "GOOGLE_OAUTH_REFRESH_TOKEN=${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN}}" >> .env
+            echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> .env
             echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> .env
 
 

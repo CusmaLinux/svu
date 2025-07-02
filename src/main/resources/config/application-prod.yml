@@ -38,35 +38,16 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: ${SPRING_MAIL_USERNAME}
-    protocol: smtp
+    password: ${SPRING_MAIL_PASSWORD}
     properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-      mail.smtp.auth.mechanisms: XOAUTH2
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_OAUTH_CLIENT_ID}
-            client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
-            # The authorization-uri and token-uri are standard for Google.
-            authorization-grant-type: authorization_code
-            redirect-uri: '{baseUrl}/login/oauth2/code/{registrationId}'
-            scope: https://mail.google.com/
-        provider:
-          google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
-
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   thymeleaf:
     cache: true
 
-gmail:
-  oauth2:
-    refresh-token: ${GOOGLE_OAUTH_REFRESH_TOKEN}
-    client-registration-id: google # Must match the key under `registration`
-    user: ${SPRING_MAIL_USERNAME}
 # ===================================================================
 # To enable TLS in production, generate a certificate using:
 # keytool -genkey -alias ventanillaunica -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore keystore.p12 -validity 3650
@@ -121,7 +102,7 @@ jhipster:
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
-    base-url: https://svu.keliumju.com # Modify according to your server's URL
+    base-url: http://my-server-url-to-change # Modify according to your server's URL
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration
