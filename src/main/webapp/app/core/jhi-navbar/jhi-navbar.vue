@@ -74,21 +74,7 @@
             <span v-text="t$('global.menu.admin.apidocs')"></span>
           </b-dropdown-item>
         </b-nav-item-dropdown>
-        <b-nav-item-dropdown id="languagesnavBarDropdown" right v-if="languages && Object.keys(languages).length > 1">
-          <template #button-content>
-            <font-awesome-icon icon="flag" />
-            <span class="no-bold" v-text="t$('global.menu.language')"></span>
-          </template>
-          <b-dropdown-item
-            v-for="(value, key) in languages"
-            :key="`lang-${key}`"
-            @click="changeLanguage(key)"
-            :class="{ active: isActiveLanguage(key) }"
-          >
-            {{ value.name }}
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-        <notification-menu></notification-menu>
+        <notification-menu v-if="authenticated"></notification-menu>
         <b-nav-item-dropdown
           right
           href="javascript:void(0);"
