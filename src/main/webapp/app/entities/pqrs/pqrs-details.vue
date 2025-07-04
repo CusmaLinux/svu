@@ -108,7 +108,8 @@
 </template>
 
 <script lang="ts" src="./pqrs-details.component.ts"></script>
-<style scoped lang="scss">
+
+<style scoped>
 .bg-white.p-4 {
   background-color: #fff !important;
 }

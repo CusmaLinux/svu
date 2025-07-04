@@ -3,7 +3,6 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import type LoginService from '@/account/login.service';
 import type AccountService from '@/account/account.service';
-import languages from '@/shared/config/languages';
 import EntitiesMenu from '@/entities/entities-menu.vue';
 import NotificationMenu from './notification-bell.vue';
 
@@ -19,12 +18,6 @@ export default defineComponent({
   setup() {
     const loginService = inject<LoginService>('loginService');
     const accountService = inject<AccountService>('accountService');
-    const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'es'), true);
-    const changeLanguage = inject<(string) => Promise<void>>('changeLanguage');
-
-    const isActiveLanguage = (key: string) => {
-      return key === currentLanguage.value;
-    };
 
     const router = useRouter();
     const store = useStore();
@@ -61,11 +54,7 @@ export default defineComponent({
       subIsActive,
       accountService,
       openLogin,
-      changeLanguage,
-      languages: languages(),
-      isActiveLanguage,
       version,
-      currentLanguage,
       hasAnyAuthorityValues,
       openAPIEnabled,
       inProduction,

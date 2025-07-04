@@ -45,5 +45,6 @@
 <style scoped>
 .card {
   border-radius: 1rem;
+  padding: 0;
 }
 </style>
