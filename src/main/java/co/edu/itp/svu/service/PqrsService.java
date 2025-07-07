@@ -161,6 +161,8 @@ public class PqrsService {
     public Page<PqrsDTO> search(String criteria, Pageable pageable) {
         LOG.debug("Request to search for a page of Pqrs for query {}", criteria);
 
+        String officeId = null;
+
         if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
             String currentUserLogin = SecurityUtils.getCurrentUserLogin()
                 .orElseThrow(() -> new IllegalStateException("Current user login not found"));
@@ -170,15 +172,11 @@ public class PqrsService {
                 .orElseThrow(() -> new IllegalStateException("User not found: " + currentUserLogin));
 
             String userResponsibleId = currentUser.getId();
-            Optional<Oficina> office = oficinaRepository.findByResponsable_Id(userResponsibleId);
 
-            if (office.isPresent()) {
-                String officeId = office.get().getId();
-                return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
-            }
+            officeId = oficinaRepository.findByResponsable_Id(userResponsibleId).map(Oficina::getId).orElse(null);
         }
 
-        return pqrsRepository.search(criteria, null, pageable).map(pqrsMapper::toDto);
+        return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
     }
 
     /**
