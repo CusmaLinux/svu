@@ -1,11 +1,8 @@
 package co.edu.itp.svu.web.rest;
 
-import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.service.OficinaService;
 import co.edu.itp.svu.service.dto.OficinaDTO;
-import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
-import co.edu.itp.svu.service.mapper.OficinaMapper;
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -170,8 +167,6 @@ public class OficinaResource {
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
     }
 
-    ////Modificaciones aqui//////////////////////////
-
     @PostMapping("/oficinas")
     public ResponseEntity<OficinaDTO> createOficinaUser(@Valid @RequestBody OficinaDTO oficinaDTO) throws URISyntaxException {
         OficinaDTO result = oficinaService.createOficina(oficinaDTO);
@@ -191,27 +186,10 @@ public class OficinaResource {
             .body(oficinaDTO);
     }
 
-    ////////////********************Modificaciones   //////////////////////7
     @GetMapping("/oficinas/{id}")
     public ResponseEntity<OficinaDTO> getOficinaPqrsList(@PathVariable("id") String id) {
         LOG.debug("REST request to get Oficina : {}", id);
         Optional<OficinaDTO> oficinaDTO = oficinaService.getOficina(id);
-        return ResponseUtil.wrapOrNotFound(oficinaDTO);
-    }
-
-    //findByResponsable_id
-    @GetMapping("/oficinasUser/{userId}")
-    public ResponseEntity<OficinaDTO> getOficinaUser(@PathVariable("userId") String userId) {
-        LOG.debug("REST request to get Oficina : {}", userId);
-        Optional<OficinaDTO> oficinaDTO = oficinaService.getOficinaUser(userId);
-        return ResponseUtil.wrapOrNotFound(oficinaDTO);
-    }
-
-    //findByResponsable_Login
-    @GetMapping("/oficinasUserLogin/{login}")
-    public ResponseEntity<OficinaDTO> getOficinaUserLogin(@PathVariable("login") String login) {
-        LOG.debug("REST request to get Oficina : {}", login);
-        Optional<OficinaDTO> oficinaDTO = oficinaService.getOficinaUserLogin(login);
         return ResponseUtil.wrapOrNotFound(oficinaDTO);
     }
 }
