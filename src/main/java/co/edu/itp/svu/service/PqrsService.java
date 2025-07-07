@@ -4,11 +4,13 @@ import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
+import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
+import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
@@ -65,6 +67,8 @@ public class PqrsService {
 
     private final RespuestaRepository responseRepository;
 
+    private final UserRepository userRepository;
+
     private final PqrsNotificationService pqrsNotificationService;
 
     private final PublicPqrsMapper publicPqrsMapper;
@@ -90,7 +94,8 @@ public class PqrsService {
         RespuestaRepository responseRepository,
         PublicResponseMapper publicResponseMapper,
         SequenceGeneratorService sequenceGenerator,
-        MailService mailService
+        MailService mailService,
+        UserRepository userRepository
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
@@ -104,6 +109,7 @@ public class PqrsService {
         this.publicResponseMapper = publicResponseMapper;
         this.sequenceGenerator = sequenceGenerator;
         this.mailService = mailService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -152,9 +158,25 @@ public class PqrsService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PqrsDTO> search(String query, Pageable pageable) {
-        LOG.debug("Request to search for a page of Pqrs for query {}", query);
-        return pqrsRepository.search(query, pageable).map(pqrsMapper::toDto);
+    public Page<PqrsDTO> search(String criteria, Pageable pageable) {
+        LOG.debug("Request to search for a page of Pqrs for query {}", criteria);
+
+        String officeId = null;
+
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
+            String currentUserLogin = SecurityUtils.getCurrentUserLogin()
+                .orElseThrow(() -> new IllegalStateException("Current user login not found"));
+
+            User currentUser = userRepository
+                .findOneByLogin(currentUserLogin)
+                .orElseThrow(() -> new IllegalStateException("User not found: " + currentUserLogin));
+
+            String userResponsibleId = currentUser.getId();
+
+            officeId = oficinaRepository.findByResponsable_Id(userResponsibleId).map(Oficina::getId).orElse(null);
+        }
+
+        return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
     }
 
     /**

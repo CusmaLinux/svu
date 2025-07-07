@@ -94,6 +94,7 @@ public class SecurityConfiguration {
                         .hasAnyAuthority(AuthoritiesConstants.ADMIN,
                                 AuthoritiesConstants.FUNCTIONARY,
                                 AuthoritiesConstants.FRONT_DESK_CS)
+                        .requestMatchers(mvc.pattern("/api/pqrs/**")).authenticated()
                         .requestMatchers(mvc.pattern(HttpMethod.DELETE, "/api/notifications"))
                         .hasAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/notifications/**")).authenticated()

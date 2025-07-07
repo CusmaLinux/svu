@@ -213,48 +213,4 @@ public class OficinaService {
 
         return oficinaOpt.map(oficinaMapper::toDto);
     }
-
-    ////////////////777
-    public Optional<OficinaDTO> getOficinaUser(String id) {
-        Optional<Oficina> oficinaOpt = Optional.ofNullable(oficinaRepository.findByResponsable_Id(id));
-
-        if (oficinaOpt.isPresent()) {
-            Oficina oficina = oficinaOpt.orElseThrow(); // Obtener la oficina
-            List<Pqrs> allPqrs = pqrsRepository.findByOficinaResponder_Id(oficinaOpt.orElseThrow().getId()); // Obtener todas las PQRS
-
-            // Filtrar y agregar PQRS que pertenecen a esta oficina
-            for (Pqrs pqrs : allPqrs) {
-                if (pqrs.getOficinaResponder().getId().equals(oficina.getId())) {
-                    oficina.addPqrs(pqrs);
-                }
-            }
-        }
-
-        return oficinaOpt.map(oficinaMapper::toDto);
-    }
-
-    //oficina user con login
-    public Optional<OficinaDTO> getOficinaUserLogin(String login) {
-        String loginUser;
-        Optional<User> user = userService.getUserByLogin(login);
-        if (user.orElseThrow() != null) {
-            Optional<Oficina> oficinaOpt = Optional.ofNullable(oficinaRepository.findByResponsable_Id(user.orElseThrow().getId()));
-
-            if (oficinaOpt.isPresent()) {
-                Oficina oficina = oficinaOpt.orElseThrow(); // Obtener la oficina
-                List<Pqrs> allPqrs = pqrsRepository.findByOficinaResponder_Id(oficinaOpt.orElseThrow().getId()); // Obtener todas las PQRS
-
-                // Filtrar y agregar PQRS que pertenecen a esta oficina
-                for (Pqrs pqrs : allPqrs) {
-                    if (pqrs.getOficinaResponder().getId().equals(oficina.getId())) {
-                        oficina.addPqrs(pqrs);
-                    }
-                }
-                return oficinaOpt.map(oficinaMapper::toDto);
-            }
-        }
-        Optional<Oficina> of = Optional.of(new Oficina());
-        of.orElseThrow().setId("");
-        return of.map(oficinaMapper::toDto);
-    }
 }

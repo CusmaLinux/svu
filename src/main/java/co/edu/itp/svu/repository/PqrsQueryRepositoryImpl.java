@@ -1,6 +1,7 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Pqrs;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -21,15 +22,22 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
     }
 
     @Override
-    public Page<Pqrs> search(String queryString, Pageable pageable) {
+    public Page<Pqrs> search(String queryString, String officeId, Pageable pageable) {
         Query query = new Query().with(pageable);
+        List<Criteria> allCriteria = new ArrayList<>();
 
         if (StringUtils.hasText(queryString)) {
             Criteria titleCriteria = Criteria.where("titulo").regex(queryString, "i");
             Criteria fileNumberCriteria = Criteria.where("file_number").regex(queryString, "i");
+            allCriteria.add(new Criteria().orOperator(titleCriteria, fileNumberCriteria));
+        }
 
-            Criteria finalCriteria = new Criteria().orOperator(titleCriteria, fileNumberCriteria);
-            query.addCriteria(finalCriteria);
+        if (StringUtils.hasText(officeId)) {
+            allCriteria.add(Criteria.where("oficinaResponder.id").is(officeId));
+        }
+
+        if (!allCriteria.isEmpty()) {
+            query.addCriteria(new Criteria().andOperator(allCriteria.toArray(new Criteria[0])));
         }
 
         List<Pqrs> pqrsList = mongoTemplate.find(query, Pqrs.class);

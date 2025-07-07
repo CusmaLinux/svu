@@ -12,5 +12,5 @@ public interface PqrsQueryRepository {
      * @param pageable the pagination information.
      * @return a page of matching Pqrs entities.
      */
-    Page<Pqrs> search(String query, Pageable pageable);
+    Page<Pqrs> search(String query, String OfficeId, Pageable pageable);
 }
