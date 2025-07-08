@@ -311,17 +311,27 @@ public class PqrsService {
 
     public PqrsDTO update(PqrsDTO pqrsDTO) {
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
+        Pqrs oldPqrs = pqrsRepository.findById(pqrs.getId()).orElse(null);
 
-        if (
-            PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado()) &&
-            SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FUNCTIONARY)
-        ) {
-            Pqrs oldPqrs = pqrsRepository.findById(pqrs.getId()).orElse(null);
+        if (SecurityUtils.isAuthenticated()) {
+            if (PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado())) {
+                boolean changeState = !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado());
 
-            boolean changeState = !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado());
+                if (changeState) {
+                    pqrsNotificationService.sendPqrsNotification(
+                        pqrs,
+                        PqrsNotificationType.PQRS_RESOLVED,
+                        AuthoritiesConstants.FRONT_DESK_CS
+                    );
+                }
+            }
 
-            if (changeState) {
-                pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_RESOLVED, AuthoritiesConstants.FRONT_DESK_CS);
+            boolean changeOffice = !Objects.equals(oldPqrs.getOficinaResponder().getId(), pqrs.getOficinaResponder().getId());
+
+            if (changeOffice) {
+                Oficina office = oficinaRepository.findById(pqrs.getOficinaResponder().getId()).orElse(null);
+                User responsible = office.getResponsable();
+                pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_ASSIGNED, responsible);
             }
         }
 

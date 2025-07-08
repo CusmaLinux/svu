@@ -46,7 +46,7 @@
             </div>
           </div>
           <!--  -->
-          <template v-if="isUpdateMode && isAdmin">
+          <template v-if="isUpdateMode">
             <div class="form-group">
               <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.fechaCreacion')" for="pqrs-fechaCreacion"></label>
               <div class="d-flex">

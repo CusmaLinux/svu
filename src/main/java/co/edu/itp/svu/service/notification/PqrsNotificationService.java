@@ -98,6 +98,38 @@ public class PqrsNotificationService {
                 );
             }
         },
+        PQRS_ASSIGNED("PQRS '%s' (ID: %s) was assigned for review", "PQRS_ASSIGNED") {
+            @Override
+            public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
+                return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
+            }
+
+            @Override
+            public Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId) {
+                return Map.of(
+                    "id",
+                    UUID.randomUUID().toString(),
+                    "type",
+                    getEventKey(),
+                    "creationDate",
+                    LocalDate.now().toString(),
+                    "message",
+                    message,
+                    "read",
+                    false,
+                    "userLogin",
+                    recipient.getLogin(),
+                    "pqrsId",
+                    pqrs.getId(),
+                    "pqrsTitle",
+                    pqrs.getTitulo(),
+                    "isSse",
+                    true,
+                    "persistentNotificationId",
+                    persistentNotificationId
+                );
+            }
+        },
         PQRS_DUE_DATE_REMINDER("PQRS '%s' (ID: %s) is due on %s.", "PQRS_DUE_DATE_REMINDER") {
             @Override
             public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
