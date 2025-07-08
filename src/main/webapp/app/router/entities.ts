@@ -72,7 +72,7 @@ export default {
       path: 'pqrs/:pqrsId/edit',
       name: 'PqrsEdit',
       component: PqrsUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.FRONT_DESK_CS, Authority.ADMIN] },
     },
     {
       path: 'pqrs/:pqrsId/view',
@@ -90,19 +90,19 @@ export default {
       path: 'respuesta/new',
       name: 'RespuestaCreate',
       component: RespuestaUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY] },
     },
     {
       path: 'respuesta/:respuestaId/edit',
       name: 'RespuestaEdit',
       component: RespuestaUpdate,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY] },
     },
     {
       path: 'respuesta/:respuestaId/view',
       name: 'RespuestaView',
       component: RespuestaDetails,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'archivo-adjunto',

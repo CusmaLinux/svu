@@ -71,8 +71,12 @@ export default defineComponent({
             pqrsTitle: notification.pqrsTitle,
             pqrsId: notification.pqrsId,
           });
+        case 'PQRS_ASSIGNED':
+          return t$('sse-notification.assigned-message', {
+            pqrsTitle: notification.pqrsTitle,
+            pqrsId: notification.pqrsId,
+          });
       }
-
       return t$('sse-notification.error');
     };
 

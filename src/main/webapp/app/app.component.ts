@@ -111,6 +111,17 @@ export default defineComponent({
               title: `${notification.pqrsTitle}`,
             },
           );
+        case 'PQRS_ASSIGNED':
+          return alertService.showInfo(
+            t('sse-notification.assigned-message', {
+              pqrsTitle: notification.pqrsTitle,
+              pqrsId: notification.pqrsId,
+            }),
+            {
+              href: `/pqrs/${notification.pqrsId}/view`,
+              title: `${notification.pqrsTitle}`,
+            },
+          );
       }
     };
 
