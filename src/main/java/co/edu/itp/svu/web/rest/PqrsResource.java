@@ -139,7 +139,7 @@ public class PqrsResource {
     @GetMapping("/pqrs/{id}")
     public ResponseEntity<PqrsDTO> getPqrs(@PathVariable("id") String id) {
         LOG.debug("REST request to get Pqrs : {}", id);
-        Optional<PqrsDTO> pqrsDTO = pqrsService.findOneOficina(id);
+        Optional<PqrsDTO> pqrsDTO = pqrsService.findPqrsById(id);
         return ResponseUtil.wrapOrNotFound(pqrsDTO);
     }
 

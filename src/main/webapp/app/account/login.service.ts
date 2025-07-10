@@ -14,20 +14,4 @@ export default class LoginService {
   public hideLogin(): void {
     this.emit('bv::hide::modal', 'login-page');
   }
-
-  public getUserRole(): string | null {
-    const accountStore = useAccountStore();
-    const account = accountStore.account; // Obtiene el estado del usuario
-
-    // Verifica roles y devuelve el más alto
-    if (account && account.authorities) {
-      if (account.authorities.includes('ROLE_ADMIN')) {
-        return 'ROLE_ADMIN';
-      }
-      if (account.authorities.includes('ROLE_USER')) {
-        return 'ROLE_USER';
-      }
-    }
-    return null; // Si no hay roles
-  }
 }

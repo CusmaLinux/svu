@@ -9,7 +9,7 @@
         </button>
         <router-link :to="{ name: 'PqrsCreate' }" custom v-slot="{ navigate }">
           <button
-            v-if="isAdmin"
+            v-can="['create', 'pqrs']"
             @click="navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
@@ -105,13 +105,13 @@
                   </button>
                 </router-link>
                 <router-link :to="{ name: 'PqrsEdit', params: { pqrsId: pqr.id } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                  <button v-can="['edit', 'pqrs']" @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>
                 </router-link>
                 <b-button
-                  v-if="isAdmin"
+                  v-can="['delete', 'pqrs']"
                   @click="prepareRemove(pqr)"
                   variant="danger"
                   class="btn btn-sm"

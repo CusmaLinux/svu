@@ -168,7 +168,7 @@ export default defineComponent({
           pqrs.value._transientAttachments = archivosAdjuntosDTO.value.map(attachedFile => ({ id: attachedFile.id }));
         }
 
-        const savedPqrs = await pqrsService().submitAnonymousRequest(pqrs.value);
+        const savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value);
         alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
 
         navigateToVerifyPage(savedPqrs.accessToken);

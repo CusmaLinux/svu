@@ -14,6 +14,7 @@ import LoginService from './account/login.service';
 import AccountService from './account/account.service';
 import { setupAxiosInterceptors } from '@/shared/config/axios-interceptor';
 import { useStore, useTranslationStore } from '@/store';
+import { usePermissions } from '@/shared/composables/use-permissions';
 
 import UserManagementService from '@/admin/user-management/user-management.service';
 
@@ -155,15 +156,19 @@ const app = createApp({
       'currentUsername',
       computed(() => store.account?.login),
     );
-    provide(
-      'mainRole',
-      computed(() => accountService.retrieveMainRole()),
-    );
-
     provide('translationService', translationService);
     provide('accountService', accountService);
     // jhipster-needle-add-entity-service-to-main - JHipster will import entities services here
   },
+});
+
+app.directive('can', (el, binding) => {
+  const { can } = usePermissions();
+
+  const [action, subject] = binding.value;
+  if (!can(action, subject)) {
+    el.parentNode?.removeChild(el);
+  }
 });
 
 initFortAwesome(app);

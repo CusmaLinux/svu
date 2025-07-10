@@ -8,7 +8,6 @@ import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { type IPqrs } from '@/shared/model/pqrs.model';
 import { useAlertService } from '@/shared/alert/alert.service';
-import { useAccountStore } from '@/shared/config/store/account-store';
 
 import PqrsActionsSidebar from './sidebar.vue';
 import ResponseItem from '@/entities/respuesta/response-item.vue';
@@ -36,25 +35,11 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
 
-    const accountStore = useAccountStore();
-
     const previousState = () => router.go(-1);
     const pqrs: Ref<IPqrs | null> = ref(null);
 
     const isConfirmCloseModalVisible = ref(false);
     const confirmCloseModalRef = ref(null);
-
-    const isFunctionary = computed(() => {
-      return accountStore.account?.authorities?.includes('ROLE_FUNCTIONARY') ?? false;
-    });
-
-    const isFrontdesk = computed(() => {
-      return accountStore.account?.authorities?.includes('ROLE_FRONT_DESK_CS') ?? false;
-    });
-
-    const isAdmin = computed(() => {
-      return accountStore.account?.authorities?.includes('ROLE_ADMIN') ?? false;
-    });
 
     const statusClass = computed(() => {
       if (!pqrs.value?.estado) return 'status-default';
@@ -176,9 +161,6 @@ export default defineComponent({
       PqrsStatus,
       isConfirmCloseModalVisible,
       confirmCloseModalRef,
-      isFunctionary,
-      isAdmin,
-      isFrontdesk,
       openConfirmCloseModal,
       handleConfirmClose,
       pqrsId: pqrsIdFromRoute,

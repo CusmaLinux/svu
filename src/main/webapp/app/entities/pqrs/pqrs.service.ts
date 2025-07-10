@@ -110,7 +110,7 @@ export default class PqrsService {
     });
   }
 
-  public submitAnonymousRequest(entity: IPqrs): Promise<IPqrs> {
+  public submitPqrsRequest(entity: IPqrs): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
         .post(`${publicApiUrl}`, entity)

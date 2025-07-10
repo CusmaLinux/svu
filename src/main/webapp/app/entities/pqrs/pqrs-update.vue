@@ -12,6 +12,53 @@
             <label for="id" v-text="t$('global.field.id')"></label>
             <input type="text" class="form-control" id="id" name="id" v-model="pqrs.id" readonly />
           </div>
+
+          <div class="form-group">
+            <label class="form-control-label" for="requesterEmail" v-text="t$('global.form[\'email.label\']')"></label>
+            <font-awesome-icon
+              class="cursor-pointer"
+              v-b-tooltip.hover.top="t$('ventanillaUnicaApp.pqrs.public.requesterEmail.info')"
+              variant="primary"
+              icon="circle-info"
+            />
+            <input
+              type="email"
+              class="form-control"
+              id="requesterEmail"
+              name="requesterEmail"
+              :class="{ valid: !v$.requesterEmail.$invalid, invalid: v$.requesterEmail.$invalid }"
+              v-model="requesterEmailModel"
+              minlength="5"
+              maxlength="254"
+              email
+              :placeholder="t$('global.form[\'email.placeholder\']')"
+              data-cy="requesterEmail"
+            />
+            <div v-if="v$.requesterEmail.$anyDirty && v$.requesterEmail.$invalid">
+              <small class="form-text text-danger" v-for="error of v$.requesterEmail.$errors" :key="error.$uid">
+                {{ error.$message }}
+              </small>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.public.type')" for="pqrs-type"></label>
+            <select
+              class="form-control"
+              name="type"
+              id="pqrs-type"
+              data-cy="PqrsType"
+              :class="{ valid: !v$.type.$invalid, invalid: v$.type.$invalid }"
+              v-model="v$.type.$model"
+            >
+              <option :value="null" disabled>-- Seleccione un tipo --</option>
+              <option v-for="(enumValue, enumKey) in PqrsType" :key="enumKey" :value="enumValue">
+                {{ enumValue }}
+              </option>
+            </select>
+            <div v-if="v$.type.$anyDirty && v$.type.$invalid">
+              <small class="form-text text-danger" v-for="error of v$.type.$errors" :key="error.$uid">{{ error.$message }}</small>
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.titulo')" for="pqrs-titulo"></label>
             <input
@@ -23,7 +70,6 @@
               :class="{ valid: !v$.titulo.$invalid, invalid: v$.titulo.$invalid }"
               v-model="v$.titulo.$model"
               required
-              :readonly="isUpdateMode && isAdmin"
             />
             <div v-if="v$.titulo.$anyDirty && v$.titulo.$invalid">
               <small class="form-text text-danger" v-for="error of v$.titulo.$errors" :key="error.$uid">{{ error.$message }}</small>
@@ -39,107 +85,99 @@
               :class="{ valid: !v$.descripcion.$invalid, invalid: v$.descripcion.$invalid }"
               v-model="v$.descripcion.$model"
               required
-              :readonly="isUpdateMode && isAdmin"
             ></textarea>
             <div v-if="v$.descripcion.$anyDirty && v$.descripcion.$invalid">
               <small class="form-text text-danger" v-for="error of v$.descripcion.$errors" :key="error.$uid">{{ error.$message }}</small>
             </div>
           </div>
-          <!--  -->
-          <template v-if="isUpdateMode">
-            <div class="form-group">
-              <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.fechaCreacion')" for="pqrs-fechaCreacion"></label>
-              <div class="d-flex">
-                <input
-                  id="pqrs-fechaCreacion"
-                  data-cy="fechaCreacion"
-                  type="datetime-local"
-                  class="form-control"
-                  name="fechaCreacion"
-                  readonly="isUpdateMode && isAdmin"
-                  :class="{ valid: !v$.fechaCreacion.$invalid, invalid: v$.fechaCreacion.$invalid }"
-                  :value="convertDateTimeFromServer(v$.fechaCreacion.$model)"
-                />
-              </div>
-              <div v-if="v$.fechaCreacion.$anyDirty && v$.fechaCreacion.$invalid">
-                <small class="form-text text-danger" v-for="error of v$.fechaCreacion.$errors" :key="error.$uid">{{
-                  error.$message
-                }}</small>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.daysForResponse')" for="pqrs-daysForResponse"></label>
+          <div v-if="isUpdateMode" class="form-group">
+            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.fechaCreacion')" for="pqrs-fechaCreacion"></label>
+            <div class="d-flex">
               <input
-                type="number"
+                id="pqrs-fechaCreacion"
+                data-cy="fechaCreacion"
+                type="datetime-local"
                 class="form-control"
-                name="daysForResponse"
-                id="pqrs-daysForResponse"
-                data-cy="daysForResponse"
-                v-model.number="daysForResponse"
-                min="0"
-                placeholder="15"
+                name="fechaCreacion"
+                :class="{ valid: !v$.fechaCreacion.$invalid, invalid: v$.fechaCreacion.$invalid }"
+                :value="convertDateTimeFromServer(v$.fechaCreacion.$model)"
               />
             </div>
-            <div class="form-group">
-              <label
-                class="form-control-label"
-                v-text="t$('ventanillaUnicaApp.pqrs.fechaLimiteRespuesta')"
-                for="pqrs-fechaLimiteRespuesta"
-              ></label>
-              <div class="d-flex">
-                <input
-                  id="pqrs-fechaLimiteRespuesta"
-                  data-cy="fechaLimiteRespuesta"
-                  type="datetime-local"
-                  class="form-control"
-                  name="fechaLimiteRespuesta"
-                  readonly="isUpdateMode && isAdmin"
-                  :class="{ valid: !v$.fechaLimiteRespuesta.$invalid, invalid: v$.fechaLimiteRespuesta.$invalid }"
-                  :value="convertDateTimeFromServer(v$.fechaLimiteRespuesta.$model)"
-                  @change="updateDueDate($event)"
-                />
-              </div>
+            <div v-if="v$.fechaCreacion.$anyDirty && v$.fechaCreacion.$invalid">
+              <small class="form-text text-danger" v-for="error of v$.fechaCreacion.$errors" :key="error.$uid">{{ error.$message }}</small>
             </div>
-            <!--  -->
-            <div class="form-group">
-              <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.estado')" for="pqrs-estado"></label>
-              <select
+          </div>
+          <div v-if="isUpdateMode" v-can="['assign_due_date', 'pqrs']" class="form-group">
+            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.daysForResponse')" for="pqrs-daysForResponse"></label>
+            <input
+              type="number"
+              class="form-control"
+              name="daysToReply"
+              id="pqrs-daysToReply"
+              data-cy="daysToReply"
+              v-model="v$.daysToReply.$model"
+              min="0"
+              max="365"
+              placeholder="15"
+            />
+          </div>
+          <div v-if="isUpdateMode" v-can="['assign_due_date', 'pqrs']" class="form-group">
+            <label
+              class="form-control-label"
+              v-text="t$('ventanillaUnicaApp.pqrs.fechaLimiteRespuesta')"
+              for="pqrs-fechaLimiteRespuesta"
+            ></label>
+            <div class="d-flex">
+              <input
+                id="pqrs-fechaLimiteRespuesta"
+                data-cy="fechaLimiteRespuesta"
+                type="datetime-local"
                 class="form-control"
-                name="estado"
-                id="pqrs-estado"
-                data-cy="estado"
-                :class="{ valid: !v$.estado.$invalid, invalid: v$.estado.$invalid }"
-                v-model="v$.estado.$model"
-                :disabled="pqrs.estado === statesPqrs.Closed"
-              >
-                <option v-for="(enumValue, enumKey) in statesPqrs" :key="enumKey" :value="enumValue">
-                  {{ enumValue }}
-                </option>
-              </select>
-              <div v-if="v$.estado.$anyDirty && v$.estado.$invalid">
-                <small class="form-text text-danger" v-for="error of v$.estado.$errors" :key="error.$uid">{{ error.$message }}</small>
-              </div>
+                name="fechaLimiteRespuesta"
+                :class="{ valid: !v$.fechaLimiteRespuesta.$invalid, invalid: v$.fechaLimiteRespuesta.$invalid }"
+                :value="convertDateTimeFromServer(v$.fechaLimiteRespuesta.$model)"
+                @change="updateDueDate($event)"
+              />
             </div>
+          </div>
+          <div v-if="isUpdateMode" class="form-group">
+            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.estado')" for="pqrs-estado"></label>
+            <select
+              class="form-control"
+              name="estado"
+              id="pqrs-estado"
+              data-cy="estado"
+              :class="{ valid: !v$.estado.$invalid, invalid: v$.estado.$invalid }"
+              v-model="v$.estado.$model"
+              :disabled="pqrs.estado === statesPqrs.Closed"
+            >
+              <option v-for="(enumValue, enumKey) in statesPqrs" :key="enumKey" :value="enumValue">
+                {{ enumValue }}
+              </option>
+            </select>
+            <div v-if="v$.estado.$anyDirty && v$.estado.$invalid">
+              <small class="form-text text-danger" v-for="error of v$.estado.$errors" :key="error.$uid">{{ error.$message }}</small>
+            </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.oficinaResponder')" for="pqrs-oficinaResponder"></label>
-              <select
-                class="form-control"
-                id="pqrs-oficinaResponder"
-                data-cy="oficinaResponder"
-                name="oficinaResponder"
-                v-model="pqrs.oficinaResponder"
+          <div v-if="isUpdateMode" class="form-group">
+            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.oficinaResponder')" for="pqrs-oficinaResponder"></label>
+            <select
+              class="form-control"
+              id="pqrs-oficinaResponder"
+              data-cy="oficinaResponder"
+              name="oficinaResponder"
+              v-model="pqrs.oficinaResponder"
+            >
+              <option
+                v-for="oficinaOption in oficinas"
+                :value="pqrs.oficinaResponder && oficinaOption.id === pqrs.oficinaResponder.id ? pqrs.oficinaResponder : oficinaOption"
+                :key="oficinaOption.id"
               >
-                <option
-                  v-for="oficinaOption in oficinas"
-                  :value="pqrs.oficinaResponder && oficinaOption.id === pqrs.oficinaResponder.id ? pqrs.oficinaResponder : oficinaOption"
-                  :key="oficinaOption.id"
-                >
-                  {{ oficinaOption.nombre }}
-                </option>
-              </select>
-            </div>
-          </template>
+                {{ oficinaOption.nombre }}
+              </option>
+            </select>
+          </div>
         </div>
         <div>
           <div>

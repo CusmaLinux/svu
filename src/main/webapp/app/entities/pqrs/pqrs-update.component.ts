@@ -1,13 +1,14 @@
-import { computed, defineComponent, inject, ref, onUnmounted, watch, type Ref, onMounted } from 'vue';
+import { computed, defineComponent, inject, ref, onUnmounted, watch, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
 
-import { PqrsStatus } from '@/constants';
+import { PqrsStatus, PqrsType } from '@/constants';
 import PqrsService from './pqrs.service';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat, useValidation } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { helpers, email, maxLength, minLength } from '@vuelidate/validators';
 
 import OficinaService from '@/entities/oficina/oficina.service';
 import { type IOficina } from '@/shared/model/oficina.model';
@@ -15,7 +16,6 @@ import { type IPqrs, Pqrs } from '@/shared/model/pqrs.model';
 
 import ArchivoAdjuntoService from '@/entities/archivo-adjunto/archivo-adjunto.service';
 import { type IArchivoAdjunto } from '@/shared/model/archivo-adjunto.model';
-import type AccountService from '@/account/account.service';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -24,7 +24,6 @@ export default defineComponent({
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
     const archivoAdjuntoService = inject('archivoAdjuntoService', () => new ArchivoAdjuntoService());
-    const accountService = inject<AccountService>('accountService');
     const oficinaService = inject('oficinaService', () => new OficinaService());
     const { t: t$ } = useI18n();
 
@@ -47,36 +46,10 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
 
-    const daysForResponse = ref<number | null>(null);
     const statesPqrsRef = ref(PqrsStatus);
 
-    const isAdminReactive = ref<boolean | null>(null);
-
-    const checkAdmin = async () => {
-      if (accountService) {
-        try {
-          const esAdminResultado = await accountService.hasAnyAuthorityAndCheckAuth('ROLE_ADMIN');
-          isAdminReactive.value = esAdminResultado;
-        } catch (error) {
-          console.error('Error al verificar el estado de admin:', error);
-          isAdminReactive.value = false;
-        }
-      } else {
-        isAdminReactive.value = false;
-      }
-    };
-
-    const isAdmin = computed(() => {
-      return !!isAdminReactive.value;
-    });
-
-    onMounted(() => {
-      checkAdmin();
-    });
-
     const isUpdateMode = computed(() => {
-      const idExists = !!pqrs.value.id;
-      return idExists;
+      return !!pqrs.value.id;
     });
 
     const updateDueDate = (event: Event) => {
@@ -88,26 +61,26 @@ export default defineComponent({
       }
     };
 
-    watch(
-      [daysForResponse, () => pqrs.value.fechaCreacion],
-      ([newDays, newdateCreationObj]) => {
-        if (isUpdateMode.value && isAdmin.value) {
-          let dateCreationBase: Date | null = null;
-          if (newdateCreationObj instanceof Date) {
-            dateCreationBase = newdateCreationObj;
-          } else if (typeof newdateCreationObj === 'string' && newdateCreationObj) {
-            dateCreationBase = new Date(newdateCreationObj);
-          }
-
-          if (newDays !== null && typeof newDays === 'number' && newDays >= 0 && dateCreationBase && !isNaN(dateCreationBase.getTime())) {
-            const newDateLimit = new Date(dateCreationBase.getTime());
-            newDateLimit.setDate(newDateLimit.getDate() + newDays);
-            pqrs.value.fechaLimiteRespuesta = newDateLimit;
-          }
-        }
+    const requesterEmailModel = computed({
+      get() {
+        return pqrs.value.requesterEmail;
       },
-      { deep: false },
+      set(newValue: string) {
+        pqrs.value.requesterEmail = newValue === '' ? null : newValue;
+      },
+    });
+
+    const optionalEmail = helpers.withMessage(
+      t$('global.messages.validate.email.invalid').toString(),
+      (value: string) => !helpers.req(value) || email.$validator(value, {}, {}),
     );
+
+    const optionalMinLength = helpers.withMessage(t$('global.messages.validate.email.minlength').toString(), (value: string) => {
+      if (!helpers.req(value)) {
+        return true;
+      }
+      return minLength(5).$validator(value, {}, {});
+    });
 
     const retrievePqrs = async (pqrsId: string) => {
       try {
@@ -118,24 +91,8 @@ export default defineComponent({
 
         pqrs.value = res;
 
-        if (pqrs.value.fechaLimiteRespuesta && pqrs.value.fechaCreacion) {
-          const fc = new Date(pqrs.value.fechaCreacion.getTime());
-          const flr = new Date(pqrs.value.fechaLimiteRespuesta.getTime());
-          fc.setHours(0, 0, 0, 0);
-          flr.setHours(0, 0, 0, 0);
-          const diffTime = flr.getTime() - fc.getTime();
-          if (diffTime >= 0) {
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            daysForResponse.value = diffDays;
-          } else {
-            daysForResponse.value = null;
-          }
-        } else {
-          daysForResponse.value = null;
-        }
-
-        if (res.archivosAdjuntosDTO) {
-          existingFilesInfo.value = res.archivosAdjuntosDTO;
+        if (res._transientAttachments) {
+          existingFilesInfo.value = res._transientAttachments;
         } else {
           existingFilesInfo.value = [];
         }
@@ -242,11 +199,7 @@ export default defineComponent({
 
         if (files.value.length > 0) {
           await uploadFiles();
-          if (pqrs.value.archivosAdjuntosDTO) {
-            pqrs.value.archivosAdjuntosDTO = pqrs.value.archivosAdjuntosDTO?.concat(archivosAdjuntosDTO.value);
-          } else {
-            pqrs.value.archivosAdjuntosDTO = archivosAdjuntosDTO.value;
-          }
+          pqrs.value._transientAttachments = archivosAdjuntosDTO.value.map(attachedFile => ({ id: attachedFile.id }));
         }
 
         let savedPqrs;
@@ -254,7 +207,7 @@ export default defineComponent({
           savedPqrs = await pqrsService().update(pqrs.value);
           alertService.showInfo(t$('ventanillaUnicaApp.pqrs.updated', { param: savedPqrs.id }));
         } else {
-          savedPqrs = await pqrsService().create(pqrs.value);
+          savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value);
           alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
         }
 
@@ -284,9 +237,16 @@ export default defineComponent({
     initRelationships();
 
     const dataUtils = useDataUtils();
-    const dateFormatService = useDateFormat({ entityRef: pqrs });
     const validations = useValidation();
     const validationRules = {
+      type: {
+        required: validations.required(t$('entity.validation.required').toString()),
+      },
+      requesterEmail: {
+        minLength: optionalMinLength,
+        maxLength: maxLength(254),
+        email: optionalEmail,
+      },
       titulo: {
         required: validations.required(t$('entity.validation.required').toString()),
       },
@@ -295,11 +255,11 @@ export default defineComponent({
       },
       fechaCreacion: {},
       fechaLimiteRespuesta: {},
+      daysToReply: {},
       estado: {},
       oficinaResponder: {},
     };
     const v$ = useVuelidate(validationRules, pqrs as any);
-    const { convertDateTimeFromServer } = dateFormatService;
     return {
       input,
       pqrsService,
@@ -328,9 +288,9 @@ export default defineComponent({
       ...useDateFormat({ entityRef: pqrs }),
       t$,
       isUpdateMode,
-      isAdmin,
       statesPqrs: statesPqrsRef,
-      daysForResponse,
+      requesterEmailModel,
+      PqrsType,
       updateDueDate,
     };
   },

@@ -9,7 +9,6 @@
         </button>
         <router-link :to="{ name: 'OficinaUserCreate' }" custom v-slot="{ navigate }">
           <button
-            v-if="esAdmin"
             @click="navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
