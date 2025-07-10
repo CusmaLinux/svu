@@ -20,8 +20,8 @@ export default defineComponent({
     const itemsPerPage = ref(20);
     const queryCount: Ref<number | null> = ref(null);
     const page: Ref<number> = ref(1);
-    const propOrder = ref('id');
-    const reverse = ref(false);
+    const propOrder = ref('fecha_creacion');
+    const reverse = ref(true);
     const totalItems = ref(0);
 
     const pqrs: Ref<IPqrs[]> = ref([]);
