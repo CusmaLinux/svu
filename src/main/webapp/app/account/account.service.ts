@@ -77,7 +77,6 @@ export default class AccountService {
   public retrieveMainRole() {
     for (const value of Object.values(Authority)) {
       if (typeof value === 'string') {
-        console.log('value: ', value);
         if (this.checkAuthorities([value])) {
           return value;
         }
