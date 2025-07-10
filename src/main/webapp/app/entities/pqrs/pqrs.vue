@@ -9,7 +9,7 @@
         </button>
         <router-link :to="{ name: 'PqrsCreate' }" custom v-slot="{ navigate }">
           <button
-            v-if="isAdmin"
+            v-can="['create', 'pqrs']"
             @click="navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
@@ -111,7 +111,7 @@
                   </button>
                 </router-link>
                 <b-button
-                  v-if="isAdmin"
+                  v-can="['delete', 'pqrs']"
                   @click="prepareRemove(pqr)"
                   variant="danger"
                   class="btn btn-sm"

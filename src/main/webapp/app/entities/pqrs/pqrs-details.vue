@@ -77,15 +77,7 @@
 
           <!-- Right Column (Actions) -->
           <b-col md="4" class="mt-4 mt-md-0">
-            <sidebar
-              v-if="pqrs"
-              :pqrs="pqrs"
-              :is-functionary="isFunctionary"
-              :is-admin="isAdmin"
-              :is-frontdesk="isFrontdesk"
-              @toggle-status="toggleStatusPqrs"
-              @open-close-modal="openConfirmCloseModal"
-            />
+            <sidebar v-if="pqrs" :pqrs="pqrs" @toggle-status="toggleStatusPqrs" @open-close-modal="openConfirmCloseModal" />
           </b-col>
         </b-row>
       </div>
@@ -122,7 +114,7 @@
   background-color: #0dcaf0;
 }
 .status-closed {
-  background-color: #6c757d;
+  background-color: #5cb85c;
 }
 .status-default {
   background-color: #6c757d;

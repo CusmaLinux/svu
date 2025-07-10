@@ -12,21 +12,9 @@ export default defineComponent({
       type: Object as PropType<IPqrs | null>,
       default: null,
     },
-    isFunctionary: {
-      type: Boolean,
-      default: false,
-    },
-    isAdmin: {
-      type: Boolean,
-      default: false,
-    },
-    isFrontdesk: {
-      type: Boolean,
-      default: false,
-    },
   },
   emits: ['toggle-status', 'open-close-modal'],
-  setup(props, { emit }) {
+  setup(props) {
     const { t } = useI18n();
     const router = useRouter();
 

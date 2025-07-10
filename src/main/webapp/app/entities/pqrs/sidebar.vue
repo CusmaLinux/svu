@@ -5,7 +5,8 @@
 
       <div class="d-flex flex-column gap-3">
         <b-button
-          v-if="pqrs && pqrs.id && (isFunctionary || isFrontdesk) && pqrs.estado !== PqrsStatus.Closed"
+          v-can="['resolve', 'pqrs']"
+          v-if="pqrs && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
           @click="$emit('toggle-status')"
           :class="['w-100 font-weight-bold br-lg', pqrs.estado === PqrsStatus.Resolved ? 'btn-warning' : 'btn-success']"
           data-cy="sidebarToggleStatusButton"
@@ -16,7 +17,8 @@
         </b-button>
 
         <b-button
-          v-if="pqrs && pqrs.id && pqrs.estado !== PqrsStatus.Closed && isAdmin"
+          v-can="['close', 'pqrs']"
+          v-if="pqrs && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
           @click="$emit('open-close-modal')"
           class="font-weight-bold w-100 br-lg"
           variant="danger"
@@ -27,7 +29,8 @@
         </b-button>
 
         <b-button
-          v-if="pqrs && pqrs.id && (isFunctionary || isAdmin || isFrontdesk) && pqrs.estado !== PqrsStatus.Closed"
+          v-can="['respond', 'pqrs']"
+          v-if="pqrs && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
           @click="navigateToCreateResponse"
           variant="info"
           class="font-weight-bold w-100 br-lg"
