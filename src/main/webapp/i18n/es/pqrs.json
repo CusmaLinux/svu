@@ -37,6 +37,7 @@
       "fechaCreacion": "Fecha de Creación",
       "fechaLimiteRespuesta": "Fecha Límite de Respuesta",
       "fileNumber": "Nro de Radicado",
+      "daysForResponse": "Dias para responder",
       "home": {
         "createLabel": "Crear nueva PQRS",
         "createOrEditLabel": "Crear o editar un PQRS",

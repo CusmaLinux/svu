@@ -37,6 +37,7 @@
       "fechaCreacion": "Date Created",
       "fechaLimiteRespuesta": "Deadline Response",
       "fileNumber": "File Number",
+      "daysForResponse": "Days for response",
       "home": {
         "createLabel": "Create a new Pqrs",
         "createOrEditLabel": "Create or edit a Pqrs",
