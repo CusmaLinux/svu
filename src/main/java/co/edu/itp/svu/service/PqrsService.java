@@ -220,7 +220,7 @@ public class PqrsService {
         });
     }
 
-    public Optional<PqrsDTO> findOneOficina(String id) {
+    public Optional<PqrsDTO> findPqrsById(String id) {
         LOG.debug("Request to get Pqrs : {}", id);
         return pqrsRepository
             .findById(id)
@@ -273,7 +273,7 @@ public class PqrsService {
         LocalDateTime dueDate = currentDate.plusDays(15);
         pqrs.setFechaLimiteRespuesta(dueDate);
 
-        Oficina office = oficinaRepository.findByNombre("Secretaría General");
+        Oficina office = oficinaRepository.findByNombre("Ventanilla única");
         pqrs.setOficinaResponder(office);
 
         if (pqrsDTO.getArchivosAdjuntosDTO() != null) {
@@ -335,19 +335,39 @@ public class PqrsService {
             }
         }
 
-        if (pqrsDTO.getArchivosAdjuntosDTO() != null) {
-            Set<String> archivosAdjuntosIds = pqrsDTO
-                .getArchivosAdjuntosDTO()
-                .stream()
-                .map(ArchivoAdjuntoDTO::getId)
-                .collect(Collectors.toSet());
+        Pqrs savedPqrs = pqrsRepository.save(pqrs);
+        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
 
-            Set<ArchivoAdjunto> archivosAdjuntos = new HashSet<>(attachedFileRepository.findAllById(archivosAdjuntosIds));
-            pqrs.setArchivosAdjuntos(archivosAdjuntos);
+        if (pqrsDTO.get_transientAttachments() != null && !pqrsDTO.get_transientAttachments().isEmpty()) {
+            for (ArchivoAdjuntoDTO adjuntoDTO : pqrsDTO.get_transientAttachments()) {
+                if (adjuntoDTO.getId() != null) {
+                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
+                    adjuntoOpt.ifPresentOrElse(
+                        adjuntoToLink -> {
+                            adjuntoToLink.setPqrsAttachment(savedPqrs);
+                            attachedFileRepository.save(adjuntoToLink);
+                            successfullyLinkedAttachments.add(adjuntoToLink);
+                        },
+                        () ->
+                            LOG.warn(
+                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
+                                adjuntoDTO.getId(),
+                                savedPqrs.getId()
+                            )
+                    );
+                } else {
+                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
+                }
+            }
         }
 
-        pqrs = pqrsRepository.save(pqrs);
-        return pqrsMapper.toDto(pqrs);
+        if (!successfullyLinkedAttachments.isEmpty()) {
+            savedPqrs.set_transientAttachments(successfullyLinkedAttachments);
+        } else {
+            savedPqrs.set_transientAttachments(new HashSet<>());
+        }
+
+        return pqrsMapper.toDto(savedPqrs);
     }
 
     public PublicPqrsDTO createPublicPqrs(PublicPqrsDTO publicPqrsDTO) {
