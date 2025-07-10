@@ -66,7 +66,7 @@ export default {
       path: 'pqrs/new',
       name: 'PqrsCreate',
       component: PqrsUpdate,
-      meta: { authorities: [Authority.USER, Authority.FRONT_DESK_CS, Authority.ADMIN] },
+      meta: { authorities: [Authority.FRONT_DESK_CS, Authority.ADMIN] },
     },
     {
       path: 'pqrs/:pqrsId/edit',
