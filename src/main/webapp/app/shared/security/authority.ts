@@ -6,8 +6,9 @@ export enum Authority {
 }
 
 export enum AuthorityDisplay {
-  ROLE_ADMIN = 'Administrador',
-  ROLE_USER = 'Usuario',
-  ROLE_FUNCTIONARY = 'Funcionario',
-  ROLE_FRONT_DESK_CS = 'Ventanilla',
+  admin = 'Administrador',
+  user = 'Usuario',
+  functionary = 'Funcionario',
+  front_desk = 'Ventanilla',
+  anonymous = 'Anónimo',
 }
