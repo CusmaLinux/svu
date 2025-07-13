@@ -129,7 +129,7 @@ export default defineComponent({
     };
 
     const goBack = () => {
-      router.go(-1);
+      router.push({ name: 'Welcome', replace: true });
     };
 
     const statusClass = computed(() => {
