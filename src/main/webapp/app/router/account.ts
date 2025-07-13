@@ -12,21 +12,25 @@ export default [
     path: '/register',
     name: 'Register',
     component: Register,
+    meta: { authorities: [Authority.ADMIN] },
   },
   {
     path: '/account/activate',
     name: 'Activate',
     component: Activate,
+    meta: { authorities: [Authority.ADMIN] },
   },
   {
     path: '/account/reset/request',
     name: 'ResetPasswordInit',
     component: ResetPasswordInit,
+    meta: { authorities: [Authority.ADMIN] },
   },
   {
     path: '/account/reset/finish',
     name: 'ResetPasswordFinish',
     component: ResetPasswordFinish,
+    meta: { authorities: [Authority.ADMIN] },
   },
   {
     path: '/account/password',
