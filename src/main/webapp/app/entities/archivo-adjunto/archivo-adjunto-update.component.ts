@@ -26,7 +26,6 @@ export default defineComponent({
         const response = await archivoAdjuntoService.uploadFile(file.value);
         successMessage.value = 'Archivo subido exitosamente.';
         errorMessage.value = null;
-        console.log('Archivo subido:', response);
       } catch (error) {
         successMessage.value = null;
         errorMessage.value = 'Error al subir el archivo.';
