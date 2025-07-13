@@ -98,6 +98,17 @@
             <font-awesome-icon icon="lock" />
             <span v-text="t$('global.menu.account.password')"></span>
           </b-dropdown-item>
+          <b-dropdown-item
+            v-can="['create', 'users']"
+            data-cy="register"
+            to="/register"
+            id="register"
+            v-if="authenticated"
+            active-class="active"
+          >
+            <font-awesome-icon icon="user-plus" />
+            <span v-text="t$('global.menu.account.register')"></span>
+          </b-dropdown-item>
           <b-dropdown-item data-cy="logout" v-if="authenticated" @click="logout()" id="logout" active-class="active">
             <font-awesome-icon icon="sign-out-alt" />
             <span v-text="t$('global.menu.account.logout')"></span>
@@ -105,10 +116,6 @@
           <b-dropdown-item data-cy="login" v-if="!authenticated" @click="openLogin()" id="login" active-class="active">
             <font-awesome-icon icon="sign-in-alt" />
             <span v-text="t$('global.menu.account.login')"></span>
-          </b-dropdown-item>
-          <b-dropdown-item data-cy="register" to="/register" id="register" v-if="!authenticated" active-class="active">
-            <font-awesome-icon icon="user-plus" />
-            <span v-text="t$('global.menu.account.register')"></span>
           </b-dropdown-item>
         </b-nav-item-dropdown>
       </b-navbar-nav>
