@@ -5,7 +5,7 @@ import { type IOficina } from '@/shared/model/oficina.model';
 const baseApiUrl = 'api/oficinas';
 
 export default class OficinaService {
-  public find(id: string): Promise<IOficina> {
+  public find(id: string | string[]): Promise<IOficina> {
     return new Promise<IOficina>((resolve, reject) => {
       axios
         .get(`${baseApiUrl}/${id}`)

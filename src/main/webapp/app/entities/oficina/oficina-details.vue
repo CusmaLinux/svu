@@ -2,15 +2,13 @@
   <div class="row justify-content-center">
     <div class="col-8">
       <div v-if="oficina">
-        <h2 class="jh-entity-heading" data-cy="oficinaDetailsHeading">
-          <span v-text="t$('ventanillaUnicaApp.oficina.detail.title')"></span> {{ oficina.id }}
-        </h2>
+        <h2 class="jh-entity-heading" data-cy="oficinaDetailsHeading"><span>Ofincina: </span> {{ oficina.nombre }}</h2>
         <dl class="row jh-entity-details">
           <dt>
-            <span v-text="t$('ventanillaUnicaApp.oficina.nombre')"></span>
+            <span v-text="t$('ventanillaUnicaApp.oficina.id')"></span>
           </dt>
           <dd>
-            <span>{{ oficina.nombre }}</span>
+            <span>{{ oficina.id }}</span>
           </dd>
           <dt>
             <span v-text="t$('ventanillaUnicaApp.oficina.descripcion')"></span>
@@ -29,6 +27,12 @@
           </dt>
           <dd>
             <span>{{ oficina.oficinaSuperior }}</span>
+          </dd>
+          <dt>
+            <span>Responsable: </span>
+          </dt>
+          <dd>
+            <span>{{ oficina.responsableDTO?.login }}</span>
           </dd>
         </dl>
         <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">

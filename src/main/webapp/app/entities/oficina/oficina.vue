@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container>
     <h2 id="page-heading" data-cy="OficinaHeading">
       <span v-text="t$('ventanillaUnicaApp.oficina.home.title')" id="oficina-heading"></span>
       <div class="d-flex justify-content-end">
@@ -7,7 +7,7 @@
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span v-text="t$('ventanillaUnicaApp.oficina.home.refreshListLabel')"></span>
         </button>
-        <router-link :to="{ name: 'OficinaUserCreate' }" custom v-slot="{ navigate }">
+        <router-link :to="{ name: 'OficinaCreate' }" custom v-slot="{ navigate }">
           <button
             @click="navigate"
             id="jh-create-entity"
@@ -28,8 +28,8 @@
       <table class="table table-striped" aria-describedby="oficinas">
         <thead>
           <tr>
-            <th scope="row"><span v-text="t$('global.field.id')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.oficina.nombre')"></span></th>
+            <th scope="row"><span>Responsable</span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.oficina.descripcion')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.oficina.nivel')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.oficina.oficinaSuperior')"></span></th>
@@ -39,9 +39,9 @@
         <tbody>
           <tr v-for="oficina in oficinas" :key="oficina.id" data-cy="entityTable">
             <td>
-              <router-link :to="{ name: 'OficinaView', params: { oficinaId: oficina.id } }">{{ oficina.id }}</router-link>
+              <router-link :to="{ name: 'OficinaView', params: { oficinaId: oficina.id } }">{{ oficina.nombre }}</router-link>
             </td>
-            <td>{{ oficina.nombre }}</td>
+            <td>{{ oficina.responsableDTO?.login }}</td>
             <td>{{ oficina.descripcion }}</td>
             <td>{{ oficina.nivel }}</td>
             <td>{{ oficina.oficinaSuperior }}</td>
@@ -100,7 +100,7 @@
         </div>
       </template>
     </b-modal>
-  </div>
+  </b-container>
 </template>
 
 <script lang="ts" src="./oficina.component.ts"></script>

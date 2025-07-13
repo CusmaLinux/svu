@@ -1,6 +1,5 @@
-//import { IUser } from "./user.model";
 import { type IUser } from '@/shared/model/user.model';
-import { type IPqrs, Pqrs } from './pqrs.model';
+import { type IPqrs } from './pqrs.model';
 
 export interface IOficina {
   id?: string;
