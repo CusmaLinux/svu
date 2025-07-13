@@ -20,6 +20,7 @@ import UserManagementService from '@/admin/user-management/user-management.servi
 
 import '../content/scss/global.scss';
 import '../content/scss/vendor.scss';
+import 'vue-multiselect/dist/vue-multiselect.min.css';
 import TranslationService from '@/locale/translation.service';
 
 const pinia = createPinia();

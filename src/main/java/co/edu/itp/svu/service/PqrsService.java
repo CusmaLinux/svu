@@ -273,7 +273,7 @@ public class PqrsService {
         LocalDateTime dueDate = currentDate.plusDays(15);
         pqrs.setFechaLimiteRespuesta(dueDate);
 
-        Oficina office = oficinaRepository.findByNombre("Ventanilla única");
+        Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
         pqrs.setOficinaResponder(office);
 
         if (pqrsDTO.getArchivosAdjuntosDTO() != null) {
@@ -385,7 +385,7 @@ public class PqrsService {
         LocalDateTime dueDate = currentDate.plusDays(15);
         pqrs.setFechaLimiteRespuesta(dueDate);
 
-        Oficina office = oficinaRepository.findByNombre("Ventanilla única");
+        Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
         pqrs.setOficinaResponder(office);
 
         Pqrs savedPqrs = pqrsRepository.save(pqrs);

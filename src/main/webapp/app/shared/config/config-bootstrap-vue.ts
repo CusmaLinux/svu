@@ -39,6 +39,8 @@ import {
   TablePlugin,
 } from 'bootstrap-vue';
 
+import Multiselect from 'vue-multiselect';
+
 export function initBootstrapVue(vue: any) {
   vue.use(ToastPlugin);
   vue.use(IconsPlugin);
@@ -79,4 +81,5 @@ export function initBootstrapVue(vue: any) {
   vue.component('b-spinner', BSpinner);
   vue.directive('b-tooltip', VBTooltip);
   vue.component('b-img', BImg);
+  vue.component('v-multiselect', Multiselect);
 }

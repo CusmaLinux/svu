@@ -84,7 +84,7 @@ export default {
       path: 'respuesta',
       name: 'Respuesta',
       component: Respuesta,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY] },
     },
     {
       path: 'respuesta/new',
@@ -132,13 +132,13 @@ export default {
       path: 'notificaciones',
       name: 'Notifications',
       component: Notification,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN] },
     },
     {
       path: 'notificacion/:notificacionId/view',
       name: 'NotificacionView',
       component: NotificationDetails,
-      meta: { authorities: [Authority.USER] },
+      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN] },
     },
     {
       path: 'informe-pqrs',
