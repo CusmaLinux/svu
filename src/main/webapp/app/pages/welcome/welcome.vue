@@ -3,7 +3,7 @@
     <main class="flex-grow-1 p-4 p-md-5">
       <b-container>
         <!-- "Introduction Section -->
-        <section class="mb-5 text-center">
+        <section id="section-welcome" class="mb-5 text-center">
           <h1 class="display-4 fw-bold text-dark mb-4">Sistema de Ventanilla Única (SVU)</h1>
           <div class="col-lg-8 mx-auto">
             <p class="lead text-muted">
@@ -24,7 +24,7 @@
         </section>
 
         <!-- "What is SVU?" Section -->
-        <section class="mb-5">
+        <section id="section-definition" class="mb-5">
           <b-row class="align-items-center g-5">
             <b-col cols="12" lg="6" class="mb-4 mb-lg-0">
               <b-card class="card">
@@ -53,7 +53,7 @@
         </section>
 
         <!-- Features Section -->
-        <section class="mb-5">
+        <section id="section-features" class="mb-5">
           <h2 class="h2 fw-semibold text-dark mb-5 text-center">Características del Sistema</h2>
           <b-row class="g-4">
             <b-col cols="12" lg="4" class="mb-4 mb-lg-0">
@@ -88,7 +88,7 @@
         </section>
 
         <!-- FAQ Section -->
-        <section class="mb-5">
+        <section id="section-faq" class="mb-5">
           <h2 class="h2 fw-semibold text-dark mb-5 text-center">Preguntas Frecuentes (FAQ)</h2>
           <div class="col-lg-8 mx-auto">
             <b-accordion :items="faqItems"></b-accordion>
