@@ -45,7 +45,7 @@ export default defineComponent({
       sessionStorage.removeItem('jhi-authenticationToken');
       store.logout();
       if (router.currentRoute.value.path !== '/') {
-        router.push('/');
+        router.push({ path: '/', replace: true });
       }
     };
 

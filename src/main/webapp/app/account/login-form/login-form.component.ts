@@ -43,7 +43,7 @@ export default defineComponent({
           previousState();
         } else {
           if (verifyLogin) {
-            router.push({ name: 'Welcome', replace: true });
+            router.push({ path: '/', replace: true });
           }
         }
       } catch (_error) {

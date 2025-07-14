@@ -3,12 +3,13 @@
     <main class="flex-grow-1 p-4 p-md-5">
       <b-container>
         <!-- "Introduction Section -->
-        <section class="mb-5 text-center">
+        <section id="section-welcome" class="mb-5 text-center">
           <h1 class="display-4 fw-bold text-dark mb-4">Sistema de Ventanilla Única (SVU)</h1>
           <div class="col-lg-8 mx-auto">
             <p class="lead text-muted">
-              Bienvenido al Sistema de Ventanilla Única del Instituto Tecnológico del Putumayo. Aquí puede gestionar sus Peticiones, Quejas,
-              Reclamos, Sugerencias y Demandas (PQRSD) de forma eficiente y transparente.
+              Bienvenido al Sistema de Ventanilla Única de la institución de educación superior
+              <span class="font-weight-bold">UniPutumayo(UP).</span> Aquí puede gestionar sus Peticiones, Quejas, Reclamos, Sugerencias y
+              Demandas (PQRSD) de forma eficiente y transparente.
             </p>
           </div>
           <div class="mt-5 d-flex justify-content-center gap-3">
@@ -24,15 +25,15 @@
         </section>
 
         <!-- "What is SVU?" Section -->
-        <section class="mb-5">
+        <section id="section-definition" class="mb-5">
           <b-row class="align-items-center g-5">
             <b-col cols="12" lg="6" class="mb-4 mb-lg-0">
               <b-card class="card">
                 <h2 class="h2 fw-semibold text-dark mb-4">¿Qué es el SVU?</h2>
                 <p class="text-muted mb-3">
-                  El Sistema de Ventanilla Única (SVU) es una plataforma diseñada para optimizar la gestión de PQRSD en el Instituto
-                  Tecnológico del Putumayo (ITP). Nuestro objetivo es proporcionar un canal centralizado y eficiente para que la comunidad
-                  educativa pueda interactuar con la institución.
+                  El Sistema de Ventanilla Única (SVU) es una plataforma diseñada para optimizar la gestión de PQRSD en la institución de
+                  educación superior <span class="font-weight-bold">UniPutumayo(UP).</span> Nuestro objetivo es proporcionar un canal
+                  centralizado y eficiente para que la comunidad educativa pueda interactuar con la institución.
                 </p>
                 <p class="text-muted">
                   Este sistema automatiza el proceso de gestión, mejorando la eficiencia operativa, garantizando el cumplimiento de plazos y
@@ -53,7 +54,7 @@
         </section>
 
         <!-- Features Section -->
-        <section class="mb-5">
+        <section id="section-features" class="mb-5">
           <h2 class="h2 fw-semibold text-dark mb-5 text-center">Características del Sistema</h2>
           <b-row class="g-4">
             <b-col cols="12" lg="4" class="mb-4 mb-lg-0">
@@ -88,7 +89,7 @@
         </section>
 
         <!-- FAQ Section -->
-        <section class="mb-5">
+        <section id="section-faq" class="mb-5">
           <h2 class="h2 fw-semibold text-dark mb-5 text-center">Preguntas Frecuentes (FAQ)</h2>
           <div class="col-lg-8 mx-auto">
             <b-accordion :items="faqItems"></b-accordion>

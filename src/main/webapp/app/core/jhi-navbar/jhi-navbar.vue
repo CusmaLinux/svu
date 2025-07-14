@@ -2,7 +2,7 @@
   <b-navbar data-cy="navbar" toggleable="md" type="dark" class="jh-navbar">
     <b-navbar-brand class="logo" b-link to="/">
       <span class="logo-img"></span>
-      <span v-text="t$('global.title')" class="navbar-title"></span> <span class="navbar-version">{{ version }}</span>
+      <span class="navbar-title"></span>
     </b-navbar-brand>
     <b-navbar-toggle
       right
@@ -184,6 +184,9 @@
   .jh-navbar-toggler {
     display: none;
   }
+  .jh-navbar {
+    padding: 0.2em 4em;
+  }
 }
 
 @media screen and (min-width: 768px) and (max-width: 1150px) {
@@ -205,15 +208,15 @@
 }
 
 .logo .logo-img {
-  height: 45px;
+  height: 100px;
   display: inline-block;
   vertical-align: middle;
-  width: 45px;
+  width: 115px;
 }
 
 .logo-img {
   height: 100%;
-  background: url('/content/images/logo-jhipster.png') no-repeat center center;
+  background: url('/content/images/logo-svu.svg') no-repeat center center;
   background-size: contain;
   width: 100%;
   filter: drop-shadow(0 0 0.05rem white);

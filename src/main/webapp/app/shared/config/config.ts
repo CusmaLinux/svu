@@ -57,6 +57,9 @@ import { faRotateLeft } from '@fortawesome/free-solid-svg-icons/faRotateLeft';
 import { faCheckCircle } from '@fortawesome/free-solid-svg-icons/faCheckCircle';
 import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload';
 import { faPenToSquare } from '@fortawesome/free-solid-svg-icons/faPenToSquare';
+import { faLocationDot } from '@fortawesome/free-solid-svg-icons/faLocationDot';
+import { faEnvelope } from '@fortawesome/free-solid-svg-icons/faEnvelope';
+import { faPhone } from '@fortawesome/free-solid-svg-icons/faPhone';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -171,6 +174,9 @@ export function initFortAwesome(vue) {
     faCheckCircle,
     faDownload,
     faPenToSquare,
+    faLocationDot,
+    faEnvelope,
+    faPhone,
   );
 }
 export function initI18N(opts: any = {}) {

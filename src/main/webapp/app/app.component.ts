@@ -1,8 +1,10 @@
-import { defineComponent, onBeforeUnmount, onMounted, provide, watch, inject } from 'vue';
+import { defineComponent, onBeforeUnmount, onMounted, provide, watch, inject, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Ribbon from '@/core/ribbon/ribbon.vue';
 import JhiFooter from '@/core/jhi-footer/jhi-footer.vue';
 import JhiNavbar from '@/core/jhi-navbar/jhi-navbar.vue';
+import Footer from '@/core/footer/footer.vue';
+import AuthFooter from './core/footer/auth-footer.vue';
 import LoginForm from '@/account/login-form/login-form.vue';
 import { useDateFormat } from '@/shared/composables';
 
@@ -23,6 +25,8 @@ export default defineComponent({
     'jhi-navbar': JhiNavbar,
     'login-form': LoginForm,
     'jhi-footer': JhiFooter,
+    'svu-footer': Footer,
+    'svu-auth-footer': AuthFooter,
   },
   setup() {
     const accountStore = useAccountStore();
@@ -30,6 +34,7 @@ export default defineComponent({
     const alertService = inject('alertService', () => useAlertService(), true);
     const dataUtils = useDataUtils();
     const dateFormat = useDateFormat();
+    const authenticated = computed(() => accountStore.authenticated);
     const { t } = useI18n();
 
     const manageSseConnection = () => {
@@ -128,6 +133,7 @@ export default defineComponent({
     provide('alertService', useAlertService());
     return {
       t$: useI18n().t,
+      authenticated,
       ...dataUtils,
     };
   },

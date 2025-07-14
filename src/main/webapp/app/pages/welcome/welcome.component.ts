@@ -1,5 +1,6 @@
-import { defineComponent } from 'vue';
+import { defineComponent, onMounted, watch, nextTick } from 'vue';
 import Accordion from '@/core/components/accordion/accordion.vue';
+import { useRoute } from 'vue-router';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -27,6 +28,31 @@ export default defineComponent({
           'No, para la radicación de PQRSD anónimas y su consulta no es necesario un registro previo. Esto facilita el acceso y garantiza la confidencialidad si así lo desea.',
       },
     ];
+
+    const route = useRoute();
+
+    const scrollToHash = async (hash: string) => {
+      if (!hash) return;
+
+      await nextTick();
+
+      const element = document.querySelector(hash);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    onMounted(() => {
+      scrollToHash(route.hash);
+    });
+
+    watch(
+      () => route.hash,
+      newHash => {
+        scrollToHash(newHash);
+      },
+    );
+
     return { faqItems };
   },
 });
