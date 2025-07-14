@@ -7,7 +7,9 @@
             <h5 class="logo-title">Ventanilla Única</h5>
             <span class="logo-img"></span>
           </div>
-          <p class="mt-3">Una solución para la gestión eficiente de PQRSD en el Instituto Tecnológico del Putumayo.</p>
+          <p class="mt-3">
+            Una solución para la gestión eficiente de PQRSD en la institución de educación superior <strong>UniPutumayo</strong>.
+          </p>
         </b-col>
         <b-col md="4">
           <h5 class="text-uppercase footer-title">Enlaces Rápidos</h5>
@@ -34,8 +36,7 @@
       </b-row>
       <div class="text-center py-3 mt-4 border-top-light">
         <p>
-          © {{ currentYear }}
-          <b-link href="https://www.itp.edu.co/" target="_blank" class="text-white"> Instituto Tecnológico del Putumayo.</b-link> Todos los
+          © {{ currentYear }} <b-link href="https://www.itp.edu.co/" target="_blank" class="text-white"> UniPutumayo.</b-link> Todos los
           derechos reservados.
         </p>
       </div>

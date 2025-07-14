@@ -8,8 +8,7 @@
               <span class="logo-img"></span>
             </b-link>
             <span class="ml-3"
-              >© {{ currentYear }}
-              <b-link href="https://www.itp.edu.co/" target="_blank" class="text-white"> Instituto Tecnológico del Putumayo. </b-link></span
+              >© {{ currentYear }} <b-link href="https://www.itp.edu.co/" target="_blank" class="text-white"> UniPutumayo. </b-link></span
             >
           </div>
         </b-col>
@@ -22,7 +21,7 @@
             </li>
             <li class="list-inline-item mx-2">•</li>
             <li class="list-inline-item">
-              <b-link href="mailto:atencionalusuario@itp.edu.co" class="text-white"> Soporte Técnico </b-link>
+              <b-link href="mailto:Aizquierdo@itp.edu.co" class="text-white"> Soporte Técnico </b-link>
             </li>
           </ul>
         </b-col>
