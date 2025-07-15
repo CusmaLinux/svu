@@ -64,6 +64,7 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons/faUpload';
 import { faAt } from '@fortawesome/free-solid-svg-icons/faAt';
 import { faListUl } from '@fortawesome/free-solid-svg-icons/faListUl';
 import { faTag } from '@fortawesome/free-solid-svg-icons/faTag';
+import { faHashtag } from '@fortawesome/free-solid-svg-icons/faHashtag';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -185,6 +186,7 @@ export function initFortAwesome(vue) {
     faAt,
     faListUl,
     faTag,
+    faHashtag,
   );
 }
 export function initI18N(opts: any = {}) {
