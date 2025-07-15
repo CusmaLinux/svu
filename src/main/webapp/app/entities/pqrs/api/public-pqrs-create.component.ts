@@ -151,6 +151,17 @@ export default defineComponent({
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       }
     };
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      if (isUploading.value) {
+        return;
+      }
+      const droppedFiles = event.dataTransfer?.files;
+      if (droppedFiles) {
+        Array.from(droppedFiles).forEach(file => files.value.push(file));
+      }
+    };
+
     const save = async (): Promise<void> => {
       try {
         if (isSaving.value) {
@@ -224,6 +235,7 @@ export default defineComponent({
       triggerFileInput,
       removeFile,
       save,
+      onDrop,
       isUploading,
       errorMessage,
       successMessage,
