@@ -4,7 +4,7 @@
       <b-col md="10" lg="8">
         <b-card no-body class="shadow-sm border-0">
           <b-card-header class="bg-light py-3">
-            <h2 id="ventanillaUnicaApp.pqrs.public.title" data-cy="PublicPqrsCreate" class="text-center mb-0 h3">
+            <h2 id="ventanillaUnicaApp.pqrs.public.title" data-cy="PublicPqrsCreate" class="text-center mb-0 h3 font-weight-bold">
               Registrar Petición, Queja, Reclamo o Sugerencia
             </h2>
           </b-card-header>
@@ -43,12 +43,8 @@
                 </b-form-invalid-feedback>
               </b-form-group>
 
-              <b-form-group
-                id="pqrs-type-group"
-                :label="t$('ventanillaUnicaApp.pqrs.public.type') + ' *'"
-                label-for="pqrs-type"
-                label-class="font-weight-bold"
-              >
+              <b-form-group id="pqrs-type-group" label-for="pqrs-type" label-class="font-weight-bold">
+                <template #label> {{ t$('ventanillaUnicaApp.pqrs.public.type') }} <span class="text-danger">*</span> </template>
                 <b-input-group>
                   <b-input-group-prepend is-text>
                     <font-awesome-icon icon="list-ul" />
@@ -66,12 +62,8 @@
                 </b-form-invalid-feedback>
               </b-form-group>
 
-              <b-form-group
-                id="pqrs-titulo-group"
-                :label="t$('ventanillaUnicaApp.pqrs.titulo') + ' *'"
-                label-for="pqrs-titulo"
-                label-class="font-weight-bold"
-              >
+              <b-form-group id="pqrs-titulo-group" label-for="pqrs-titulo" label-class="font-weight-bold">
+                <template #label> {{ t$('ventanillaUnicaApp.pqrs.titulo') }} <span class="text-danger">*</span> </template>
                 <b-input-group>
                   <b-input-group-prepend is-text>
                     <font-awesome-icon icon="tag" />
@@ -89,12 +81,8 @@
                 </b-form-invalid-feedback>
               </b-form-group>
 
-              <b-form-group
-                id="pqrs-descripcion-group"
-                :label="t$('ventanillaUnicaApp.pqrs.descripcion') + ' *'"
-                label-for="pqrs-descripcion"
-                label-class="font-weight-bold"
-              >
+              <b-form-group id="pqrs-descripcion-group" label-for="pqrs-descripcion" label-class="font-weight-bold">
+                <template #label> {{ t$('ventanillaUnicaApp.pqrs.descripcion') }} <span class="text-danger">*</span> </template>
                 <b-form-textarea
                   id="pqrs-descripcion"
                   v-model.trim="v$.descripcion.$model"
