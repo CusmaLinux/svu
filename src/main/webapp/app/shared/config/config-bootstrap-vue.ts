@@ -29,6 +29,9 @@ import {
   BDropdownDivider,
   BSpinner,
   BImg,
+  BFormTextarea,
+  BFormSelect,
+  BFormInvalidFeedback,
   ToastPlugin,
   IconsPlugin,
   VBModal,
@@ -82,4 +85,7 @@ export function initBootstrapVue(vue: any) {
   vue.directive('b-tooltip', VBTooltip);
   vue.component('b-img', BImg);
   vue.component('v-multiselect', Multiselect);
+  vue.component('b-form-textarea', BFormTextarea);
+  vue.component('b-form-select', BFormSelect);
+  vue.component('b-form-invalid-feedback', BFormInvalidFeedback);
 }
