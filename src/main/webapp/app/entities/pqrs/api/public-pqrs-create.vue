@@ -110,7 +110,7 @@
                   @drop.prevent="onDrop"
                   :class="{ 'is-uploading': isUploading }"
                 >
-                  <font-awesome-icon icon="cloud-upload-alt" class="fa-3x text-secondary mb-2" />
+                  <font-awesome-icon icon="cloud-arrow-up" class="fa-3x text-secondary mb-2" />
                   <p class="mb-0">
                     {{ isUploading ? 'Subiendo...' : 'Arrastre los archivos aquí o haga clic para seleccionar' }}
                   </p>

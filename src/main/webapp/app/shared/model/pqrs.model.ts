@@ -11,8 +11,8 @@ export interface IPqrs {
   requesterEmail?: string | null;
   accessToken?: string;
   daysToReply?: string;
-  fechaCreacion?: Date | undefined | null;
-  fechaLimiteRespuesta?: Date | undefined | null;
+  fechaCreacion?: Date | string | number;
+  fechaLimiteRespuesta?: Date | string | number;
   estado?: string;
   oficinaResponder?: IOficina | null;
   archivosAdjuntosDTO?: IArchivoAdjunto[] | null;
@@ -30,8 +30,8 @@ export class Pqrs implements IPqrs {
     public requesterEmail?: string | null,
     public accessToken?: string,
     public daysToReply?: string,
-    public fechaCreacion?: Date | undefined,
-    public fechaLimiteRespuesta?: Date | null,
+    public fechaCreacion?: Date | string | number,
+    public fechaLimiteRespuesta?: Date | string | number,
     public estado?: string,
     public oficinaResponder?: IOficina | null,
     public archivosAdjuntosDTO?: IArchivoAdjunto[] | null,

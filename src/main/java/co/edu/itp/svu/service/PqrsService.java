@@ -28,9 +28,8 @@ import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificat
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.util.HashSet;
 import java.util.List;
@@ -268,9 +267,7 @@ public class PqrsService {
         Instant globalCurrentDate = Instant.now();
         pqrs.setFechaCreacion(globalCurrentDate);
 
-        ZoneId zoneSystem = ZoneId.systemDefault();
-        LocalDateTime currentDate = LocalDateTime.ofInstant(globalCurrentDate, zoneSystem);
-        LocalDateTime dueDate = currentDate.plusDays(15);
+        Instant dueDate = globalCurrentDate.plus(15, ChronoUnit.DAYS);
         pqrs.setFechaLimiteRespuesta(dueDate);
 
         Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
@@ -311,6 +308,7 @@ public class PqrsService {
 
     public PqrsDTO update(PqrsDTO pqrsDTO) {
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
+        LOG.info("pqrs --------------------------------- {}", pqrs.toString());
         Pqrs oldPqrs = pqrsRepository.findById(pqrs.getId()).orElse(null);
 
         if (SecurityUtils.isAuthenticated()) {
@@ -374,15 +372,15 @@ public class PqrsService {
         LOG.debug("Request to create public Pqrs : {}", publicPqrsDTO);
         Pqrs pqrs = publicPqrsMapper.toEntity(publicPqrsDTO);
 
+        Instant globalCurrentDate = Instant.now();
+
         pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
         pqrs.setDaysToReply(15);
         pqrs.setAccessToken(UUID.randomUUID().toString());
-        pqrs.setFechaCreacion(Instant.now());
+        pqrs.setFechaCreacion(globalCurrentDate);
         pqrs.setFileNumber(generateFileNumber());
 
-        ZoneId zoneSystem = ZoneId.systemDefault();
-        LocalDateTime currentDate = LocalDateTime.ofInstant(Instant.now(), zoneSystem);
-        LocalDateTime dueDate = currentDate.plusDays(15);
+        Instant dueDate = globalCurrentDate.plus(15, ChronoUnit.DAYS);
         pqrs.setFechaLimiteRespuesta(dueDate);
 
         Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
