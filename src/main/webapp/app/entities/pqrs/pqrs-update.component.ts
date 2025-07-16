@@ -46,20 +46,28 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
 
-    const statesPqrsRef = ref(PqrsStatus);
-
     const isUpdateMode = computed(() => {
       return !!pqrs.value.id;
     });
 
-    const updateDueDate = (event: Event) => {
-      const target = event.target as HTMLInputElement;
-      if (target.value) {
-        pqrs.value.fechaLimiteRespuesta = new Date(target.value);
-      } else {
-        pqrs.value.fechaLimiteRespuesta = null;
-      }
-    };
+    const oficinaOptions = computed(() => {
+      if (!oficinas.value) return [{ value: null, text: 'Cargando oficinas...' }];
+      return [
+        { value: null, text: '-- Seleccione una oficina --', disabled: true },
+        ...oficinas.value.map(oficina => ({ value: oficina, text: oficina.nombre })),
+      ];
+    });
+
+    const statesPqrsOptions = computed(() => {
+      return Object.entries(PqrsStatus).map(([key, value]) => ({ value: value, text: value }));
+    });
+
+    const pqrsTypeOptions = computed(() => {
+      return [
+        { value: null, text: '-- Seleccione un tipo --', disabled: true },
+        ...Object.values(PqrsType).map(value => ({ value: value, text: value })),
+      ];
+    });
 
     const requesterEmailModel = computed({
       get() {
@@ -185,6 +193,14 @@ export default defineComponent({
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       }
     };
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      if (isUploading.value) return;
+      const droppedFiles = event.dataTransfer?.files;
+      if (droppedFiles) {
+        Array.from(droppedFiles).forEach(file => files.value.push(file));
+      }
+    };
     const save = async (): Promise<void> => {
       try {
         if (isSaving.value) {
@@ -283,15 +299,16 @@ export default defineComponent({
       isUploading,
       errorMessage,
       successMessage,
+      statesPqrsOptions,
+      pqrsTypeOptions,
+      oficinaOptions,
       ...dataUtils,
       v$,
       ...useDateFormat({ entityRef: pqrs }),
       t$,
       isUpdateMode,
-      statesPqrs: statesPqrsRef,
       requesterEmailModel,
-      PqrsType,
-      updateDueDate,
+      onDrop,
     };
   },
 });

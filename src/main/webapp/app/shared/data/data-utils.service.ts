@@ -238,6 +238,22 @@ const useDataUtils = () => ({
     }
     return defaultValue;
   },
+
+  /**
+   * A utility function to delay the execution of a function.
+   * @param fn The function to execute after the delay.
+   * @param delay The delay in milliseconds.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  debounce(fn: Function, delay: number) {
+    let timeoutId: NodeJS.Timeout | null = null;
+    return (...args: any[]) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => fn(...args), delay);
+    };
+  },
 });
 
 export default useDataUtils;

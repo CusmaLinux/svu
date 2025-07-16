@@ -2,54 +2,62 @@
   <main>
     <b-container class="py-5">
       <b-row class="justify-content-center">
-        <b-col md="10" lg="8">
-          <b-card no-body>
-            <b-card-body class="p-4 p-md-5">
-              <h1 class="h3 font-weight-bold text-dark mb-4 text-center">Consultar Estado de su Requerimiento</h1>
+        <b-col md="8" lg="6">
+          <b-card no-body class="shadow-sm border-0">
+            <b-card-header class="bg-light py-3">
+              <h2 class="text-center mb-0 h3 font-weight-bold">Consultar Estado de PQRSD</h2>
+            </b-card-header>
 
-              <b-alert show variant="info" class="d-flex align-items-center mb-4" role="alert">
-                <font-awesome-icon icon="info-circle" class="mr-3" style="font-size: 1.5rem" />
-                <p class="mb-0 small">
-                  Ingrese el número de radicado de su PQRSD (Petición, Queja, Reclamo, Sugerencia o Denuncia) para verificar su estado
-                  actual.
-                </p>
-              </b-alert>
+            <b-card-body class="p-4">
+              <b-form @submit.prevent="consult">
+                <b-alert show variant="info" class="d-flex align-items-center mb-4">
+                  <font-awesome-icon icon="circle-info" class="fa-2x mr-3" />
+                  <div>Ingrese el número de radicado para verificar el estado actual de su solicitud.</div>
+                </b-alert>
 
-              <b-form name="consultForm" no-validate>
-                <b-form-group>
+                <b-form-group label-for="numero_radicado" label-class="font-weight-bold">
                   <template #label> Número de Radicado <span class="text-danger">*</span> </template>
 
-                  <b-input-group class="d-flex flex-row">
+                  <b-input-group>
                     <b-input-group-prepend is-text>
-                      <font-awesome-icon icon="file-lines" class="text-secondary" />
+                      <font-awesome-icon icon="hashtag" />
                     </b-input-group-prepend>
                     <b-form-input
                       id="numero_radicado"
-                      name="numero_radicado"
+                      v-model.trim="v$.fileNumber.$model"
                       type="text"
+                      placeholder="Ej: R2025071500009"
+                      :state="v$.fileNumber.$dirty ? !v$.fileNumber.$error : null"
                       data-cy="file-number"
-                      placeholder="Ingrese su número de radicado"
-                      :class="{ valid: !v$.fileNumber.$invalid, invalid: v$.fileNumber.$invalid }"
-                      v-model="v$.fileNumber.$model"
                       required
-                    >
-                    </b-form-input>
+                    ></b-form-input>
                   </b-input-group>
-                  <div v-if="v$.fileNumber.$anyDirty && v$.fileNumber.$invalid">
-                    <small class="form-text text-danger" v-for="error of v$.fileNumber.$errors" :key="error.$uid">{{
-                      error.$message
-                    }}</small>
-                  </div>
+
+                  <b-form-invalid-feedback :state="!v$.fileNumber.$error" v-for="error of v$.fileNumber.$errors" :key="error.$uid">
+                    {{ error.$message }}
+                  </b-form-invalid-feedback>
                 </b-form-group>
 
-                <div class="d-flex justify-content-end mt-4">
-                  <b-button variant="secondary" type="button" class="mr-3 br-lg" @click="previousState">
-                    <font-awesome-icon icon="ban" class="mr-2" />
-                    Cancelar
+                <div class="d-flex justify-content-end mt-4 border-top pt-4">
+                  <b-button variant="secondary" class="mr-3" @click="previousState">
+                    <font-awesome-icon icon="arrow-left" class="mr-1" />
+                    Volver
                   </b-button>
-                  <b-button variant="primary" type="submit" class="br-lg" :disabled="v$.$invalid || isConsulting" @click="consult">
-                    <font-awesome-icon icon="search" class="mr-2" />
-                    Consultar
+                  <b-button
+                    variant="primary"
+                    type="submit"
+                    :disabled="v$.$invalid || isConsulting"
+                    data-cy="consultButton"
+                    style="min-width: 130px"
+                  >
+                    <span v-if="isConsulting">
+                      <b-spinner small></b-spinner>
+                      <span class="ml-2">Consultando...</span>
+                    </span>
+                    <span v-else>
+                      <font-awesome-icon icon="search" class="mr-1" />
+                      Consultar
+                    </span>
                   </b-button>
                 </div>
               </b-form>
@@ -62,9 +70,3 @@
 </template>
 
 <script src="./consult-requirement.component.ts" lang="ts"></script>
-
-<style scoped>
-.h3 {
-  font-size: 1.75rem;
-}
-</style>

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the {@link User} entity.
  */
 @Repository
-public interface UserRepository extends MongoRepository<User, String> {
+public interface UserRepository extends MongoRepository<User, String>, UserQueryRepository {
     String USERS_BY_LOGIN_CACHE = "usersByLogin";
 
     String USERS_BY_EMAIL_CACHE = "usersByEmail";

@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
@@ -60,7 +59,7 @@ public class Pqrs implements Serializable {
     private Instant fechaCreacion;
 
     @Field("fecha_limite_respuesta")
-    private LocalDateTime fechaLimiteRespuesta;
+    private Instant fechaLimiteRespuesta;
 
     @NotNull
     @Field("estado")
@@ -190,16 +189,16 @@ public class Pqrs implements Serializable {
         this.fechaCreacion = fechaCreacion;
     }
 
-    public LocalDateTime getFechaLimiteRespuesta() {
+    public Instant getFechaLimiteRespuesta() {
         return this.fechaLimiteRespuesta;
     }
 
-    public Pqrs fechaLimiteRespuesta(LocalDateTime fechaLimiteRespuesta) {
+    public Pqrs fechaLimiteRespuesta(Instant fechaLimiteRespuesta) {
         this.setFechaLimiteRespuesta(fechaLimiteRespuesta);
         return this;
     }
 
-    public void setFechaLimiteRespuesta(LocalDateTime fechaLimiteRespuesta) {
+    public void setFechaLimiteRespuesta(Instant fechaLimiteRespuesta) {
         this.fechaLimiteRespuesta = fechaLimiteRespuesta;
     }
 

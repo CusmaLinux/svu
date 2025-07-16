@@ -25,13 +25,23 @@ export default defineComponent({
     const { t: t$ } = useI18n();
 
     const files = ref<File[]>([]);
-    const existingFilesInfo: Ref<IArchivoAdjunto[]> = ref([]);
     const filesToDelete: Ref<string[]> = ref([]);
     const fileInput = ref<HTMLInputElement | null>(null);
     const archivosAdjuntosDTO = ref<IArchivoAdjunto[]>([]);
     const isUploading = ref(false);
     const errorMessage = ref<string | null>(null);
     const successMessage = ref<string | null>(null);
+
+    const pqrsTypeOptions = computed(() => {
+      return [
+        { value: null, text: '-- Seleccione un tipo --', disabled: true },
+        ...Object.values(PqrsType).map(value => ({ value: value, text: value })),
+      ];
+    });
+
+    const hasFiles = computed(() => {
+      return files.value?.length > 0;
+    });
 
     const pqrs: Ref<IPqrs> = ref(new Pqrs());
     const isSaving = ref(false);
@@ -84,17 +94,7 @@ export default defineComponent({
         fileInput.value.value = '';
       }
     };
-    const removeExistingFile = (index: number) => {
-      if (existingFilesInfo.value && Array.isArray(existingFilesInfo.value) && existingFilesInfo.value[index]) {
-        const fileToRemove = existingFilesInfo.value[index];
 
-        if (fileToRemove.urlArchivo && !filesToDelete.value.includes(fileToRemove.urlArchivo)) {
-          filesToDelete.value.push(fileToRemove.urlArchivo);
-        }
-
-        existingFilesInfo.value = existingFilesInfo.value.filter((_, currentIndex) => currentIndex !== index);
-      }
-    };
     const triggerFileInput = () => {
       if (fileInput.value) {
         fileInput.value.click();
@@ -151,6 +151,17 @@ export default defineComponent({
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       }
     };
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      if (isUploading.value) {
+        return;
+      }
+      const droppedFiles = event.dataTransfer?.files;
+      if (droppedFiles) {
+        Array.from(droppedFiles).forEach(file => files.value.push(file));
+      }
+    };
+
     const save = async (): Promise<void> => {
       try {
         if (isSaving.value) {
@@ -216,7 +227,6 @@ export default defineComponent({
       isSaving,
       currentLanguage,
       files,
-      existingFilesInfo,
       downloadAttachedFile,
       fileInput,
       archivosAdjuntosDTO,
@@ -224,13 +234,14 @@ export default defineComponent({
       onFileChange,
       triggerFileInput,
       removeFile,
-      removeExistingFile,
       save,
+      onDrop,
       isUploading,
       errorMessage,
       successMessage,
-      PqrsType,
       requesterEmailModel,
+      pqrsTypeOptions,
+      hasFiles,
       ...dataUtils,
       v$,
       ...useDateFormat({ entityRef: pqrs }),

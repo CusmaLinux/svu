@@ -1,232 +1,281 @@
 <template>
-  <div class="row justify-content-center">
-    <div class="col-8">
-      <form name="editForm" novalidate @submit.prevent="save()">
-        <h2
-          id="ventanillaUnicaApp.pqrs.home.createOrEditLabel"
-          data-cy="PqrsCreateUpdateHeading"
-          v-text="t$('ventanillaUnicaApp.pqrs.home.createOrEditLabel')"
-        ></h2>
-        <div>
-          <div class="form-group" v-if="pqrs.id">
-            <label for="id" v-text="t$('global.field.id')"></label>
-            <input type="text" class="form-control" id="id" name="id" v-model="pqrs.id" readonly />
-          </div>
+  <b-container>
+    <div class="row justify-content-center">
+      <div class="col-md-10 col-lg-9">
+        <b-card no-body class="shadow-sm border-0">
+          <b-card-header class="bg-light py-3">
+            <h2
+              id="ventanillaUnicaApp.pqrs.home.createOrEditLabel"
+              data-cy="PqrsCreateUpdateHeading"
+              class="text-center mb-0 h3 font-weight-bold"
+            >
+              {{ pqrs.id ? 'Editar PQRSD' : 'Crear Nueva PQRSD' }}
+            </h2>
+          </b-card-header>
 
-          <div class="form-group">
-            <label class="form-control-label" for="requesterEmail" v-text="t$('global.form[\'email.label\']')"></label>
-            <font-awesome-icon
-              class="cursor-pointer"
-              v-b-tooltip.hover.top="t$('ventanillaUnicaApp.pqrs.public.requesterEmail.info')"
-              variant="primary"
-              icon="circle-info"
-            />
-            <input
-              type="email"
-              class="form-control"
-              id="requesterEmail"
-              name="requesterEmail"
-              :class="{ valid: !v$.requesterEmail.$invalid, invalid: v$.requesterEmail.$invalid }"
-              v-model="requesterEmailModel"
-              minlength="5"
-              maxlength="254"
-              email
-              :placeholder="t$('global.form[\'email.placeholder\']')"
-              data-cy="requesterEmail"
-            />
-            <div v-if="v$.requesterEmail.$anyDirty && v$.requesterEmail.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.requesterEmail.$errors" :key="error.$uid">
-                {{ error.$message }}
-              </small>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.public.type')" for="pqrs-type"></label>
-            <select
-              class="form-control"
-              name="type"
-              id="pqrs-type"
-              data-cy="PqrsType"
-              :class="{ valid: !v$.type.$invalid, invalid: v$.type.$invalid }"
-              v-model="v$.type.$model"
-            >
-              <option :value="null" disabled>-- Seleccione un tipo --</option>
-              <option v-for="(enumValue, enumKey) in PqrsType" :key="enumKey" :value="enumValue">
-                {{ enumValue }}
-              </option>
-            </select>
-            <div v-if="v$.type.$anyDirty && v$.type.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.type.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.titulo')" for="pqrs-titulo"></label>
-            <input
-              type="text"
-              class="form-control"
-              name="titulo"
-              id="pqrs-titulo"
-              data-cy="titulo"
-              :class="{ valid: !v$.titulo.$invalid, invalid: v$.titulo.$invalid }"
-              v-model="v$.titulo.$model"
-              required
-            />
-            <div v-if="v$.titulo.$anyDirty && v$.titulo.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.titulo.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.descripcion')" for="pqrs-descripcion"></label>
-            <textarea
-              class="form-control"
-              name="descripcion"
-              id="pqrs-descripcion"
-              data-cy="descripcion"
-              :class="{ valid: !v$.descripcion.$invalid, invalid: v$.descripcion.$invalid }"
-              v-model="v$.descripcion.$model"
-              required
-            ></textarea>
-            <div v-if="v$.descripcion.$anyDirty && v$.descripcion.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.descripcion.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
-          <div v-if="isUpdateMode" class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.fechaCreacion')" for="pqrs-fechaCreacion"></label>
-            <div class="d-flex">
-              <input
-                id="pqrs-fechaCreacion"
-                data-cy="fechaCreacion"
-                type="datetime-local"
-                class="form-control"
-                name="fechaCreacion"
-                :class="{ valid: !v$.fechaCreacion.$invalid, invalid: v$.fechaCreacion.$invalid }"
-                :value="convertDateTimeFromServer(v$.fechaCreacion.$model)"
-              />
-            </div>
-            <div v-if="v$.fechaCreacion.$anyDirty && v$.fechaCreacion.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.fechaCreacion.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
-          <div v-if="isUpdateMode" v-can="['assign_due_date', 'pqrs']" class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.daysForResponse')" for="pqrs-daysForResponse"></label>
-            <input
-              type="number"
-              class="form-control"
-              name="daysToReply"
-              id="pqrs-daysToReply"
-              data-cy="daysToReply"
-              v-model="v$.daysToReply.$model"
-              min="0"
-              max="365"
-              placeholder="15"
-            />
-          </div>
-          <div v-if="isUpdateMode" v-can="['assign_due_date', 'pqrs']" class="form-group">
-            <label
-              class="form-control-label"
-              v-text="t$('ventanillaUnicaApp.pqrs.fechaLimiteRespuesta')"
-              for="pqrs-fechaLimiteRespuesta"
-            ></label>
-            <div class="d-flex">
-              <input
-                id="pqrs-fechaLimiteRespuesta"
-                data-cy="fechaLimiteRespuesta"
-                type="datetime-local"
-                class="form-control"
-                name="fechaLimiteRespuesta"
-                :class="{ valid: !v$.fechaLimiteRespuesta.$invalid, invalid: v$.fechaLimiteRespuesta.$invalid }"
-                :value="convertDateTimeFromServer(v$.fechaLimiteRespuesta.$model)"
-                @change="updateDueDate($event)"
-              />
-            </div>
-          </div>
-          <div v-if="isUpdateMode" class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.estado')" for="pqrs-estado"></label>
-            <select
-              class="form-control"
-              name="estado"
-              id="pqrs-estado"
-              data-cy="estado"
-              :class="{ valid: !v$.estado.$invalid, invalid: v$.estado.$invalid }"
-              v-model="v$.estado.$model"
-              :disabled="pqrs.estado === statesPqrs.Closed"
-            >
-              <option v-for="(enumValue, enumKey) in statesPqrs" :key="enumKey" :value="enumValue">
-                {{ enumValue }}
-              </option>
-            </select>
-            <div v-if="v$.estado.$anyDirty && v$.estado.$invalid">
-              <small class="form-text text-danger" v-for="error of v$.estado.$errors" :key="error.$uid">{{ error.$message }}</small>
-            </div>
-          </div>
+          <b-card-body class="p-4">
+            <b-alert v-if="pqrs.id" show variant="primary" class="d-flex align-items-center mb-4">
+              <font-awesome-icon icon="pencil-alt" class="fa-2x mr-3" />
+              <div>
+                <strong>Modo Edición:</strong> Está gestionando la PQRSD con radicado <strong>{{ pqrs.fileNumber }}</strong
+                >. Actualice su estado, adjunte archivos o asigne la gestión a la oficina correspondiente.
+              </div>
+            </b-alert>
 
-          <div v-if="isUpdateMode" class="form-group">
-            <label class="form-control-label" v-text="t$('ventanillaUnicaApp.pqrs.oficinaResponder')" for="pqrs-oficinaResponder"></label>
-            <select
-              class="form-control"
-              id="pqrs-oficinaResponder"
-              data-cy="oficinaResponder"
-              name="oficinaResponder"
-              v-model="pqrs.oficinaResponder"
-            >
-              <option
-                v-for="oficinaOption in oficinas"
-                :value="pqrs.oficinaResponder && oficinaOption.id === pqrs.oficinaResponder.id ? pqrs.oficinaResponder : oficinaOption"
-                :key="oficinaOption.id"
-              >
-                {{ oficinaOption.nombre }}
-              </option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <div>
-            <input type="file" ref="fileInput" @change="onFileChange" multiple style="display: none" />
-            <b-button class="mb-3" type="button" variant="primary" @click="triggerFileInput" :disabled="isUploading">
-              {{ isUploading ? 'Subiendo...' : 'Seleccionar archivos' }}
-            </b-button>
-            <div class="mb-5">
-              <b-list-group class="flex-wrap" horizontal v-if="existingFilesInfo?.length > 0">
-                <b-list-group-item class="border" v-for="(file, index) in existingFilesInfo" :key="index">
-                  <b-badge class="text-wrap" variant="light"
-                    ><b-button variant="link" @click="downloadAttachedFile(file.urlArchivo, file.nombre)">{{
-                      file.nombre
-                    }}</b-button></b-badge
+            <b-alert v-else show variant="success" class="d-flex align-items-center mb-4">
+              <font-awesome-icon icon="plus-circle" class="fa-2x mr-3" />
+              <div>
+                <strong>Modo Creación:</strong> Complete los datos para registrar una nueva PQRSD. Los campos de gestión interna (estado,
+                fechas, etc.) se habilitarán después de guardar por primera vez.
+              </div>
+            </b-alert>
+
+            <b-form @submit.prevent="save">
+              <b-form-group v-if="pqrs.id" :label="t$('global.field.id')" label-for="id" label-class="font-weight-bold">
+                <b-form-input id="id" v-model="pqrs.id" readonly></b-form-input>
+              </b-form-group>
+
+              <b-row>
+                <b-col md="6">
+                  <b-form-group label-for="requesterEmail" label-class="font-weight-bold">
+                    <template #label> Correo del Solicitante </template>
+                    <b-input-group>
+                      <b-input-group-prepend is-text><font-awesome-icon icon="at" /></b-input-group-prepend>
+                      <b-form-input
+                        id="requesterEmail"
+                        v-model="requesterEmailModel"
+                        type="email"
+                        :state="v$.requesterEmail.$dirty ? !v$.requesterEmail.$error : null"
+                      ></b-form-input>
+                    </b-input-group>
+                    <b-form-invalid-feedback
+                      :state="!v$.requesterEmail.$error"
+                      v-for="error of v$.requesterEmail.$errors"
+                      :key="error.$uid"
+                    >
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
+                  </b-form-group>
+                </b-col>
+                <b-col md="6">
+                  <b-form-group :label="t$('ventanillaUnicaApp.pqrs.public.type')" label-for="pqrs-type" label-class="font-weight-bold">
+                    <template #label> Tipo <span class="text-danger">*</span> </template>
+                    <b-input-group>
+                      <b-input-group-prepend is-text><font-awesome-icon icon="list-ul" /></b-input-group-prepend>
+                      <b-form-select
+                        id="pqrs-type"
+                        v-model="v$.type.$model"
+                        :options="pqrsTypeOptions"
+                        :state="v$.type.$dirty ? !v$.type.$error : null"
+                      ></b-form-select>
+                    </b-input-group>
+                    <b-form-invalid-feedback :state="!v$.type.$error" v-for="error of v$.type.$errors" :key="error.$uid">
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
+                  </b-form-group>
+                </b-col>
+              </b-row>
+
+              <b-form-group label-for="pqrs-titulo" label-class="font-weight-bold">
+                <template #label> Título <span class="text-danger">*</span> </template>
+                <b-input-group>
+                  <b-input-group-prepend is-text><font-awesome-icon icon="tag" /></b-input-group-prepend>
+                  <b-form-input
+                    id="pqrs-titulo"
+                    v-model.trim="v$.titulo.$model"
+                    :state="v$.titulo.$dirty ? !v$.titulo.$error : null"
+                  ></b-form-input>
+                </b-input-group>
+                <b-form-invalid-feedback :state="!v$.titulo.$error" v-for="error of v$.titulo.$errors" :key="error.$uid">
+                  {{ error.$message }}
+                </b-form-invalid-feedback>
+              </b-form-group>
+
+              <b-form-group label-for="pqrs-descripcion" label-class="font-weight-bold">
+                <template #label> Descripción <span class="text-danger">*</span> </template>
+                <b-form-textarea
+                  id="pqrs-descripcion"
+                  v-model.trim="v$.descripcion.$model"
+                  rows="5"
+                  :state="v$.descripcion.$dirty ? !v$.descripcion.$error : null"
+                ></b-form-textarea>
+                <b-form-invalid-feedback :state="!v$.descripcion.$error" v-for="error of v$.descripcion.$errors" :key="error.$uid">
+                  {{ error.$message }}
+                </b-form-invalid-feedback>
+              </b-form-group>
+
+              <b-form-group :label="t$('ventanillaUnicaApp.pqrs.archivosAdjuntos', 'Archivos adjuntos')" label-class="font-weight-bold">
+                <input type="file" ref="fileInput" @change="onFileChange" multiple style="display: none" />
+                <div class="file-drop-zone" @click="triggerFileInput" @dragover.prevent @dragleave.prevent @drop.prevent="onDrop">
+                  <font-awesome-icon icon="cloud-arrow-up" class="fa-3x text-secondary mb-2" />
+                  <p class="mb-0">Arrastre archivos aquí o haga clic para seleccionar</p>
+                </div>
+                <transition-group name="list" tag="div" class="mt-3">
+                  <!-- Existing Files (from edit mode) -->
+                  <b-list-group-item
+                    v-for="(file, index) in existingFilesInfo"
+                    :key="file.id"
+                    class="d-flex justify-content-between align-items-center"
                   >
-                  <b-icon
-                    class="cursor-pointer"
-                    icon="x-square-fill"
-                    variant="danger"
-                    role="button"
-                    @click="removeExistingFile(index)"
-                  ></b-icon>
-                </b-list-group-item>
-              </b-list-group>
+                    <div>
+                      <font-awesome-icon icon="paperclip" class="text-muted mr-2" />
+                      <b-link @click="downloadAttachedFile(file.urlArchivo, file.nombre)">{{ file.nombre }}</b-link>
+                    </div>
+                    <b-button variant="link" class="p-0 text-danger" @click="removeExistingFile(index)" v-b-tooltip.hover title="Eliminar">
+                      <font-awesome-icon icon="times-circle" />
+                    </b-button>
+                  </b-list-group-item>
+                  <!-- New Files (to be uploaded) -->
+                  <b-list-group-item
+                    v-for="(file, index) in files"
+                    :key="file.name"
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    <span><font-awesome-icon icon="paperclip" class="text-muted mr-2" />{{ file.name }}</span>
+                    <b-button variant="link" class="p-0 text-danger" @click="removeFile(index)" v-b-tooltip.hover title="Eliminar">
+                      <font-awesome-icon icon="times-circle" />
+                    </b-button>
+                  </b-list-group-item>
+                </transition-group>
+              </b-form-group>
 
-              <b-list-group class="flex-wrap" horizontal v-if="files?.length > 0">
-                <b-list-group-item class="border" v-for="(file, index) in files" :key="index">
-                  <b-badge class="text-wrap" variant="light">{{ file.name }}</b-badge>
-                  <b-icon class="cursor-pointer" icon="x-square-fill" variant="danger" role="button" @click="removeFile(index)"></b-icon>
-                </b-list-group-item>
-              </b-list-group>
-            </div>
-          </div>
-          <button type="button" id="cancel-save" data-cy="entityCreateCancelButton" class="btn btn-secondary" @click="previousState()">
-            <font-awesome-icon icon="ban"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.cancel')"></span>
-          </button>
-          <button
-            type="button"
-            id="save-entity"
-            @click="save"
-            data-cy="entityCreateSaveButton"
-            :disabled="v$.$invalid || isSaving || isUploading"
-            class="btn btn-primary"
-          >
-            <font-awesome-icon icon="save"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.save')"></span>
-          </button>
-        </div>
-      </form>
+              <!-- Section for internal management fields, only shown in edit mode -->
+              <div v-if="isUpdateMode">
+                <hr class="my-4" />
+                <h4 class="mb-3 text-secondary">Gestión Interna</h4>
+
+                <b-row>
+                  <b-col md="6">
+                    <b-form-group label="Oficina Responsable" label-for="pqrs-oficinaResponder" label-class="font-weight-bold">
+                      <b-input-group>
+                        <b-input-group-prepend is-text><font-awesome-icon icon="sitemap" /></b-input-group-prepend>
+                        <b-form-select id="pqrs-oficinaResponder" v-model="pqrs.oficinaResponder" :options="oficinaOptions"></b-form-select>
+                      </b-input-group>
+                    </b-form-group>
+                  </b-col>
+                  <b-col md="6">
+                    <b-form-group label="Estado" label-for="pqrs-estado" label-class="font-weight-bold">
+                      <b-input-group>
+                        <b-input-group-prepend is-text><font-awesome-icon icon="check-circle" /></b-input-group-prepend>
+                        <b-form-select
+                          id="pqrs-estado"
+                          v-model="v$.estado.$model"
+                          :options="statesPqrsOptions"
+                          :disabled="pqrs.estado === 'Cerrado'"
+                          :state="v$.estado.$dirty ? !v$.estado.$error : null"
+                        ></b-form-select>
+                      </b-input-group>
+                    </b-form-group>
+                  </b-col>
+                </b-row>
+
+                <b-row>
+                  <b-col md="6" v-can="['assign_due_date', 'pqrs']">
+                    <b-form-group label="Días Hábiles para Respuesta" label-for="pqrs-daysToReply" label-class="font-weight-bold">
+                      <b-input-group>
+                        <b-input-group-prepend is-text><font-awesome-icon icon="hourglass-half" /></b-input-group-prepend>
+                        <b-form-input
+                          id="pqrs-daysToReply"
+                          v-model.number="v$.daysToReply.$model"
+                          type="number"
+                          min="0"
+                          max="365"
+                        ></b-form-input>
+                      </b-input-group>
+                    </b-form-group>
+                  </b-col>
+                  <b-col md="6">
+                    <b-form-group label="Fecha de Creación" label-for="pqrs-fechaCreacion" label-class="font-weight-bold">
+                      <b-input-group>
+                        <b-input-group-prepend is-text><font-awesome-icon icon="calendar-day" /></b-input-group-prepend>
+                        <b-form-input
+                          :value="convertDateTimeFromServer(v$.fechaCreacion.$model)"
+                          readonly
+                          type="datetime-local"
+                        ></b-form-input>
+                      </b-input-group>
+                    </b-form-group>
+                  </b-col>
+                  <b-col md="6" v-can="['assign_due_date', 'pqrs']">
+                    <b-form-group label="Fecha Límite de Respuesta" label-for="pqrs-fechaLimite" label-class="font-weight-bold">
+                      <b-input-group>
+                        <b-input-group-prepend is-text><font-awesome-icon icon="calendar-check" /></b-input-group-prepend>
+                        <b-form-input
+                          id="pqrs-fechaLimite"
+                          type="datetime-local"
+                          data-cy="fechaLimiteRespuesta"
+                          name="fechaLimiteRespuesta"
+                          :value="convertDateTimeFromServer(v$.fechaLimiteRespuesta.$model)"
+                          @change="updateInstantField('fechaLimiteRespuesta', $event)"
+                          :state="v$.fechaLimiteRespuesta.$dirty ? !v$.fechaLimiteRespuesta.$error : null"
+                        ></b-form-input>
+                      </b-input-group>
+                    </b-form-group>
+                  </b-col>
+                </b-row>
+              </div>
+
+              <div class="d-flex justify-content-end mt-4 border-top pt-4">
+                <b-button variant="secondary" class="mr-3" @click="previousState()">
+                  <font-awesome-icon icon="ban" />
+                  <span class="ml-1">Cancelar</span>
+                </b-button>
+                <b-button
+                  variant="primary"
+                  type="submit"
+                  :disabled="v$.$invalid || isSaving || isUploading"
+                  data-cy="entityCreateSaveButton"
+                  style="min-width: 120px"
+                >
+                  <span v-if="isSaving">
+                    <b-spinner small></b-spinner>
+                    <span class="ml-2">Guardando...</span>
+                  </span>
+                  <span v-else>
+                    <font-awesome-icon icon="save" />
+                    <span class="ml-1">Guardar</span>
+                  </span>
+                </b-button>
+              </div>
+            </b-form>
+          </b-card-body>
+        </b-card>
+      </div>
     </div>
-  </div>
+  </b-container>
 </template>
+
 <script lang="ts" src="./pqrs-update.component.ts"></script>
+
+<style scoped>
+/* Reusing the same styles from our polished public form */
+.file-drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.file-drop-zone:hover {
+  background-color: #f8f9fa;
+  border-color: #007bff;
+}
+
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+.list-enter,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.b-form-group {
+  margin-bottom: 1.5rem;
+}
+</style>

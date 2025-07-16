@@ -60,6 +60,22 @@ import { faPenToSquare } from '@fortawesome/free-solid-svg-icons/faPenToSquare';
 import { faLocationDot } from '@fortawesome/free-solid-svg-icons/faLocationDot';
 import { faEnvelope } from '@fortawesome/free-solid-svg-icons/faEnvelope';
 import { faPhone } from '@fortawesome/free-solid-svg-icons/faPhone';
+import { faUpload } from '@fortawesome/free-solid-svg-icons/faUpload';
+import { faAt } from '@fortawesome/free-solid-svg-icons/faAt';
+import { faListUl } from '@fortawesome/free-solid-svg-icons/faListUl';
+import { faTag } from '@fortawesome/free-solid-svg-icons/faTag';
+import { faHashtag } from '@fortawesome/free-solid-svg-icons/faHashtag';
+import { faSitemap } from '@fortawesome/free-solid-svg-icons/faSitemap';
+import { faHourglassHalf } from '@fortawesome/free-solid-svg-icons/faHourglassHalf';
+import { faCalendarDay } from '@fortawesome/free-solid-svg-icons/faCalendarDay';
+import { faCalendarCheck } from '@fortawesome/free-solid-svg-icons/faCalendarCheck';
+import { faCloudArrowUp } from '@fortawesome/free-solid-svg-icons/faCloudArrowUp';
+import { faFilter } from '@fortawesome/free-solid-svg-icons/faFilter';
+import { faAlignLeft } from '@fortawesome/free-solid-svg-icons/faAlignLeft';
+import { faBuilding } from '@fortawesome/free-solid-svg-icons/faBuilding';
+import { faLayerGroup } from '@fortawesome/free-solid-svg-icons/faLayerGroup';
+import { faUserGear } from '@fortawesome/free-solid-svg-icons/faUserGear';
+import { faLanguage } from '@fortawesome/free-solid-svg-icons/faLanguage';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -177,6 +193,22 @@ export function initFortAwesome(vue) {
     faLocationDot,
     faEnvelope,
     faPhone,
+    faUpload,
+    faAt,
+    faListUl,
+    faTag,
+    faHashtag,
+    faSitemap,
+    faHourglassHalf,
+    faCalendarDay,
+    faCalendarCheck,
+    faCloudArrowUp,
+    faFilter,
+    faAlignLeft,
+    faBuilding,
+    faLayerGroup,
+    faUserGear,
+    faLanguage,
   );
 }
 export function initI18N(opts: any = {}) {

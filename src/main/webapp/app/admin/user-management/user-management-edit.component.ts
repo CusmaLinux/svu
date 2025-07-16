@@ -1,4 +1,4 @@
-import { type Ref, defineComponent, inject, ref } from 'vue';
+import { type Ref, defineComponent, inject, ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useVuelidate } from '@vuelidate/core';
 import { email, maxLength, minLength, required } from '@vuelidate/validators';
@@ -53,6 +53,16 @@ export default defineComponent({
     const isSaving: Ref<boolean> = ref(false);
     const authorities: Ref<string[]> = ref([]);
 
+    const languageOptions = computed(() => {
+      return [
+        { value: null, text: '-- Seleccione un lenguaje --', disabled: true },
+        ...Object.keys(languages()).map(key => ({
+          value: key,
+          text: languages()[key].name,
+        })),
+      ];
+    });
+
     const initAuthorities = async () => {
       const response = await userManagementService.retrieveAuthorities();
       authorities.value = response.data;
@@ -78,6 +88,7 @@ export default defineComponent({
       previousState,
       v$: useVuelidate(),
       languages: languages(),
+      languageOptions,
       t$: useI18n().t,
     };
   },

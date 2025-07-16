@@ -5,7 +5,6 @@ import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,7 +27,7 @@ public class PublicPqrsDTO implements Serializable {
 
     private Instant fechaCreacion;
 
-    private LocalDateTime fechaLimiteRespuesta;
+    private Instant fechaLimiteRespuesta;
 
     private String estado;
 
@@ -86,11 +85,11 @@ public class PublicPqrsDTO implements Serializable {
         this.fechaCreacion = fechaCreacion;
     }
 
-    public LocalDateTime getFechaLimiteRespuesta() {
+    public Instant getFechaLimiteRespuesta() {
         return fechaLimiteRespuesta;
     }
 
-    public void setFechaLimiteRespuesta(LocalDateTime fechaLimiteRespuesta) {
+    public void setFechaLimiteRespuesta(Instant fechaLimiteRespuesta) {
         this.fechaLimiteRespuesta = fechaLimiteRespuesta;
     }
 
