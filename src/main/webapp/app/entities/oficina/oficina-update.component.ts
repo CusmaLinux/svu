@@ -55,14 +55,10 @@ export default defineComponent({
       },
     };
     const v$ = useVuelidate(validationRules, oficina as any);
-    v$.value.$validate();
 
     const loadUsers = async () => {
       try {
         const response = await userService().retrieve();
-        // users.value = response.data.map((user: IUser) => ({
-        //   login: user.login,
-        // }));
         users.value = response.data;
       } catch (error: any) {
         alertService.showHttpError(error.response);
@@ -70,10 +66,6 @@ export default defineComponent({
     };
 
     const save = () => {
-      v$.value.$touch();
-      if (v$.value.$invalid) {
-        return;
-      }
       isSaving.value = true;
       if (oficina.value.id) {
         oficinaService()
