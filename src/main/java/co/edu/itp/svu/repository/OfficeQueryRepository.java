@@ -8,7 +8,7 @@ public interface OfficeQueryRepository {
     /**
      * Searches for Offices entities where the name matches the query.
      *
-     * @param query    the string to search for in title and fileNumber.
+     * @param query    the string to search for in name and top office.
      * @param pageable the pagination information.
      * @return a page of matching offices entities.
      */
