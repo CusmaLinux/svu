@@ -79,11 +79,7 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(mvc.pattern("/api/account/reset-password/finish"))
                         .permitAll()
-                        // .requestMatchers(mvc.pattern("/api/account/**")).hasAnyAuthority(AuthoritiesConstants.ADMIN,
-                        // AuthoritiesConstants.USER)
-                        // .requestMatchers(mvc.pattern("/api/admin/users/**")).permitAll()
-                        // api/oficinas/oficinasUserLogin
-
+                        .requestMatchers(mvc.pattern("/api/account/**")).authenticated()
                         .requestMatchers(mvc.pattern("/api/public/pqrs/**")).permitAll()
                         .requestMatchers(mvc.pattern("/api/oficina/**"))
                         .hasAnyAuthority(AuthoritiesConstants.ADMIN)
@@ -98,8 +94,6 @@ public class SecurityConfiguration {
                         .requestMatchers(mvc.pattern(HttpMethod.DELETE, "/api/notifications"))
                         .hasAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/notifications/**")).authenticated()
-                        .requestMatchers(mvc.pattern("/api/oficinas/oficinasUserLogin/*"))
-                        .permitAll()
                         .requestMatchers(mvc.pattern("/api/admin/**"))
                         .hasAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/**")).authenticated()

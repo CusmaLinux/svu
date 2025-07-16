@@ -13,7 +13,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Implementation for managing {@link co.edu.itp.svu.domain.Oficina}.
@@ -41,6 +44,13 @@ public class OficinaService {
         this.oficinaMapper = oficinaMapper;
         this.userService = userService;
         this.pqrsRepository = pqrsRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OficinaDTO> search(String criteria, Pageable pageable) {
+        LOG.debug("Request to search for a page of offices for query {}", criteria);
+
+        return oficinaRepository.search(criteria, pageable).map(oficinaMapper::toDto);
     }
 
     /**
@@ -120,7 +130,7 @@ public class OficinaService {
         oficinaRepository.deleteById(id);
     }
 
-    /////////////////modificaciones////////////////////////////////////////7
+    ///////////////// modificaciones////////////////////////////////////////7
 
     public OficinaDTO createOficina(OficinaDTO oficinaDTO) {
         LOG.debug("Request to save Oficina : {}", oficinaDTO);
@@ -195,7 +205,7 @@ public class OficinaService {
         }
     }
 
-    //Obtener una Oficina con cada
+    // Obtener una Oficina con cada
     public Optional<OficinaDTO> getOficina(String id) {
         Optional<Oficina> oficinaOpt = oficinaRepository.findById(id);
 
