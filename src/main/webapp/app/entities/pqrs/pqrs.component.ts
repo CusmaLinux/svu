@@ -1,4 +1,4 @@
-import { type Ref, type ComputedRef, defineComponent, inject, onMounted, ref, watch } from 'vue';
+import { type Ref, defineComponent, inject, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import PqrsService from './pqrs.service';
@@ -28,22 +28,6 @@ export default defineComponent({
 
     const isFetching = ref(false);
     const searchQuery: Ref<string> = ref('');
-
-    /**
-     * A utility function to delay the execution of a function.
-     * @param fn The function to execute after the delay.
-     * @param delay The delay in milliseconds.
-     */
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    const debounce = (fn: Function, delay: number) => {
-      let timeoutId: NodeJS.Timeout | null = null;
-      return (...args: any[]) => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        timeoutId = setTimeout(() => fn(...args), delay);
-      };
-    };
 
     const clear = () => {
       page.value = 1;
@@ -123,7 +107,7 @@ export default defineComponent({
       searchQuery.value = '';
     };
 
-    const debouncedSearch = debounce(() => {
+    const debouncedSearch = dataUtils.debounce(() => {
       if (page.value !== 1) {
         page.value = 1;
       } else {

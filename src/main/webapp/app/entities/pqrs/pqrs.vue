@@ -24,7 +24,7 @@
     <!-- Filter begin -->
     <b-card no-body class="shadow-sm my-4">
       <b-card-header class="bg-light py-3">
-        <h3 class="mb-0 h5">
+        <h3 class="mb-0 h5 font-weight-bold">
           <font-awesome-icon icon="filter" class="mr-2" />
           Filtrar PQRSD
         </h3>
@@ -64,6 +64,7 @@
         </b-form>
       </b-card-body>
     </b-card>
+    <!-- End filter -->
 
     <div class="alert alert-warning" v-if="!isFetching && pqrs && pqrs.length === 0">
       <span v-text="t$('ventanillaUnicaApp.pqrs.home.notFound')"></span>

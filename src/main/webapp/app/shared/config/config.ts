@@ -70,6 +70,7 @@ import { faHourglassHalf } from '@fortawesome/free-solid-svg-icons/faHourglassHa
 import { faCalendarDay } from '@fortawesome/free-solid-svg-icons/faCalendarDay';
 import { faCalendarCheck } from '@fortawesome/free-solid-svg-icons/faCalendarCheck';
 import { faCloudArrowUp } from '@fortawesome/free-solid-svg-icons/faCloudArrowUp';
+import { faFilter } from '@fortawesome/free-solid-svg-icons/faFilter';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -197,6 +198,7 @@ export function initFortAwesome(vue) {
     faCalendarDay,
     faCalendarCheck,
     faCloudArrowUp,
+    faFilter,
   );
 }
 export function initI18N(opts: any = {}) {

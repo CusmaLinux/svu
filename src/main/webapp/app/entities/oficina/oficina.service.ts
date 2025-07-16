@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { type IOficina } from '@/shared/model/oficina.model';
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
 const baseApiUrl = 'api/oficinas';
 
@@ -81,5 +82,15 @@ export default class OficinaService {
           reject(err);
         });
     });
+  }
+
+  public search(paginationQuery: any, query?: string): Promise<any> {
+    let queryOpts = buildPaginationQueryOpts(paginationQuery);
+
+    if (query && query.trim() !== '') {
+      queryOpts += `&query=${encodeURIComponent(query)}`;
+    }
+
+    return axios.get(`${baseApiUrl}/search?${queryOpts}`);
   }
 }
