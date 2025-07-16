@@ -3,6 +3,7 @@ package co.edu.itp.svu.web.rest;
 import static co.edu.itp.svu.security.SecurityUtils.AUTHORITIES_KEY;
 import static co.edu.itp.svu.security.SecurityUtils.JWT_ALGORITHM;
 
+import co.edu.itp.svu.security.recaptcha.ValidateRecaptcha;
 import co.edu.itp.svu.web.rest.vm.LoginVM;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
@@ -53,6 +54,7 @@ public class AuthenticateController {
     }
 
     @PostMapping("/authenticate")
+    @ValidateRecaptcha
     public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
             loginVM.getUsername(),
