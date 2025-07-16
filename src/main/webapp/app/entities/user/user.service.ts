@@ -1,4 +1,5 @@
 import axios from 'axios';
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
 const baseApiUrl = 'api/admin';
 
@@ -14,5 +15,15 @@ export default class UserService {
           reject(err);
         });
     });
+  }
+
+  public search(paginationQuery: any, query?: string): Promise<any> {
+    let queryOpts = buildPaginationQueryOpts(paginationQuery);
+
+    if (query && query.trim() !== '') {
+      queryOpts += `&query=${encodeURIComponent(query)}`;
+    }
+
+    return axios.get(`${baseApiUrl}/users/search?${queryOpts}`);
   }
 }

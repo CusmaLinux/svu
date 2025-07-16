@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container>
     <h2>
       <span id="user-management-page-heading" v-text="t$('userManagement.home.title')" data-cy="userManagementPageHeading"></span>
 
@@ -15,14 +15,56 @@
         </router-link>
       </div>
     </h2>
+
+    <!-- Filter begin -->
+    <b-card no-body class="shadow-sm my-4">
+      <b-card-header class="bg-light py-3">
+        <h3 class="mb-0 h5 font-weight-bold">
+          <font-awesome-icon icon="filter" class="mr-2" />
+          Filtrar Usuarios
+        </h3>
+      </b-card-header>
+
+      <b-card-body>
+        <b-form @submit.prevent>
+          <b-form-group label="Buscar" label-for="pqrs-search-input" label-class="font-weight-bold">
+            <b-input-group>
+              <b-input-group-prepend is-text>
+                <font-awesome-icon icon="search" class="text-secondary" />
+              </b-input-group-prepend>
+
+              <b-form-input
+                id="pqrs-search-input"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Busca por oficina superior o nombre..."
+                data-cy="pqrsSearchInput"
+                autocomplete="off"
+              ></b-form-input>
+
+              <b-input-group-append>
+                <b-button
+                  v-if="searchQuery"
+                  @click="clearSearch()"
+                  variant="link"
+                  class="clear-button"
+                  v-b-tooltip.hover
+                  title="Limpiar búsqueda"
+                >
+                  <font-awesome-icon icon="times-circle" />
+                </b-button>
+              </b-input-group-append>
+            </b-input-group>
+          </b-form-group>
+        </b-form>
+      </b-card-body>
+    </b-card>
+    <!-- Filter end -->
+
     <div class="table-responsive" v-if="users">
       <table class="table table-striped" aria-describedby="Users">
         <thead>
           <tr>
-            <th scope="col" @click="changeOrder('id')">
-              <span v-text="t$('global.field.id')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'id'"></jhi-sort-indicator>
-            </th>
             <th scope="col" @click="changeOrder('login')">
               <span v-text="t$('userManagement.login')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'login'"></jhi-sort-indicator>
@@ -31,33 +73,16 @@
               <span v-text="t$('userManagement.email')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'email'"></jhi-sort-indicator>
             </th>
-            <th scope="col"></th>
-            <th scope="col" @click="changeOrder('langKey')">
-              <span v-text="t$('userManagement.langKey')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'langKey'"></jhi-sort-indicator>
-            </th>
+            <th scope="col">Estado</th>
             <th scope="col"><span v-text="t$('userManagement.profiles')"></span></th>
-            <th scope="col" @click="changeOrder('createdDate')">
-              <span v-text="t$('userManagement.createdDate')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'createdDate'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" @click="changeOrder('lastModifiedBy')">
-              <span v-text="t$('userManagement.lastModifiedBy')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'lastModifiedBy'"></jhi-sort-indicator>
-            </th>
-            <th scope="col" id="modified-date-sort" @click="changeOrder('lastModifiedDate')">
-              <span v-text="t$('userManagement.lastModifiedDate')"></span>
-              <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'lastModifiedDate'"></jhi-sort-indicator>
-            </th>
             <th scope="col"></th>
           </tr>
         </thead>
         <tbody v-if="users">
           <tr v-for="user in users" :key="user.id" :id="user.login">
             <td>
-              <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }">{{ user.id }}</router-link>
+              <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }">{{ user.login }}</router-link>
             </td>
-            <td>{{ user.login }}</td>
             <td class="jhi-user-email">{{ user.email }}</td>
             <td>
               <button
@@ -74,15 +99,11 @@
                 v-text="t$('userManagement.activated')"
               ></button>
             </td>
-            <td>{{ user.langKey }}</td>
             <td>
               <div v-for="authority of user.authorities" :key="authority">
                 <span class="badge badge-info">{{ authority }}</span>
               </div>
             </td>
-            <td>{{ formatDate(user.createdDate) }}</td>
-            <td>{{ user.lastModifiedBy }}</td>
-            <td>{{ formatDate(user.lastModifiedDate) }}</td>
             <td class="text-right">
               <div class="btn-group">
                 <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }" custom v-slot="{ navigate }">
@@ -132,7 +153,7 @@
         <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage" :change="loadPage(page)"></b-pagination>
       </div>
     </div>
-  </div>
+  </b-container>
 </template>
 
 <script lang="ts" src="./user-management.component.ts"></script>
