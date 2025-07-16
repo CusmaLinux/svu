@@ -4,6 +4,7 @@ import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
 import { useValidation } from '@/shared/composables';
 import { useVuelidate } from '@vuelidate/core';
 import { useDateFormat } from '@/shared/composables';
+import { useRecaptcha } from '@/shared/composables/use-recaptcha';
 import { useI18n } from 'vue-i18n';
 import PqrsService from '@/entities/pqrs/pqrs.service';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -40,6 +41,7 @@ export default defineComponent({
     const isSendingReply = ref(false);
     const isUploading = ref(false);
     const dateFormat = useDateFormat();
+    const { getToken } = useRecaptcha();
 
     const validations = useValidation();
     const validationRules = {
@@ -117,7 +119,10 @@ export default defineComponent({
         const accessToken = effectiveAccessToken.value;
 
         if (accessToken) {
-          const savedResponse = await pqrsService().submitPublicResponse(accessToken, formData);
+          const recaptchaToken = await getToken('response_pulic_pqrs');
+          const headers = { 'X-Recaptcha-Token': recaptchaToken };
+
+          const savedResponse = await pqrsService().submitPublicResponse(accessToken, formData, headers);
           alertService.showSuccess(t$('ventanillaUnicaApp.respuesta.created', { param: savedResponse.id }).toString());
           retrievePqrs(accessToken);
         }

@@ -48,6 +48,11 @@ spring:
   thymeleaf:
     cache: true
 
+google:
+  recaptcha:
+    secret-key: ${GOOGLE_RECAPTCHA_SECRET_KEY}
+    verify-url: 'https://www.google.com/recaptcha/api/siteverify'
+    score-threshold: 0.5
 # ===================================================================
 # To enable TLS in production, generate a certificate using:
 # keytool -genkey -alias ventanillaunica -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore keystore.p12 -validity 3650

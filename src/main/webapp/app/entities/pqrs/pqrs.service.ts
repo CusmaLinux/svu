@@ -22,10 +22,10 @@ export default class PqrsService {
     });
   }
 
-  public retrieveAccessTokenByFileNumber(fileNumber: string): Promise<string> {
+  public retrieveAccessTokenByFileNumber(fileNumber: string, headers?: any): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       axios
-        .get(`${publicApiUrl}/consult/${fileNumber}`)
+        .get(`${publicApiUrl}/consult/${fileNumber}`, { headers })
         .then(res => {
           resolve(res.data);
         })
@@ -48,10 +48,10 @@ export default class PqrsService {
     });
   }
 
-  public submitPublicResponse(accessToken: string, formData: FormData): Promise<IPqrs> {
+  public submitPublicResponse(accessToken: string, formData: FormData, headers?: any): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
-        .post(`${publicApiUrl}/${accessToken}/responses`, formData)
+        .post(`${publicApiUrl}/${accessToken}/responses`, formData, { headers })
         .then(res => {
           resolve(res.data);
         })
@@ -110,10 +110,10 @@ export default class PqrsService {
     });
   }
 
-  public submitPqrsRequest(entity: IPqrs): Promise<IPqrs> {
+  public submitPqrsRequest(entity: IPqrs, headers?: any): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
-        .post(`${publicApiUrl}`, entity)
+        .post(`${publicApiUrl}`, entity, { headers })
         .then(res => {
           resolve(res.data);
         })

@@ -55,6 +55,12 @@ spring:
   thymeleaf:
     cache: false
 
+google:
+  recaptcha:
+    secret-key: ${GOOGLE_RECAPTCHA_SECRET_KEY}
+    verify-url: 'https://www.google.com/recaptcha/api/siteverify'
+    score-threshold: 0.5
+
 server:
   port: 8080
   # make sure requests the proxy uri instead of the server one

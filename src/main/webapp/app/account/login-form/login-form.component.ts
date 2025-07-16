@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import type AccountService from '../account.service';
 import type LoginService from '@/account/login.service';
+import { useRecaptcha } from '@/shared/composables/use-recaptcha';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -14,6 +15,7 @@ export default defineComponent({
     const rememberMe: Ref<boolean> = ref(false);
     const route = useRoute();
     const router = useRouter();
+    const { getToken } = useRecaptcha();
 
     const previousState = () => router.go(-1);
 
@@ -23,7 +25,9 @@ export default defineComponent({
     const doLogin = async () => {
       const data = { username: login.value, password: password.value, rememberMe: rememberMe.value };
       try {
-        const result = await axios.post('api/authenticate', data);
+        const recaptchaToken = await getToken('login');
+        const headers = { 'X-Recaptcha-Token': recaptchaToken };
+        const result = await axios.post('api/authenticate', data, { headers });
         const bearerToken = result.headers.authorization;
         if (bearerToken && bearerToken.slice(0, 7) === 'Bearer ') {
           const jwt = bearerToken.slice(7, bearerToken.length);

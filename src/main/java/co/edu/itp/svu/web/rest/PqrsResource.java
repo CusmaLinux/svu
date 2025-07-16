@@ -1,6 +1,7 @@
 package co.edu.itp.svu.web.rest;
 
 import co.edu.itp.svu.repository.PqrsRepository;
+import co.edu.itp.svu.security.recaptcha.ValidateRecaptcha;
 import co.edu.itp.svu.service.PqrsService;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicPqrsDTO;
@@ -203,6 +204,7 @@ public class PqrsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("/public/pqrs")
+    @ValidateRecaptcha
     public ResponseEntity<PublicPqrsDTO> createPublicPqrs(@Valid @RequestBody PublicPqrsDTO publicPqrsDTO) throws URISyntaxException {
         LOG.debug("REST request to create public Pqrs : {}", publicPqrsDTO);
         if (publicPqrsDTO.getAccessToken() != null) {
@@ -247,6 +249,7 @@ public class PqrsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping(value = "/public/pqrs/{access_token}/responses", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    @ValidateRecaptcha
     public ResponseEntity<PublicResponseDTO> submitPublicResponse(
         @PathVariable("access_token") String access_token,
         @RequestPart(value = "response") @Parameter(
@@ -277,6 +280,7 @@ public class PqrsResource {
      *         or with status 404 (Not Found) if the file number does not exist.
      */
     @GetMapping(value = "/public/pqrs/consult/{fileNumber}", produces = MediaType.TEXT_PLAIN_VALUE)
+    @ValidateRecaptcha
     public ResponseEntity<String> retrieveAccessTokenByFileNumber(@PathVariable String fileNumber) {
         LOG.debug("REST request to get access token for file number: {}", fileNumber);
 
