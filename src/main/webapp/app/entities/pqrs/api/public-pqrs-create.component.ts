@@ -7,6 +7,7 @@ import PqrsService from '@/entities/pqrs/pqrs.service';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat, useValidation } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { useRecaptcha } from '@/shared/composables/use-recaptcha';
 
 import { type IPqrs, Pqrs } from '@/shared/model/pqrs.model';
 import { PqrsType } from '@/constants';
@@ -23,6 +24,7 @@ export default defineComponent({
     const alertService = inject('alertService', () => useAlertService(), true);
     const archivoAdjuntoService = inject('archivoAdjuntoService', () => new ArchivoAdjuntoService());
     const { t: t$ } = useI18n();
+    const { getToken } = useRecaptcha();
 
     const files = ref<File[]>([]);
     const filesToDelete: Ref<string[]> = ref([]);
@@ -178,8 +180,10 @@ export default defineComponent({
           await uploadFiles();
           pqrs.value._transientAttachments = archivosAdjuntosDTO.value.map(attachedFile => ({ id: attachedFile.id }));
         }
+        const recaptchaToken = await getToken('submit_pulic_pqrs');
+        const headers = { 'X-Recaptcha-Token': recaptchaToken };
 
-        const savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value);
+        const savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value, headers);
         alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
 
         navigateToVerifyPage(savedPqrs.accessToken);

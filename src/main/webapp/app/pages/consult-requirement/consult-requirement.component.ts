@@ -2,6 +2,7 @@ import { defineComponent, ref, inject, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
 import { useValidation } from '@/shared/composables';
+import { useRecaptcha } from '@/shared/composables/use-recaptcha';
 import PqrsService from '@/entities/pqrs/pqrs.service';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { type IPqrs, Pqrs } from '@/shared/model/pqrs.model';
@@ -15,6 +16,7 @@ export default defineComponent({
     const isConsulting = ref(false);
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
+    const { getToken } = useRecaptcha();
 
     const validations = useValidation();
     const validationRules = {
@@ -32,7 +34,10 @@ export default defineComponent({
         isConsulting.value = true;
 
         if (requirement.value.fileNumber) {
-          const accessToken = await pqrsService().retrieveAccessTokenByFileNumber(requirement.value.fileNumber);
+          const recaptchaToken = await getToken('consult_pulic_pqrs');
+          const headers = { 'X-Recaptcha-Token': recaptchaToken };
+
+          const accessToken = await pqrsService().retrieveAccessTokenByFileNumber(requirement.value.fileNumber, headers);
           alertService.showSuccess('Consulta de requerimiento exitosa');
           router.push({ name: 'PublicPqrsDetails', params: { accessToken: accessToken } });
         }
