@@ -158,6 +158,8 @@ export default defineComponent({
 
         if (idsToDelete.length > 1) {
           alertService.showSuccess('Notificaciones eliminadas');
+        } else if (bulkDelete.value) {
+          alertService.showSuccess(t$('ventanillaUnicaApp.notification.deleted', { param: idsToDelete[0] }));
         } else {
           alertService.showSuccess(t$('ventanillaUnicaApp.notification.deleted', { param: notificationIdToDelete }));
         }

@@ -1,22 +1,35 @@
 <template>
   <b-container>
-    <h2 id="page-heading" data-cy="NotificationHeading" class="d-flex justify-content-between align-items-center">
-      <span v-text="t$('ventanillaUnicaApp.notification.home.title')" id="notification-heading"></span>
-      <div class="d-flex">
-        <button class="btn btn-info mr-2" @click="handleSyncList" :disabled="isFetching">
+    <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-4">
+      <h2 id="page-heading" data-cy="NotificationHeading" class="mb-3 mb-md-0">
+        <span v-text="t$('ventanillaUnicaApp.notification.home.title')" id="notification-heading"></span>
+      </h2>
+
+      <div class="d-flex justify-content-end">
+        <b-button variant="outline-secondary" @click="handleSyncList" :disabled="isFetching" v-b-tooltip.hover title="Refrescar lista">
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
-          <span v-text="t$('ventanillaUnicaApp.notification.home.refreshListLabel')"></span>
-        </button>
-        <button class="btn btn-success mr-2" @click="saveChanges" :disabled="!isAnySelected || isSaving">
-          <font-awesome-icon icon="save"></font-awesome-icon>
-          <span> Marcar como revisadas</span>
-        </button>
-        <button class="btn btn-danger" @click="prepareRemoveSelected" :disabled="!isAnySelected || isDeleting">
-          <font-awesome-icon icon="times-circle"></font-awesome-icon>
-          <span> Eliminar Seleccionados</span>
-        </button>
+          <span class="d-none d-lg-inline ml-1" v-text="t$('ventanillaUnicaApp.notification.home.refreshListLabel')"></span>
+        </b-button>
+
+        <b-dropdown variant="primary" right class="ml-2" :disabled="!isAnySelected || isSaving || isDeleting">
+          <template #button-content>
+            <font-awesome-icon icon="list-ul"></font-awesome-icon>
+            <span class="d-none d-lg-inline ml-1">Acciones</span>
+          </template>
+
+          <b-dropdown-item @click="saveChanges" :disabled="!isAnySelected || isSaving">
+            <font-awesome-icon icon="check-double" class="mr-2 text-success" />
+            <span>Marcar como revisadas</span>
+          </b-dropdown-item>
+
+          <b-dropdown-item @click="prepareRemoveSelected" :disabled="!isAnySelected || isDeleting">
+            <font-awesome-icon icon="trash-alt" class="mr-2 text-danger" />
+            <span>Eliminar seleccionados</span>
+          </b-dropdown-item>
+        </b-dropdown>
       </div>
-    </h2>
+    </div>
+
     <br />
     <div class="alert alert-warning" v-if="!isFetching && notifications && notifications.length === 0">
       <span v-text="t$('ventanillaUnicaApp.notification.home.notFound')"></span>
@@ -40,11 +53,11 @@
               <span v-text="t$('ventanillaUnicaApp.notification.mensaje')"></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'mensaje'"></jhi-sort-indicator>
             </th>
-            <th scope="row" class="text-center" @click="changeOrder('leido')">
-              <span v-text="t$('ventanillaUnicaApp.notification.leido')"></span>
+            <th scope="row" class="text-center" @click="changeOrder('leido')" style="width: 70px">
+              <span><font-awesome-icon icon="check-double"></font-awesome-icon></span>
               <jhi-sort-indicator :current-order="propOrder" :reverse="reverse" :field-name="'leido'"></jhi-sort-indicator>
             </th>
-            <th scope="row" class="text-center"><span v-text="t$('ventanillaUnicaApp.notification.acciones', 'Acciones')"></span></th>
+            <th scope="row" class="text-center"><span> Acciones </span></th>
           </tr>
         </thead>
         <tbody>
@@ -70,7 +83,8 @@
                   <span class="d-none d-md-inline"> Vista</span>
                 </button>
                 <button @click="prepareRemove(notification)" class="btn btn-danger btn-sm" data-cy="entityDeleteButton">
-                  <font-awesome-icon icon="times"></font-awesome-icon>
+                  <font-awesome-icon icon="trash-alt"></font-awesome-icon>
+                  <!-- Changed from 'times' to 'trash-alt' for consistency -->
                   <span class="d-none d-md-inline" v-text="t$('entity.action.delete')"></span>
                 </button>
               </div>
@@ -103,10 +117,13 @@
             class="btn btn-danger"
             id="jhi-confirm-delete-notification"
             data-cy="entityConfirmDeleteButton"
-            v-text="t$('entity.action.delete')"
             :disabled="isDeleting"
             @click="deleteNotifications()"
-          ></button>
+          >
+            Eliminar
+            <font-awesome-icon icon="trash-alt" v-if="!isDeleting" />
+            <b-spinner small v-if="isDeleting"></b-spinner>
+          </button>
         </div>
       </template>
     </b-modal>
