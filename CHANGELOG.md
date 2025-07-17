@@ -36,3 +36,24 @@ Features:
 - Add the basic setup for sonar cloud
 - Add the generation of reports in .xlsx format to inform-pqrs from the API
 - Show the chart for the inform-pqrs detail in the client
+
+## 0.4.0 (07-16-2025)
+
+### Features & Enhancements
+
+- **Security:** Added reCAPTCHA v3 service to protect public forms from automated bots (#98).
+- **Permissions:** Implemented fine-grained user permissions for detailed control over component access (#91).
+- **Notifications:**
+  - Improved the user interface and experience of the notifications page (#99).
+  - Users now receive a notification when a PQRSD (requirement) is assigned to them (#89).
+- **Search & Forms:**
+  - Enhanced PQRS search to allow role-based filtering by office (#87).
+  - Made minor improvements to the usability of forms and the search for key entities (#97).
+- **UI & Design:** Introduced a new prototype for the application logo and footer (#96).
+- **Workflows:** Improved the internal workflow for the "office" domain (#94).
+- **Performance & Refactoring:** Refactored the notifications feature and improved application performance on GCP (#85).
+
+### Fixes
+
+- Fixed a bug that prevented images from loading correctly (#82).
+- Reverted a recent change related to the App Password feature to resolve an issue (#83).
