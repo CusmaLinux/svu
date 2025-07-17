@@ -1,3 +1,4 @@
+import { logger } from '@/shared/logger';
 declare const grecaptcha: any;
 
 export function useRecaptcha() {
@@ -6,7 +7,7 @@ export function useRecaptcha() {
   const getToken = (action: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (typeof grecaptcha === 'undefined' || typeof grecaptcha.execute === 'undefined') {
-        console.error('reCAPTCHA script not loaded');
+        logger.error('reCAPTCHA script not loaded');
         return reject(new Error('reCAPTCHA script not loaded'));
       }
 
@@ -17,7 +18,7 @@ export function useRecaptcha() {
             resolve(token);
           })
           .catch((err: any) => {
-            console.error('Error executing reCAPTCHA:', err);
+            logger.error('Error executing reCAPTCHA:', err);
             reject(err);
           });
       });

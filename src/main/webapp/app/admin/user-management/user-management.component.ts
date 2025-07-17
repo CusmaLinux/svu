@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import UserManagementService from './user-management.service';
 import UserService from '@/entities/user/user.service';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { logger } from '@/shared/logger';
 
 import { useDateFormat } from '@/shared/composables';
 import useDataUtils from '@/shared/data/data-utils.service';
@@ -58,7 +59,7 @@ export default defineComponent({
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
       } catch (err) {
-        console.error(err);
+        logger.error(err);
       } finally {
         isLoading.value = false;
       }

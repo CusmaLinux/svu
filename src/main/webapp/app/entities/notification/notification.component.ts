@@ -128,7 +128,7 @@ export default defineComponent({
           const notifInList = notifications.value.find(n => n.id === notification.id);
           if (notifInList) notifInList.leido = true;
         } catch (err) {
-          console.error('Failed to mark as read, but navigating anyway.', err);
+          alertService.showError('No se ha podido marcar como leído.');
         }
       }
       router.push({ name: 'NotificacionView', params: { notificacionId: notification.id } });
