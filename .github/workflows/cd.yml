@@ -42,9 +42,9 @@ jobs:
       - name: Deploy to VM using SSH and create .env file
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ secrets.GCP_VM_HOST }}
-          username: ${{ secrets.GCP_VM_USER }}
-          key: ${{ secrets.GCP_VM_SSH_KEY }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd ~/svu/
 
