@@ -110,7 +110,6 @@ export default defineComponent({
           alertService.showHttpError(error.response);
         } else {
           alertService.showError(t$('ventanillaUnicaApp.pqrs.errors.retrieveError'));
-          console.error('Error retrieving PQRS data:', error);
         }
       }
     };

@@ -132,13 +132,13 @@ export default {
       path: 'notificaciones',
       name: 'Notifications',
       component: Notification,
-      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN] },
+      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'notificacion/:notificacionId/view',
       name: 'NotificacionView',
       component: NotificationDetails,
-      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN] },
+      meta: { authorities: [Authority.USER, Authority.FUNCTIONARY, Authority.ADMIN, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'informe-pqrs',

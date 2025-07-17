@@ -1,6 +1,7 @@
 import { computed, defineComponent, inject, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
+import { logger } from '@/shared/logger';
 
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useAlertService } from '@/shared/alert/alert.service';
@@ -39,7 +40,7 @@ export default defineComponent({
             }, 2000);
           })
           .catch(err => {
-            console.error('Error al copiar el enlace: ', err);
+            logger.error('Error al copiar el enlace: ', err);
             alert('No se pudo copiar el enlace. Por favor, cópielo manualmente.');
           });
       }

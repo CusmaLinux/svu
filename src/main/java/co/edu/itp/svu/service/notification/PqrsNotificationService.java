@@ -34,7 +34,7 @@ public class PqrsNotificationService {
     }
 
     public enum PqrsNotificationType {
-        PQRS_CREATED("PQRS '%s' (ID: %s) was CREATED", "PQRS_CREATED") {
+        PQRS_CREATED("La PQRS '%s' (ID: %s) fue CREADA", "PQRS_CREATED") {
             @Override
             public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
                 return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
@@ -66,7 +66,7 @@ public class PqrsNotificationService {
                 );
             }
         },
-        PQRS_RESOLVED("PQRS '%s' (ID: %s) status was updated to RESOLVED", "PQRS_STATE_UPDATE") {
+        PQRS_RESOLVED("La PQRS '%s' (ID: %s) se ha actualizado a RESUELTA", "PQRS_STATE_UPDATE") {
             @Override
             public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
                 return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
@@ -98,7 +98,7 @@ public class PqrsNotificationService {
                 );
             }
         },
-        PQRS_ASSIGNED("PQRS '%s' (ID: %s) was assigned for review", "PQRS_ASSIGNED") {
+        PQRS_ASSIGNED("La PQRS '%s' (ID: %s) fue ASIGNADA para revision", "PQRS_ASSIGNED") {
             @Override
             public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
                 return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
@@ -130,7 +130,7 @@ public class PqrsNotificationService {
                 );
             }
         },
-        PQRS_DUE_DATE_REMINDER("PQRS '%s' (ID: %s) is due on %s.", "PQRS_DUE_DATE_REMINDER") {
+        PQRS_DUE_DATE_REMINDER("La PQRS '%s' (ID: %s) vence el %s.", "PQRS_DUE_DATE_REMINDER") {
             @Override
             public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
                 return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId(), pqrs.getFechaLimiteRespuesta().toString());

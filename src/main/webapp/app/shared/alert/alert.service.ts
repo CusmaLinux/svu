@@ -26,7 +26,7 @@ export default class AlertService {
   public showInfo(toastMessage: string, toastOptions?: any) {
     this.bvToast.toast(toastMessage, {
       toaster: 'b-toaster-top-center',
-      title: 'Info',
+      title: 'Información',
       variant: 'info',
       solid: true,
       autoHideDelay: 5000,
@@ -37,7 +37,7 @@ export default class AlertService {
   public showSuccess(toastMessage: string) {
     this.bvToast.toast(toastMessage, {
       toaster: 'b-toaster-top-center',
-      title: 'Success',
+      title: '¡Listo!',
       variant: 'success',
       solid: true,
       autoHideDelay: 5000,
@@ -47,7 +47,7 @@ export default class AlertService {
   public showError(toastMessage: string) {
     this.bvToast.toast(toastMessage, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
