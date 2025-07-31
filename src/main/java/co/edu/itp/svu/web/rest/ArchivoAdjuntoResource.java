@@ -18,16 +18,21 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
 /**
@@ -151,6 +156,17 @@ public class ArchivoAdjuntoResource {
     public List<ArchivoAdjuntoDTO> getAllArchivoAdjuntos() {
         LOG.debug("REST request to get all ArchivoAdjuntos");
         return archivoAdjuntoService.findAll();
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<ArchivoAdjuntoDTO>> searchOffices(
+        @RequestParam(required = false, defaultValue = "") String query,
+        @ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to search for a page of AttachedFile with query: {}", query);
+        Page<ArchivoAdjuntoDTO> page = archivoAdjuntoService.search(query, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**

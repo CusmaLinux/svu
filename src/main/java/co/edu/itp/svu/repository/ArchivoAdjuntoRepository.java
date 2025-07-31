@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the ArchivoAdjunto entity.
  */
 @Repository
-public interface ArchivoAdjuntoRepository extends MongoRepository<ArchivoAdjunto, String> {
+public interface ArchivoAdjuntoRepository extends MongoRepository<ArchivoAdjunto, String>, AttachedFileQueryRepository {
     public void deleteByUrlArchivo(String fileURL);
 
     Set<ArchivoAdjunto> findByPqrsAttachment_Id(String pqrsId);
