@@ -1,6 +1,7 @@
 import axios, { type AxiosResponse } from 'axios';
 
 import { type IArchivoAdjunto } from '@/shared/model/archivo-adjunto.model';
+import buildPaginationQueryOpts from '@/shared/sort/sorts';
 
 const baseApiUrl = 'api/archivo-adjuntos';
 
@@ -132,5 +133,15 @@ export default class ArchivoAdjuntoService {
       responseType: 'blob',
     });
     return { blob: response.data };
+  }
+
+  public search(paginationQuery: any, query?: string): Promise<any> {
+    let queryOpts = buildPaginationQueryOpts(paginationQuery);
+
+    if (query && query.trim() !== '') {
+      queryOpts += `&query=${encodeURIComponent(query)}`;
+    }
+
+    return axios.get(`${baseApiUrl}/search?${queryOpts}`);
   }
 }

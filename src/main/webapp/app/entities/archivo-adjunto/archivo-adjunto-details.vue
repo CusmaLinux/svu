@@ -3,9 +3,15 @@
     <div class="col-8">
       <div v-if="archivoAdjunto">
         <h2 class="jh-entity-heading" data-cy="archivoAdjuntoDetailsHeading">
-          <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.detail.title')"></span> {{ archivoAdjunto.id }}
+          <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.detail.title')"></span>
         </h2>
         <dl class="row jh-entity-details">
+          <dt>
+            <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.id')"></span>
+          </dt>
+          <dd>
+            <span>{{ archivoAdjunto.id }}</span>
+          </dd>
           <dt>
             <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.nombre')"></span>
           </dt>

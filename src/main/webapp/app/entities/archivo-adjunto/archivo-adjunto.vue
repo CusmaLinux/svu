@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <b-container>
     <h2 id="page-heading" data-cy="ArchivoAdjuntoHeading">
       <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.home.title')" id="archivo-adjunto-heading"></span>
       <div class="d-flex justify-content-end">
@@ -20,7 +20,52 @@
         </router-link>
       </div>
     </h2>
-    <br />
+
+    <!-- SEARCH FILTER START -->
+    <b-card no-body class="shadow-sm my-4">
+      <b-card-header class="bg-light py-3">
+        <h3 class="mb-0 h5 font-weight-bold">
+          <font-awesome-icon icon="filter" class="mr-2" />
+          Filtrar Archivos Adjuntos
+        </h3>
+      </b-card-header>
+
+      <b-card-body>
+        <b-form @submit.prevent>
+          <b-form-group label="Buscar" label-for="adjunto-search-input" label-class="font-weight-bold">
+            <b-input-group>
+              <b-input-group-prepend is-text>
+                <font-awesome-icon icon="search" class="text-secondary" />
+              </b-input-group-prepend>
+
+              <b-form-input
+                id="adjunto-search-input"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Busca por Nro de radicado o nombre..."
+                data-cy="adjuntoSearchInput"
+                autocomplete="off"
+              ></b-form-input>
+
+              <b-input-group-append>
+                <b-button
+                  v-if="searchQuery"
+                  @click="clearSearch()"
+                  variant="link"
+                  class="clear-button"
+                  v-b-tooltip.hover
+                  title="Limpiar búsqueda"
+                >
+                  <font-awesome-icon icon="times-circle" />
+                </b-button>
+              </b-input-group-append>
+            </b-input-group>
+          </b-form-group>
+        </b-form>
+      </b-card-body>
+    </b-card>
+    <!-- SEARCH FILTER END -->
+
     <div class="alert alert-warning" v-if="!isFetching && archivoAdjuntos && archivoAdjuntos.length === 0">
       <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.home.notFound')"></span>
     </div>
@@ -28,10 +73,8 @@
       <table class="table table-striped" aria-describedby="archivoAdjuntos">
         <thead>
           <tr>
-            <th scope="row"><span v-text="t$('global.field.id')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.archivoAdjunto.nombre')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.archivoAdjunto.tipo')"></span></th>
-            <th scope="row"><span v-text="t$('ventanillaUnicaApp.archivoAdjunto.urlArchivo')"></span></th>
             <th scope="row"><span v-text="t$('ventanillaUnicaApp.archivoAdjunto.fechaSubida')"></span></th>
             <th scope="row"></th>
           </tr>
@@ -40,14 +83,11 @@
           <tr v-for="archivoAdjunto in archivoAdjuntos" :key="archivoAdjunto.id" data-cy="entityTable">
             <td>
               <router-link :to="{ name: 'ArchivoAdjuntoView', params: { archivoAdjuntoId: archivoAdjunto.id } }">{{
-                archivoAdjunto.id
+                archivoAdjunto.nombre
               }}</router-link>
             </td>
-            <td>{{ archivoAdjunto.nombre }}</td>
             <td>{{ archivoAdjunto.tipo }}</td>
-            <td>{{ archivoAdjunto.urlArchivo }}</td>
             <td>{{ formatDateShort(archivoAdjunto.fechaSubida) || '' }}</td>
-
             <td class="text-right">
               <div class="btn-group">
                 <router-link
@@ -60,16 +100,13 @@
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>
                 </router-link>
-                <router-link
-                  :to="{ name: 'ArchivoAdjuntoEdit', params: { archivoAdjuntoId: archivoAdjunto.id } }"
-                  custom
-                  v-slot="{ navigate }"
+                <button
+                  @click="downloadAttachedFile(archivoAdjunto.urlArchivo, archivoAdjunto.nombre)"
+                  class="btn btn-primary btn-sm edit"
+                  data-cy="entityEditButton"
                 >
-                  <button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
-                    <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
-                    <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
-                  </button>
-                </router-link>
+                  <font-awesome-icon icon="download"></font-awesome-icon>
+                </button>
                 <b-button
                   @click="prepareRemove(archivoAdjunto)"
                   variant="danger"
@@ -111,7 +148,15 @@
         </div>
       </template>
     </b-modal>
-  </div>
+    <div v-show="archivoAdjuntos && archivoAdjuntos.length > 0">
+      <div class="row justify-content-center">
+        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
+      </div>
+      <div class="row justify-content-center">
+        <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>
+      </div>
+    </div>
+  </b-container>
 </template>
 
 <script lang="ts" src="./archivo-adjunto.component.ts"></script>
