@@ -13,7 +13,7 @@
         <!-- Main Content -->
         <b-row>
           <!-- Left Column -->
-          <b-col md="8">
+          <b-col md>
             <!-- General Information Card -->
             <div class="bg-white p-4 rounded shadow-sm border mb-4">
               <h2 class="h5 font-weight-bold text-dark mb-4"><font-awesome-icon icon="circle-info" /> Información General</h2>
@@ -76,7 +76,7 @@
           </b-col>
 
           <!-- Right Column (Actions) -->
-          <b-col md="4" class="mt-4 mt-md-0">
+          <b-col v-can="['view', 'sidebar']" md="4" class="mt-4 mt-md-0">
             <sidebar v-if="pqrs" :pqrs="pqrs" @toggle-status="toggleStatusPqrs" @open-close-modal="openConfirmCloseModal" />
           </b-col>
         </b-row>
