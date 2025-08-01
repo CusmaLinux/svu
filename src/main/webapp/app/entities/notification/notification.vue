@@ -11,7 +11,7 @@
           <span class="d-none d-lg-inline ml-1" v-text="t$('ventanillaUnicaApp.notification.home.refreshListLabel')"></span>
         </b-button>
 
-        <b-dropdown variant="primary" right class="ml-2" :disabled="!isAnySelected || isSaving || isDeleting">
+        <b-dropdown variant="primary" right class="ml-2" :disabled="isSaving || isDeleting">
           <template #button-content>
             <font-awesome-icon icon="list-ul"></font-awesome-icon>
             <span class="d-none d-lg-inline ml-1">Acciones</span>

@@ -7,6 +7,7 @@ import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { type INotification } from '@/shared/model/notification.model';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { NotificationType } from '@/constants';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -41,7 +42,7 @@ export default defineComponent({
       ...dateFormat,
       alertService,
       notification,
-
+      NotificationType,
       ...dataUtils,
 
       previousState,
