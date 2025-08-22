@@ -4,7 +4,7 @@
       <font-awesome-icon icon="asterisk" />
       <span v-text="t$('global.menu.entities.pqrs')"></span>
     </b-dropdown-item>
-    <b-dropdown-item to="/respuesta">
+    <b-dropdown-item v-can="['view', 'responses']" to="/respuesta">
       <font-awesome-icon icon="asterisk" />
       <span v-text="t$('global.menu.entities.respuesta')"></span>
     </b-dropdown-item>
