@@ -18,7 +18,7 @@
 
               <h4 class="mb-3 text-secondary">Información del Usuario</h4>
 
-              <b-form-group v-if="userAccount.id" :label="t$('global.field.id')" label-class="font-weight-bold">
+              <b-form-group v-if="userAccount.id" :label="t('global.field.id')" label-class="font-weight-bold">
                 <b-form-input :value="userAccount.id" readonly></b-form-input>
               </b-form-group>
 
@@ -66,7 +66,7 @@
 
               <b-row>
                 <b-col md="6">
-                  <b-form-group :label="t$('userManagement.firstName')" label-class="font-weight-bold">
+                  <b-form-group :label="t('userManagement.firstName')" label-class="font-weight-bold">
                     <b-form-input
                       v-model="v$.userAccount.firstName.$model"
                       :state="v$.userAccount.firstName.$dirty ? !v$.userAccount.firstName.$error : null"
@@ -74,7 +74,7 @@
                   </b-form-group>
                 </b-col>
                 <b-col md="6">
-                  <b-form-group :label="t$('userManagement.lastName')" label-class="font-weight-bold">
+                  <b-form-group :label="t('userManagement.lastName')" label-class="font-weight-bold">
                     <b-form-input
                       v-model="v$.userAccount.lastName.$model"
                       :state="v$.userAccount.lastName.$dirty ? !v$.userAccount.lastName.$error : null"
@@ -130,7 +130,7 @@
               <div class="d-flex justify-content-end mt-5 border-top pt-4">
                 <b-button variant="secondary" class="mr-3" @click="previousState()">
                   <font-awesome-icon icon="ban" />
-                  <span class="ml-1" v-text="t$('entity.action.cancel')"></span>
+                  <span class="ml-1" v-text="t('entity.action.cancel')"></span>
                 </b-button>
                 <b-button variant="primary" type="submit" :disabled="v$.userAccount.$invalid || isSaving" style="min-width: 120px">
                   <span v-if="isSaving">
@@ -139,7 +139,7 @@
                   </span>
                   <span v-else>
                     <font-awesome-icon icon="save" />
-                    <span class="ml-1" v-text="t$('entity.action.save')"></span>
+                    <span class="ml-1" v-text="t('entity.action.save')"></span>
                   </span>
                 </b-button>
               </div>
