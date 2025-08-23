@@ -9,6 +9,6 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the Respuesta entity.
  */
 @Repository
-public interface RespuestaRepository extends MongoRepository<Respuesta, String> {
+public interface RespuestaRepository extends MongoRepository<Respuesta, String>, ResponseQueryRepository {
     List<Respuesta> findByPqrsId(String pqrsId);
 }
