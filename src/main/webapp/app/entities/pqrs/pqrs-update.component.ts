@@ -9,6 +9,7 @@ import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat, useValidation } from '@/shared/composables';
 import { useAlertService } from '@/shared/alert/alert.service';
 import { helpers, email, maxLength, minLength } from '@vuelidate/validators';
+import { useRecaptcha } from '@/shared/composables/use-recaptcha';
 
 import OficinaService from '@/entities/oficina/oficina.service';
 import { type IOficina } from '@/shared/model/oficina.model';
@@ -26,6 +27,7 @@ export default defineComponent({
     const archivoAdjuntoService = inject('archivoAdjuntoService', () => new ArchivoAdjuntoService());
     const oficinaService = inject('oficinaService', () => new OficinaService());
     const { t: t$ } = useI18n();
+    const { getToken } = useRecaptcha();
 
     const files = ref<File[]>([]);
     const existingFilesInfo: Ref<IArchivoAdjunto[]> = ref([]);
@@ -222,7 +224,9 @@ export default defineComponent({
           savedPqrs = await pqrsService().update(pqrs.value);
           alertService.showInfo(t$('ventanillaUnicaApp.pqrs.updated', { param: savedPqrs.id }));
         } else {
-          savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value);
+          const recaptchaToken = await getToken('response_pulic_pqrs');
+          const headers = { 'X-Recaptcha-Token': recaptchaToken };
+          savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value, headers);
           alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
         }
 
