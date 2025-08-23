@@ -20,17 +20,14 @@ export default defineComponent({
     const itemsPerPage = ref(20);
     const queryCount: Ref<number> = ref(null);
     const page: Ref<number> = ref(1);
-    const propOrder = ref('id');
-    const reverse = ref(false);
+    const propOrder = ref('fechaCreacion');
+    const reverse = ref(true);
     const totalItems = ref(0);
 
+    const searchQuery: Ref<string> = ref('');
+
     const respuestas: Ref<IRespuesta[]> = ref([]);
-
     const isFetching = ref(false);
-
-    const clear = () => {
-      page.value = 1;
-    };
 
     const sort = (): Array<any> => {
       const result = [`${propOrder.value},${reverse.value ? 'desc' : 'asc'}`];
@@ -48,11 +45,12 @@ export default defineComponent({
           size: itemsPerPage.value,
           sort: sort(),
         };
-        const res = await respuestaService().retrieve(paginationQuery);
+        const res = await respuestaService().search(paginationQuery, searchQuery.value.trim());
+
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
         respuestas.value = res.data;
-      } catch (err) {
+      } catch (err: any) {
         alertService.showHttpError(err.response);
       } finally {
         isFetching.value = false;
@@ -84,7 +82,7 @@ export default defineComponent({
         removeId.value = null;
         retrieveRespuestas();
         closeDialog();
-      } catch (error) {
+      } catch (error: any) {
         alertService.showHttpError(error.response);
       }
     };
@@ -96,20 +94,26 @@ export default defineComponent({
         reverse.value = false;
       }
       propOrder.value = newOrder;
+      page.value = 1;
+      retrieveRespuestas();
     };
 
-    // Whenever order changes, reset the pagination
-    watch([propOrder, reverse], async () => {
-      if (page.value === 1) {
-        // first page, retrieve new data
-        await retrieveRespuestas();
+    const clearSearch = () => {
+      searchQuery.value = '';
+    };
+
+    const debouncedSearch = dataUtils.debounce(() => {
+      if (page.value !== 1) {
+        page.value = 1;
       } else {
-        // reset the pagination
-        clear();
+        retrieveRespuestas();
       }
+    }, 500);
+
+    watch(searchQuery, () => {
+      debouncedSearch();
     });
 
-    // Whenever page changes, switch to the new page.
     watch(page, async () => {
       await retrieveRespuestas();
     });
@@ -119,7 +123,6 @@ export default defineComponent({
       handleSyncList,
       isFetching,
       retrieveRespuestas,
-      clear,
       ...dateFormat,
       removeId,
       removeEntity,
@@ -135,6 +138,8 @@ export default defineComponent({
       changeOrder,
       t$,
       ...dataUtils,
+      searchQuery,
+      clearSearch,
     };
   },
 });

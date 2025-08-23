@@ -6,7 +6,7 @@
         "refreshListLabel": "Refrescar lista",
         "createLabel": "Crear nuevo Respuesta",
         "createOrEditLabel": "Crear o editar Respuesta",
-        "notFound": "Ningún Respuestas encontrado"
+        "notFound": "Ningúna respuesta encontrada"
       },
       "respondingToPqrs": "Respondiendo a la PQRS",
       "associatedPqrs": "PQRS Asociada",
