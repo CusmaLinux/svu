@@ -106,12 +106,13 @@
                   </button>
                 </router-link>
                 <router-link :to="{ name: 'RespuestaEdit', params: { respuestaId: respuesta.id } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                  <button v-can="['edit', 'responses']" @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>
                 </router-link>
                 <b-button
+                  v-can="['delete', 'responses']"
                   @click="prepareRemove(respuesta)"
                   variant="danger"
                   class="btn btn-sm"

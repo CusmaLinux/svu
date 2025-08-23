@@ -1,4 +1,3 @@
-import sidebar from '@/entities/pqrs/sidebar';
 import { useAccountStore } from '@/shared/config/store/account-store';
 
 type Action = 'view' | 'create' | 'edit' | 'delete' | 'assign' | 'respond' | 'resolve' | 'close' | 'assign_due_date';
@@ -24,6 +23,7 @@ const permissions = {
   front_desk: {
     pqrs: ['view', 'create', 'edit'],
     notifications: ['view', 'create', 'edit'],
+    responses: ['view'],
   },
   functionary: {
     pqrs: ['view', 'respond', 'resolve'],
