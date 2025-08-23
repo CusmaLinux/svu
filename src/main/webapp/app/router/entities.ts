@@ -84,7 +84,7 @@ export default {
       path: 'respuesta',
       name: 'Respuesta',
       component: Respuesta,
-      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY] },
+      meta: { authorities: [Authority.ADMIN, Authority.FUNCTIONARY, Authority.FRONT_DESK_CS] },
     },
     {
       path: 'respuesta/new',

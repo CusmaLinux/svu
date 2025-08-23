@@ -26,11 +26,6 @@ export default defineComponent({
     const reverse = ref(true);
     const totalItems = ref(0);
 
-    const clear = () => {
-      page.value = 1;
-      searchQuery.value = '';
-    };
-
     const retrieveOficinas = async () => {
       isFetching.value = true;
       try {
@@ -125,7 +120,6 @@ export default defineComponent({
       handleSyncList,
       isFetching,
       retrieveOficinas,
-      clear,
       clearSearch,
       changeOrder,
       removeId,

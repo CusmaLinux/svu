@@ -11,8 +11,8 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring", uses = { PqrsMapper.class, UserMapper.class })
 public interface ResponseMapper extends EntityMapper<ResponseDTO, Respuesta> {
-    @Mapping(target = "pqrs", source = "pqrs", qualifiedByName = "pqrsId")
-    @Mapping(target = "resolver", source = "resolver") // This uses UserMapper
+    @Mapping(target = "pqrs", source = "pqrs", qualifiedByName = "pqrsWithFileNumber")
+    @Mapping(target = "resolver", source = "resolver")
     ResponseDTO toDto(Respuesta s);
 
     @Override
@@ -29,4 +29,10 @@ public interface ResponseMapper extends EntityMapper<ResponseDTO, Respuesta> {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     PqrsDTO toDtoPqrsId(Pqrs pqrs);
+
+    @Named("pqrsWithFileNumber")
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "fileNumber", source = "fileNumber")
+    PqrsDTO toDtoPqrsWithFileNumber(Pqrs pqrs);
 }

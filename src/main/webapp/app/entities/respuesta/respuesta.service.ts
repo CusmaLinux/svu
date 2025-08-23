@@ -84,4 +84,14 @@ export default class RespuestaService {
         });
     });
   }
+
+  public search(paginationQuery: any, query?: string): Promise<any> {
+    let queryOpts = buildPaginationQueryOpts(paginationQuery);
+
+    if (query && query.trim() !== '') {
+      queryOpts += `&query=${encodeURIComponent(query)}`;
+    }
+
+    return axios.get(`${baseApiUrl}/search?${queryOpts}`);
+  }
 }
