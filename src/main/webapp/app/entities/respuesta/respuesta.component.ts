@@ -20,7 +20,7 @@ export default defineComponent({
     const itemsPerPage = ref(20);
     const queryCount: Ref<number> = ref(null);
     const page: Ref<number> = ref(1);
-    const propOrder = ref('fechaCreacion');
+    const propOrder = ref('fechaRespuesta');
     const reverse = ref(true);
     const totalItems = ref(0);
 
