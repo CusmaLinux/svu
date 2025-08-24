@@ -1,7 +1,7 @@
-import { type Ref, defineComponent, inject, ref, computed } from 'vue';
+import { type Ref, defineComponent, inject, ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useVuelidate } from '@vuelidate/core';
-import { email, maxLength, minLength, required } from '@vuelidate/validators';
+import { email, maxLength, minLength, required, sameAs, requiredIf, helpers } from '@vuelidate/validators';
 import { useRoute, useRouter } from 'vue-router';
 import UserManagementService from './user-management.service';
 import { type IUser, User } from '@/shared/model/user.model';
@@ -12,123 +12,135 @@ const loginValidator = (value: string) => {
   if (!value) {
     return true;
   }
-  return /^[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$|^[_.@A-Za-z0-9-]+$/.test(value);
-};
-
-const validations: any = {
-  userAccount: {
-    login: {
-      required,
-      maxLength: maxLength(254),
-      pattern: loginValidator,
-    },
-    firstName: {
-      maxLength: maxLength(50),
-    },
-    lastName: {
-      maxLength: maxLength(50),
-    },
-    email: {
-      required,
-      email,
-      minLength: minLength(5),
-      maxLength: maxLength(50),
-    },
-  },
+  return /^[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$|^[_.@A-Za-z0-9-]+$/.test(value);
 };
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'JhiUserManagementEdit',
-  validations,
   setup() {
     const route = useRoute();
     const router = useRouter();
-
+    const { t } = useI18n();
     const alertService = inject('alertService', () => useAlertService(), true);
     const userManagementService = inject('userManagementService', () => new UserManagementService(), true);
-    const previousState = () => router.go(-1);
 
-    const userAccount: Ref<IUser> = ref({ ...new User(), authorities: [] });
-    const isSaving: Ref<boolean> = ref(false);
+    const userAccount: Ref<IUser> = ref(new User());
+    const isSaving = ref(false);
     const authorities: Ref<string[]> = ref([]);
 
-    const languageOptions = computed(() => {
-      return [
-        { value: null, text: '-- Seleccione un lenguaje --', disabled: true },
-        ...Object.keys(languages()).map(key => ({
-          value: key,
-          text: languages()[key].name,
-        })),
-      ];
+    const password: Ref<string> = ref('');
+    const confirmPassword: Ref<string> = ref('');
+
+    const languageOptions = computed(() => [
+      { value: null, text: '-- Seleccione un lenguaje --', disabled: true },
+      ...Object.keys(languages()).map(key => ({
+        value: key,
+        text: languages()[key].name,
+      })),
+    ]);
+
+    const rules = computed(() => ({
+      userAccount: {
+        login: {
+          required: helpers.withMessage(t('entity.validation.required'), required),
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(254)),
+          pattern: helpers.withMessage(t('entity.validation.patternLogin'), loginValidator),
+        },
+        firstName: {
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(50)),
+        },
+        lastName: {
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(50)),
+        },
+        email: {
+          required: helpers.withMessage(t('global.messages.validate.email.required'), required),
+          email: helpers.withMessage(t('global.messages.validate.email.invalid'), email),
+          minLength: helpers.withMessage(t('global.messages.validate.email.minlength'), minLength(5)),
+          maxLength: helpers.withMessage(t('global.messages.validate.email.maxlength'), maxLength(50)),
+        },
+      },
+      password: {
+        required: helpers.withMessage(
+          t('global.messages.validate.newpassword.required'),
+          requiredIf(() => !userAccount.value.id),
+        ),
+        minLength: helpers.withMessage(t('global.messages.validate.newpassword.minlength'), minLength(4)),
+        maxLength: helpers.withMessage(t('global.messages.validate.newpassword.maxlength'), maxLength(50)),
+      },
+      confirmPassword: {
+        required: helpers.withMessage(
+          t('global.messages.validate.confirmpassword.required'),
+          requiredIf(() => !!password.value),
+        ),
+        sameAs: helpers.withMessage(t('global.messages.error.dontmatch'), sameAs(password)),
+      },
+    }));
+
+    const v$ = useVuelidate(rules, { userAccount, password, confirmPassword });
+
+    const previousState = () => router.go(-1);
+
+    const returnToList = () => {
+      previousState();
+    };
+
+    const getToastMessageFromHeader = (res: any): string => {
+      const param = decodeURIComponent(res.headers['x-ventanillaunicaapp-params'].replace(/\+/g, ' '));
+      return t(res.headers['x-ventanillaunicaapp-alert'], { param }).toString();
+    };
+
+    const save = async () => {
+      isSaving.value = true;
+      try {
+        if (password.value) {
+          userAccount.value.password = password.value;
+        }
+
+        let response;
+        if (userAccount.value.id) {
+          response = await userManagementService.update(userAccount.value);
+          alertService.showInfo(getToastMessageFromHeader(response));
+        } else {
+          response = await userManagementService.create(userAccount.value);
+          alertService.showSuccess(getToastMessageFromHeader(response));
+        }
+        returnToList();
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      } finally {
+        isSaving.value = false;
+      }
+    };
+
+    onMounted(async () => {
+      try {
+        const response = await userManagementService.retrieveAuthorities();
+        authorities.value = response.data;
+
+        const userId = route.params?.userId;
+        if (userId) {
+          const userResponse = await userManagementService.get(userId as string);
+          userAccount.value = userResponse.data;
+        }
+      } catch (error: any) {
+        console.error('Failed to load initial data:', error);
+        alertService.showHttpError(error.response);
+      }
     });
 
-    const initAuthorities = async () => {
-      const response = await userManagementService.retrieveAuthorities();
-      authorities.value = response.data;
-    };
-
-    const loadUser = async (userId: string) => {
-      const response = await userManagementService.get(userId);
-      userAccount.value = response.data;
-    };
-
-    initAuthorities();
-    const userId = route.params?.userId;
-    if (userId) {
-      loadUser(userId);
-    }
-
     return {
-      alertService,
       userAccount,
+      password,
+      confirmPassword,
       isSaving,
       authorities,
-      userManagementService,
       previousState,
-      v$: useVuelidate(),
+      save,
+      v$,
       languages: languages(),
       languageOptions,
-      t$: useI18n().t,
+      t,
     };
-  },
-  methods: {
-    save(): void {
-      this.isSaving = true;
-      if (this.userAccount.id) {
-        this.userManagementService
-          .update(this.userAccount)
-          .then(res => {
-            this.returnToList();
-            this.alertService.showInfo(this.getToastMessageFromHeader(res));
-          })
-          .catch(error => {
-            this.isSaving = true;
-            this.alertService.showHttpError(error.response);
-          });
-      } else {
-        this.userManagementService
-          .create(this.userAccount)
-          .then(res => {
-            this.returnToList();
-            this.alertService.showSuccess(this.getToastMessageFromHeader(res));
-          })
-          .catch(error => {
-            this.isSaving = true;
-            this.alertService.showHttpError(error.response);
-          });
-      }
-    },
-
-    returnToList(): void {
-      this.isSaving = false;
-      this.previousState();
-    },
-
-    getToastMessageFromHeader(res: any): string {
-      return this.t$(res.headers['x-ventanillaunicaapp-alert'], {
-        param: decodeURIComponent(res.headers['x-ventanillaunicaapp-params'].replace(/\+/g, ' ')),
-      }).toString();
-    },
   },
 });

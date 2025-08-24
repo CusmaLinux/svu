@@ -82,6 +82,16 @@
           "invalid": "Your email is invalid.",
           "minlength": "Your email is required to be at least 5 characters.",
           "maxlength": "Your email cannot be longer than 50 characters."
+        },
+        "firstname": {
+          "required": "Your first name is required.",
+          "minlength": "Your first name is required to be at least 2 characters.",
+          "maxlength": "Your first name cannot be longer than 50 characters."
+        },
+        "lastname": {
+          "required": "Your last name is required.",
+          "minlength": "Your last name is required to be at least 2 characters.",
+          "maxlength": "Your last name cannot be longer than 50 characters."
         }
       }
     },

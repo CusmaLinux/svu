@@ -83,6 +83,16 @@
           "invalid": "Su correo electrónico no es válido.",
           "minlength": "Se requiere que su correo electrónico tenga por lo menos 5 caracteres",
           "maxlength": "Su correo electrónico no puede tener más de 50 caracteres"
+        },
+        "firstname": {
+          "required": "Se requiere que ingrese su nombre.",
+          "minlength": "Se requiere que su nombre tenga por lo menos 2 caracteres",
+          "maxlength": "Su nombre no puede tener más de 50 caracteres"
+        },
+        "lastname": {
+          "required": "Se requiere que ingrese su apellido.",
+          "minlength": "Se requiere que su apellido tenga por lo menos 2 caracteres",
+          "maxlength": "Su apellido no puede tener más de 50 caracteres"
         }
       }
     },
