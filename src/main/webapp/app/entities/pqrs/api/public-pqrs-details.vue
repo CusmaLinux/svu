@@ -46,64 +46,95 @@
             <p v-text="t$('ventanillaUnicaApp.pqrs.detail.noCommunications')"></p>
           </div>
 
-          <!-- Add a Reply Form -->
-          <template v-if="pqrs.estado !== (PqrsStatus.Resolved || PqrsStatus.Closed)">
-            <h2 class="section-title mt-4" style="font-size: 1.5rem" v-text="t$('ventanillaUnicaApp.pqrs.detail.addReply')"></h2>
-            <form name="replyForm" novalidate @submit.prevent="sendReply">
-              <div>
-                <div class="form-group">
-                  <textarea
-                    class="form-control"
-                    name="contenido"
-                    id="replyMessage"
-                    :placeholder="t$('ventanillaUnicaApp.pqrs.detail.replyPlaceholder')"
-                    data-cy="contenido"
-                    :class="{ valid: !v$.contenido.$invalid, invalid: v$.contenido.$invalid }"
-                    v-model="v$.contenido.$model"
-                    required
-                    rows="5"
-                  ></textarea>
-                  <div v-if="v$.contenido.$anyDirty && v$.contenido.$invalid">
-                    <small class="form-text text-danger" v-for="error of v$.contenido.$errors" :key="error.$uid">{{
-                      error.$message
-                    }}</small>
+          <!-- Reply Form -->
+          <template v-if="pqrs.estado !== PqrsStatus.Resolved && pqrs.estado !== PqrsStatus.Closed">
+            <b-card no-body class="shadow-sm border-0 mt-5">
+              <b-card-header class="bg-light py-3">
+                <h3 id="reply-form-title" class="text-center mb-0 h4 font-weight-bold">Proporcionar Seguimiento a su Solicitud</h3>
+              </b-card-header>
+
+              <b-card-body>
+                <b-form @submit.prevent="sendReply">
+                  <b-form-group id="reply-message-group" label-for="replyMessage" label-class="font-weight-bold">
+                    <template #label> Su Respuesta <span class="text-danger">*</span> </template>
+                    <b-form-textarea
+                      id="replyMessage"
+                      v-model.trim="v$.contenido.$model"
+                      :state="v$.contenido.$dirty ? !v$.contenido.$error : null"
+                      placeholder="Por favor, ingrese su respuesta. Si hace referencia a puntos específicos de la comunicación recibida, detállelos claramente para facilitar la revisión"
+                      rows="5"
+                      required
+                      data-cy="contenido"
+                    ></b-form-textarea>
+                    <b-form-invalid-feedback :state="!v$.contenido.$error" v-for="error of v$.contenido.$errors" :key="error.$uid">
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
+                  </b-form-group>
+
+                  <b-form-group
+                    :label-class="['font-weight-bold']"
+                    :label="t$('ventanillaUnicaApp.pqrs.archivosAdjuntos', 'Archivos adjuntos')"
+                  >
+                    <input type="file" ref="fileInput" @change="onFileChange" multiple style="display: none" />
+                    <div
+                      class="file-drop-zone"
+                      @click="triggerFileInput"
+                      @dragover.prevent
+                      @dragleave.prevent
+                      @drop.prevent="onDrop"
+                      :class="{ 'is-uploading': isUploading }"
+                    >
+                      <font-awesome-icon icon="cloud-arrow-up" class="fa-3x text-secondary mb-2" />
+                      <p class="mb-0">
+                        {{ isUploading ? 'Subiendo...' : 'Arrastre los archivos aquí o haga clic para seleccionar' }}
+                      </p>
+                      <small class="text-muted">Tamaño máximo total: 50MB.</small>
+                    </div>
+
+                    <transition-group name="list" tag="div" class="mt-3">
+                      <b-list-group-item
+                        v-for="(file, index) in files"
+                        :key="file.name"
+                        class="d-flex justify-content-between align-items-center"
+                      >
+                        <span>
+                          <font-awesome-icon icon="paperclip" class="text-muted mr-2" />
+                          {{ file.name }}
+                        </span>
+                        <b-button
+                          variant="link"
+                          class="p-0 text-danger"
+                          @click="removeFile(index)"
+                          v-b-tooltip.hover
+                          title="Eliminar archivo"
+                        >
+                          <font-awesome-icon icon="times-circle" />
+                        </b-button>
+                      </b-list-group-item>
+                    </transition-group>
+                  </b-form-group>
+
+                  <div class="d-flex justify-content-end mt-5 border-top pt-4">
+                    <b-button
+                      variant="primary"
+                      type="submit"
+                      :disabled="v$.$invalid || isSendingReply || isUploading"
+                      data-cy="entityCreateSaveButton"
+                      style="min-width: 150px"
+                    >
+                      <span v-if="isSendingReply">
+                        <b-spinner small></b-spinner>
+                        <span class="ml-2">Enviando...</span>
+                      </span>
+                      <span v-else>
+                        <font-awesome-icon icon="paper-plane" />
+                        <span class="ml-1">{{ t$('entity.action.send') }}</span>
+                      </span>
+                    </b-button>
                   </div>
-                </div>
-              </div>
-              <div>
-                <input type="file" ref="fileInput" @change="onFileChange" multiple style="display: none" />
-                <b-button class="mb-3" type="button" variant="primary" @click="triggerFileInput" :disabled="isUploading">
-                  Seleccionar archivos
-                </b-button>
-                <div class="mb-1">
-                  <b-list-group class="flex-wrap" horizontal v-if="files?.length > 0">
-                    <b-list-group-item class="border" v-for="(file, index) in files" :key="index">
-                      <b-badge class="text-wrap" variant="light">{{ file.name }}</b-badge>
-                      <b-icon
-                        class="cursor-pointer"
-                        icon="x-square-fill"
-                        variant="danger"
-                        role="button"
-                        @click="removeFile(index)"
-                      ></b-icon>
-                    </b-list-group-item>
-                  </b-list-group>
-                </div>
-              </div>
-              <div class="mt-3">
-                <button
-                  type="submit"
-                  id="save-entity"
-                  data-cy="entityCreateSaveButton"
-                  :disabled="v$.$invalid || isSendingReply"
-                  class="btn btn-custom-primary"
-                >
-                  <span v-if="isSendingReply" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  <font-awesome-icon v-else :icon="['fas', 'paper-plane']" class="me-2" />
-                  {{ t$('entity.action.send') }}
-                </button>
-              </div>
-            </form>
+                </b-form>
+              </b-card-body>
+            </b-card>
           </template>
         </div>
       </div>
@@ -268,5 +299,41 @@
 }
 .status-default {
   background-color: #6c757d;
+}
+
+.b-form-group {
+  margin-bottom: 1.75rem;
+}
+
+.file-drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.file-drop-zone:hover {
+  background-color: #f8f9fa;
+  border-color: #007bff;
+}
+
+.file-drop-zone.is-uploading {
+  cursor: not-allowed;
+  background-color: #e9ecef;
+}
+
+/* Animations for the file list */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+.list-enter-from, /* Replaces .list-enter for Vue 3 */
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 </style>
