@@ -1,7 +1,7 @@
 import { type Ref, defineComponent, inject, ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useVuelidate } from '@vuelidate/core';
-import { email, maxLength, minLength, required } from '@vuelidate/validators';
+import { email, maxLength, minLength, required, sameAs, requiredIf, helpers } from '@vuelidate/validators';
 import { useRoute, useRouter } from 'vue-router';
 import UserManagementService from './user-management.service';
 import { type IUser, User } from '@/shared/model/user.model';
@@ -28,6 +28,9 @@ export default defineComponent({
     const userAccount: Ref<IUser> = ref(new User());
     const isSaving = ref(false);
     const authorities: Ref<string[]> = ref([]);
+
+    const password: Ref<string> = ref('');
+    const confirmPassword: Ref<string> = ref('');
 
     const languageOptions = computed(() => [
       { value: null, text: '-- Seleccione un lenguaje --', disabled: true },
@@ -57,9 +60,24 @@ export default defineComponent({
           maxLength: maxLength(50),
         },
       },
+      password: {
+        required: helpers.withMessage(
+          t('global.messages.validate.newpassword.required'),
+          requiredIf(() => !userAccount.value.id),
+        ),
+        minLength: helpers.withMessage(t('global.messages.validate.newpassword.minlength'), minLength(4)),
+        maxLength: helpers.withMessage(t('global.messages.validate.newpassword.maxlength'), maxLength(50)),
+      },
+      confirmPassword: {
+        required: helpers.withMessage(
+          t('global.messages.validate.confirmpassword.required'),
+          requiredIf(() => !!password.value),
+        ),
+        sameAs: helpers.withMessage(t('global.messages.error.dontmatch'), sameAs(password)),
+      },
     }));
 
-    const v$ = useVuelidate(rules, { userAccount });
+    const v$ = useVuelidate(rules, { userAccount, password, confirmPassword });
 
     const previousState = () => router.go(-1);
 
@@ -75,6 +93,10 @@ export default defineComponent({
     const save = async () => {
       isSaving.value = true;
       try {
+        if (password.value) {
+          userAccount.value.password = password.value;
+        }
+
         let response;
         if (userAccount.value.id) {
           response = await userManagementService.update(userAccount.value);
@@ -109,6 +131,8 @@ export default defineComponent({
 
     return {
       userAccount,
+      password,
+      confirmPassword,
       isSaving,
       authorities,
       previousState,

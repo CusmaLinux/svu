@@ -84,6 +84,45 @@
               </b-row>
 
               <hr class="my-4" />
+              <h4 class="mb-3 text-secondary">
+                {{ userAccount.id ? 'Cambiar Contraseña' : 'Crear Contraseña' }}
+              </h4>
+
+              <b-row>
+                <b-col md="6">
+                  <b-form-group label="Nueva Contraseña" label-for="password" label-class="font-weight-bold">
+                    <b-form-input
+                      id="password"
+                      type="password"
+                      v-model="v$.password.$model"
+                      :state="v$.password.$dirty ? !v$.password.$error : null"
+                      data-cy="password"
+                    ></b-form-input>
+                    <b-form-invalid-feedback v-for="error of v$.password.$errors" :key="error.$uid">
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
+                  </b-form-group>
+                </b-col>
+                <b-col md="6">
+                  <b-form-group label="Confirmar Nueva Contraseña" label-for="confirmPassword" label-class="font-weight-bold">
+                    <b-form-input
+                      id="confirmPassword"
+                      type="password"
+                      v-model="v$.confirmPassword.$model"
+                      :state="v$.confirmPassword.$dirty ? !v$.confirmPassword.$error : null"
+                      data-cy="confirmPassword"
+                    ></b-form-input>
+                    <b-form-invalid-feedback v-for="error of v$.confirmPassword.$errors" :key="error.$uid">
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
+                  </b-form-group>
+                </b-col>
+              </b-row>
+              <small v-if="userAccount.id" class="form-text text-muted">
+                Deje estos campos en blanco si no desea cambiar la contraseña.
+              </small>
+
+              <hr class="my-4" />
               <h4 class="mb-3 text-secondary">Configuración y Permisos</h4>
 
               <b-form-group>
