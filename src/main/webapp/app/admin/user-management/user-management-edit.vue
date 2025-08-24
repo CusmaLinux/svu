@@ -71,6 +71,13 @@
                       v-model="v$.userAccount.firstName.$model"
                       :state="v$.userAccount.firstName.$dirty ? !v$.userAccount.firstName.$error : null"
                     ></b-form-input>
+                    <b-form-invalid-feedback
+                      :state="!v$.userAccount.firstName.$error"
+                      v-for="error of v$.userAccount.firstName.$errors"
+                      :key="error.$uid"
+                    >
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
                   </b-form-group>
                 </b-col>
                 <b-col md="6">
@@ -79,6 +86,13 @@
                       v-model="v$.userAccount.lastName.$model"
                       :state="v$.userAccount.lastName.$dirty ? !v$.userAccount.lastName.$error : null"
                     ></b-form-input>
+                    <b-form-invalid-feedback
+                      :state="!v$.userAccount.lastName.$error"
+                      v-for="error of v$.userAccount.lastName.$errors"
+                      :key="error.$uid"
+                    >
+                      {{ error.$message }}
+                    </b-form-invalid-feedback>
                   </b-form-group>
                 </b-col>
               </b-row>

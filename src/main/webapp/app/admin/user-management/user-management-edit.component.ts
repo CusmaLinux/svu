@@ -43,21 +43,21 @@ export default defineComponent({
     const rules = computed(() => ({
       userAccount: {
         login: {
-          required,
-          maxLength: maxLength(254),
-          pattern: loginValidator,
+          required: helpers.withMessage(t('entity.validation.required'), required),
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(254)),
+          pattern: helpers.withMessage(t('entity.validation.patternLogin'), loginValidator),
         },
         firstName: {
-          maxLength: maxLength(50),
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(50)),
         },
         lastName: {
-          maxLength: maxLength(50),
+          maxLength: helpers.withMessage(({ $params }) => t('entity.validation.maxlength', { max: $params.max }), maxLength(50)),
         },
         email: {
-          required,
-          email,
-          minLength: minLength(5),
-          maxLength: maxLength(50),
+          required: helpers.withMessage(t('global.messages.validate.email.required'), required),
+          email: helpers.withMessage(t('global.messages.validate.email.invalid'), email),
+          minLength: helpers.withMessage(t('global.messages.validate.email.minlength'), minLength(5)),
+          maxLength: helpers.withMessage(t('global.messages.validate.email.maxlength'), maxLength(50)),
         },
       },
       password: {
