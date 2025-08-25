@@ -12,11 +12,13 @@ import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.ResponseDTO;
+import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.ResponseMapper;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,8 @@ public class RespuestaService {
 
     private final ResponseMapper responseMapper;
 
+    private final ArchivoAdjuntoMapper attachedFileMapper;
+
     private final UserRepository userRepository;
 
     private final OficinaRepository oficinaRepository;
@@ -47,13 +51,15 @@ public class RespuestaService {
         ResponseMapper responseMapper,
         UserRepository userRepository,
         ArchivoAdjuntoRepository attachedFileRepository,
-        OficinaRepository oficinaRepository
+        OficinaRepository oficinaRepository,
+        ArchivoAdjuntoMapper attachedFileMapper
     ) {
         this.respuestaRepository = respuestaRepository;
         this.responseMapper = responseMapper;
         this.userRepository = userRepository;
         this.attachedFileRepository = attachedFileRepository;
         this.oficinaRepository = oficinaRepository;
+        this.attachedFileMapper = attachedFileMapper;
     }
 
     @Transactional(readOnly = true)
@@ -127,9 +133,9 @@ public class RespuestaService {
         }
 
         if (!successfullyLinkedAttachments.isEmpty()) {
-            resultResponse.set_transientAttachments(successfullyLinkedAttachments);
+            response.set_transientAttachments(successfullyLinkedAttachments);
         } else {
-            resultResponse.set_transientAttachments(new HashSet<>());
+            response.set_transientAttachments(new HashSet<>());
         }
 
         return responseMapper.toDto(response);
@@ -141,10 +147,41 @@ public class RespuestaService {
      * @param respuestaDTO the entity to save.
      * @return the persisted entity.
      */
-    public ResponseDTO update(ResponseDTO respuestaDTO) {
-        LOG.debug("Request to update Respuesta : {}", respuestaDTO);
-        Respuesta response = responseMapper.toEntity(respuestaDTO);
-        response = respuestaRepository.save(response);
+    public ResponseDTO update(ResponseDTO responseDTO) {
+        LOG.debug("Request to update Respuesta : {}", responseDTO);
+        Respuesta response = responseMapper.toEntity(responseDTO);
+        Respuesta resultResponse = respuestaRepository.save(response);
+        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
+
+        if (responseDTO.get_transientAttachments() != null && !responseDTO.get_transientAttachments().isEmpty()) {
+            for (ArchivoAdjuntoDTO adjuntoDTO : responseDTO.get_transientAttachments()) {
+                if (adjuntoDTO.getId() != null) {
+                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
+                    adjuntoOpt.ifPresentOrElse(
+                        adjuntoToLink -> {
+                            adjuntoToLink.setResponseAttachment(resultResponse);
+                            attachedFileRepository.save(adjuntoToLink);
+                            successfullyLinkedAttachments.add(adjuntoToLink);
+                        },
+                        () ->
+                            LOG.warn(
+                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
+                                adjuntoDTO.getId(),
+                                resultResponse.getId()
+                            )
+                    );
+                } else {
+                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
+                }
+            }
+        }
+
+        if (!successfullyLinkedAttachments.isEmpty()) {
+            response.set_transientAttachments(successfullyLinkedAttachments);
+        } else {
+            response.set_transientAttachments(new HashSet<>());
+        }
+
         return responseMapper.toDto(response);
     }
 
@@ -187,7 +224,14 @@ public class RespuestaService {
      */
     public Optional<ResponseDTO> findOne(String id) {
         LOG.debug("Request to get Respuesta : {}", id);
-        return respuestaRepository.findById(id).map(responseMapper::toDto);
+        Optional<ResponseDTO> responseDTO = respuestaRepository.findById(id).map(responseMapper::toDto);
+
+        responseDTO.ifPresent(response -> {
+            Set<ArchivoAdjunto> attachedFiles = attachedFileRepository.findByResponseAttachment_Id(id);
+            response.set_transientAttachments(attachedFiles.stream().map(attachedFileMapper::toDto).collect(Collectors.toSet()));
+        });
+
+        return responseDTO;
     }
 
     /**

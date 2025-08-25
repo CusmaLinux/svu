@@ -7,17 +7,6 @@
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span v-text="t$('ventanillaUnicaApp.respuesta.home.refreshListLabel')"></span>
         </button>
-        <router-link :to="{ name: 'RespuestaCreate' }" custom v-slot="{ navigate }">
-          <button
-            @click="navigate"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-respuesta"
-          >
-            <font-awesome-icon icon="plus"></font-awesome-icon>
-            <span v-text="t$('ventanillaUnicaApp.respuesta.home.createLabel')"></span>
-          </button>
-        </router-link>
       </div>
     </h2>
 
