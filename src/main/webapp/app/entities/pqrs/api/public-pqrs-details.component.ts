@@ -51,6 +51,16 @@ export default defineComponent({
     };
     const v$ = useVuelidate(validationRules, response as any);
 
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      if (isUploading.value) {
+        return;
+      }
+      const droppedFiles = event.dataTransfer?.files;
+      if (droppedFiles) {
+        Array.from(droppedFiles).forEach(file => files.value.push(file));
+      }
+    };
     const onFileChange = (event: Event) => {
       const target = event.target as HTMLInputElement;
       if (target && target.files && target.files.length > 0) {
@@ -124,7 +134,8 @@ export default defineComponent({
 
           const savedResponse = await pqrsService().submitPublicResponse(accessToken, formData, headers);
           alertService.showSuccess(t$('ventanillaUnicaApp.respuesta.created', { param: savedResponse.id }).toString());
-          retrievePqrs(accessToken);
+          await retrievePqrs(accessToken);
+          resetForm();
         }
       } catch (error: any) {
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
@@ -135,6 +146,17 @@ export default defineComponent({
 
     const goBack = () => {
       router.push({ path: '/', replace: true });
+    };
+
+    const resetForm = () => {
+      response.value = new Respuesta();
+      files.value = [];
+
+      if (fileInput.value) {
+        fileInput.value.value = '';
+      }
+
+      v$.value.$reset();
     };
 
     const statusClass = computed(() => {
@@ -169,6 +191,7 @@ export default defineComponent({
       isLoading,
       isSendingReply,
       PqrsStatus,
+      onDrop,
       sendReply,
       goBack,
       onFileChange,

@@ -4,10 +4,11 @@ import buildPaginationQueryOpts from '@/shared/sort/sorts';
 const baseApiUrl = 'api/admin';
 
 export default class UserService {
-  public retrieve(): Promise<any> {
+  public retrieve(paginationQuery: any): Promise<any> {
+    const queryOpts = buildPaginationQueryOpts(paginationQuery);
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}/users`)
+        .get(`${baseApiUrl}/users?${queryOpts}`)
         .then(res => {
           resolve(res);
         })

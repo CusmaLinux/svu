@@ -55,10 +55,26 @@ export default defineComponent({
       },
     };
     const v$ = useVuelidate(validationRules, oficina as any);
+    const page: Ref<number> = ref(1);
+    const propOrder = ref('createdDate');
+    const reverse = ref(true);
+    const itemsPerPage = ref(200);
 
+    const sort = (): Array<any> => {
+      const result = [`${propOrder.value},${reverse.value ? 'desc' : 'asc'}`];
+      if (propOrder.value !== 'id') {
+        result.push('id');
+      }
+      return result;
+    };
     const loadUsers = async () => {
       try {
-        const response = await userService().retrieve();
+        const paginationQuery = {
+          page: page.value - 1,
+          size: itemsPerPage.value,
+          sort: sort(),
+        };
+        const response = await userService().retrieve(paginationQuery);
         users.value = response.data;
       } catch (error: any) {
         alertService.showHttpError(error.response);

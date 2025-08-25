@@ -62,6 +62,17 @@ export default defineComponent({
     };
     const v$ = useVuelidate(validationRules, respuesta as any);
 
+    const onDrop = (event: DragEvent) => {
+      event.preventDefault();
+      if (isUploading.value) {
+        return;
+      }
+      const droppedFiles = event.dataTransfer?.files;
+      if (droppedFiles) {
+        Array.from(droppedFiles).forEach(file => files.value.push(file));
+      }
+    };
+
     const previousState = () => {
       filesToDelete.value = [];
       router.go(-1);
@@ -75,8 +86,8 @@ export default defineComponent({
           selectedPqrsInfo.value = res.pqrs;
         }
 
-        if (res.archivosAdjuntosDTO) {
-          existingFilesInfo.value = res.archivosAdjuntosDTO;
+        if (res._transientAttachments) {
+          existingFilesInfo.value = res._transientAttachments;
         } else {
           existingFilesInfo.value = [];
         }
@@ -233,6 +244,7 @@ export default defineComponent({
       save,
       archivosAdjuntosDTO,
       uploadFiles,
+      onDrop,
       isSaving,
       pqrs: allPqrs,
       currentLanguage,
