@@ -54,6 +54,10 @@
             <font-awesome-icon icon="users" />
             <span v-text="t$('global.menu.admin.userManagement')"></span>
           </b-dropdown-item>
+          <b-dropdown-item to="/admin/special-dates" active-class="active">
+            <font-awesome-icon icon="calendar-days" />
+            <span>Días Festivos y Eventos</span>
+          </b-dropdown-item>
           <b-dropdown-item to="/admin/metrics" active-class="active">
             <font-awesome-icon icon="tachometer-alt" />
             <span v-text="t$('global.menu.admin.metrics')"></span>

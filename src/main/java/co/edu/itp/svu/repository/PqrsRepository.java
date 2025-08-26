@@ -42,4 +42,10 @@ public interface PqrsRepository extends MongoRepository<Pqrs, String>, PqrsQuery
     Optional<Pqrs> findByAccessToken(String accessToken);
 
     Optional<Pqrs> findByFileNumber(String fileNumber);
+
+    List<Pqrs> findAllByEstadoNotInAndFechaCreacionBeforeAndFechaLimiteRespuestaAfter(
+        List<String> statuses,
+        Instant fechaCreacion,
+        Instant fechaLimite
+    );
 }
