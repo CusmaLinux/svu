@@ -17,6 +17,7 @@ import { useStore, useTranslationStore } from '@/store';
 import { usePermissions } from '@/shared/composables/use-permissions';
 
 import UserManagementService from '@/admin/user-management/user-management.service';
+import SpecialDatesService from '@/admin/special-dates/special-dates.service';
 
 import '../content/scss/global.scss';
 import '../content/scss/vendor.scss';
@@ -159,6 +160,8 @@ const app = createApp({
     );
     provide('translationService', translationService);
     provide('accountService', accountService);
+    provide('specialDatesService', () => new SpecialDatesService());
+
     // jhipster-needle-add-entity-service-to-main - JHipster will import entities services here
   },
 });

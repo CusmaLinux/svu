@@ -8,6 +8,7 @@ const JhiConfigurationComponent = () => import('@/admin/configuration/configurat
 const JhiHealthComponent = () => import('@/admin/health/health.vue');
 const JhiLogsComponent = () => import('@/admin/logs/logs.vue');
 const JhiMetricsComponent = () => import('@/admin/metrics/metrics.vue');
+const SpecialDates = () => import('@/admin/special-dates/special-dates.vue');
 
 export default [
   {
@@ -62,6 +63,12 @@ export default [
     path: '/admin/configuration',
     name: 'JhiConfigurationComponent',
     component: JhiConfigurationComponent,
+    meta: { authorities: [Authority.ADMIN] },
+  },
+  {
+    path: '/admin/special-dates',
+    name: 'SpecialDates',
+    component: SpecialDates,
     meta: { authorities: [Authority.ADMIN] },
   },
 ];
