@@ -79,6 +79,8 @@ import { faLanguage } from '@fortawesome/free-solid-svg-icons/faLanguage';
 import { faCircle } from '@fortawesome/free-solid-svg-icons/faCircle';
 import { faCircleNotch } from '@fortawesome/free-solid-svg-icons/faCircleNotch';
 import { faCheckDouble } from '@fortawesome/free-solid-svg-icons/faCheckDouble';
+import { faCalendarDays } from '@fortawesome/free-solid-svg-icons/faCalendarDays';
+import { faClock } from '@fortawesome/free-solid-svg-icons/faClock';
 
 const datetimeFormats: IntlDateTimeFormats = {
   es: {
@@ -215,6 +217,8 @@ export function initFortAwesome(vue) {
     faCircle,
     faCircleNotch,
     faCheckDouble,
+    faCalendarDays,
+    faClock,
   );
 }
 export function initI18N(opts: any = {}) {
