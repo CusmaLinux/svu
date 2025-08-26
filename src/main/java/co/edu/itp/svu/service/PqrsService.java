@@ -80,6 +80,8 @@ public class PqrsService {
 
     private final MailService mailService;
 
+    private final DeadlineCalculationService deadlineCalculationService;
+
     public PqrsService(
         PqrsRepository pqrsRepository,
         PqrsMapper pqrsMapper,
@@ -94,7 +96,8 @@ public class PqrsService {
         PublicResponseMapper publicResponseMapper,
         SequenceGeneratorService sequenceGenerator,
         MailService mailService,
-        UserRepository userRepository
+        UserRepository userRepository,
+        DeadlineCalculationService deadlineCalculationService
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
@@ -109,6 +112,7 @@ public class PqrsService {
         this.sequenceGenerator = sequenceGenerator;
         this.mailService = mailService;
         this.userRepository = userRepository;
+        this.deadlineCalculationService = deadlineCalculationService;
     }
 
     /**
@@ -331,6 +335,12 @@ public class PqrsService {
                 User responsible = office.getResponsable();
                 pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_ASSIGNED, responsible);
             }
+
+            boolean changeDeadline = !Objects.equals(oldPqrs.getDaysToReply(), pqrs.getDaysToReply());
+            if (changeDeadline) {
+                Instant newDeadline = deadlineCalculationService.calculateDeadline(oldPqrs.getFechaCreacion(), pqrs.getDaysToReply());
+                pqrs.setFechaLimiteRespuesta(newDeadline);
+            }
         }
 
         Pqrs savedPqrs = pqrsRepository.save(pqrs);
@@ -380,8 +390,8 @@ public class PqrsService {
         pqrs.setFechaCreacion(globalCurrentDate);
         pqrs.setFileNumber(generateFileNumber());
 
-        Instant dueDate = globalCurrentDate.plus(15, ChronoUnit.DAYS);
-        pqrs.setFechaLimiteRespuesta(dueDate);
+        Instant deadline = deadlineCalculationService.calculateDeadline(pqrs.getFechaCreacion(), pqrs.getDaysToReply());
+        pqrs.setFechaLimiteRespuesta(deadline);
 
         Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
         pqrs.setOficinaResponder(office);
