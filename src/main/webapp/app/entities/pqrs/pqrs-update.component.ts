@@ -224,7 +224,7 @@ export default defineComponent({
           savedPqrs = await pqrsService().update(pqrs.value);
           alertService.showInfo(t$('ventanillaUnicaApp.pqrs.updated', { param: savedPqrs.id }));
         } else {
-          const recaptchaToken = await getToken('response_pulic_pqrs');
+          const recaptchaToken = await getToken('create_pqrs');
           const headers = { 'X-Recaptcha-Token': recaptchaToken };
           savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value, headers);
           alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
