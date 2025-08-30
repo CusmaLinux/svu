@@ -13,6 +13,8 @@ import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
+import co.edu.itp.svu.service.FileExtractorService;
+import co.edu.itp.svu.service.GeminiService;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
@@ -82,6 +84,10 @@ public class PqrsService {
 
     private final DeadlineCalculationService deadlineCalculationService;
 
+    private final GeminiService geminiService;
+
+    private final FileExtractorService fileExtractorService;
+
     public PqrsService(
         PqrsRepository pqrsRepository,
         PqrsMapper pqrsMapper,
@@ -97,7 +103,9 @@ public class PqrsService {
         SequenceGeneratorService sequenceGenerator,
         MailService mailService,
         UserRepository userRepository,
-        DeadlineCalculationService deadlineCalculationService
+        DeadlineCalculationService deadlineCalculationService,
+        GeminiService geminiService,
+        FileExtractorService fileExtractorService
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
@@ -113,6 +121,20 @@ public class PqrsService {
         this.mailService = mailService;
         this.userRepository = userRepository;
         this.deadlineCalculationService = deadlineCalculationService;
+        this.geminiService = geminiService;
+        this.fileExtractorService = fileExtractorService;
+    }
+
+    public String suggestOffice(String pqrsId) {
+        Pqrs pqrs = pqrsRepository.findById(pqrsId).orElseThrow(() -> new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound"));
+
+        List<Oficina> offices = oficinaRepository.findAll();
+
+        Set<ArchivoAdjunto> attachments = attachedFileRepository.findByPqrsAttachment_Id(pqrsId);
+
+        String fileText = fileExtractorService.extractTextFromAttachments(attachments);
+
+        return geminiService.suggestOffice(pqrs, offices, fileText);
     }
 
     /**
