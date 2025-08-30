@@ -288,4 +288,17 @@ public class PqrsResource {
 
         return accessToken.map(token -> ResponseEntity.ok(token)).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
+
+    /**
+     * {@code GET  /pqrs/{id}/suggest-office} : get the suggested office for the "id" pqrs.
+     *
+     * @param id the id of the pqrs to retrieve the suggestion for.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the suggested office name, or with status {@code 404 (Not Found)}.
+     */
+    @GetMapping("/pqrs/{id}/suggest-office")
+    public ResponseEntity<String> suggestOffice(@PathVariable("id") String id) {
+        LOG.debug("REST request to get suggested office for Pqrs : {}", id);
+        String suggestedOffice = pqrsService.suggestOffice(id);
+        return ResponseEntity.ok(suggestedOffice);
+    }
 }
