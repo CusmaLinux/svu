@@ -1,6 +1,6 @@
 import { useAccountStore } from '@/shared/config/store/account-store';
 
-type Action = 'view' | 'create' | 'edit' | 'delete' | 'assign' | 'respond' | 'resolve' | 'close' | 'assign_due_date';
+type Action = 'view' | 'create' | 'edit' | 'delete' | 'assign' | 'respond' | 'resolve' | 'close' | 'assign_due_date' | 'ask_by_office';
 
 type Subject =
   | 'pqrs'
@@ -21,9 +21,10 @@ const permissions = {
     },
   },
   front_desk: {
-    pqrs: ['view', 'create', 'edit'],
+    pqrs: ['view', 'create', 'edit', 'ask_by_office'],
     notifications: ['view', 'create', 'edit'],
     responses: ['view'],
+    sidebar: ['view'],
   },
   functionary: {
     pqrs: ['view', 'respond', 'resolve'],
