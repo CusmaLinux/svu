@@ -13,7 +13,7 @@ export default defineComponent({
       default: null,
     },
   },
-  emits: ['toggle-status', 'open-close-modal'],
+  emits: ['toggle-status', 'open-close-modal', 'ask-office'],
   setup(props) {
     const { t } = useI18n();
     const router = useRouter();
