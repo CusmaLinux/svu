@@ -13,8 +13,6 @@ import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
-import co.edu.itp.svu.service.FileExtractorService;
-import co.edu.itp.svu.service.GeminiService;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
@@ -561,5 +559,47 @@ public class PqrsService {
         Optional<Pqrs> pqrsOptional = pqrsRepository.findByFileNumber(fileNumber);
 
         return pqrsOptional.map(Pqrs::getAccessToken);
+    }
+
+    /**
+     * Updates the office of an existing pqrs.
+     *
+     * @param pqrsId     the id of the pqrs to update.
+     * @param officeName the name of the new office.
+     * @return the updated pqrs as a DTO.
+     */
+    @Transactional
+    public Optional<PqrsDTO> updatePqrsOffice(String pqrsId, String officeName) {
+        LOG.debug("Request to update office for Pqrs ID: {} to office: {}", pqrsId, officeName);
+
+        return pqrsRepository
+            .findById(pqrsId)
+            .map(pqrs -> {
+                Oficina newOffice = oficinaRepository.findByNombre(officeName);
+                if (newOffice == null) {
+                    throw new BadRequestAlertException("Office not found with name: " + officeName, "Oficina", "namenotfound");
+                }
+
+                Oficina oldOffice = pqrs.getOficinaResponder();
+
+                if (oldOffice != null && Objects.equals(oldOffice.getId(), newOffice.getId())) {
+                    LOG.debug("Pqrs {} is already assigned to office {}. No update needed.", pqrsId, officeName);
+                    return pqrs;
+                }
+
+                pqrs.setOficinaResponder(newOffice);
+                Pqrs updatedPqrs = pqrsRepository.save(pqrs);
+
+                if (oldOffice == null || !Objects.equals(oldOffice.getId(), newOffice.getId())) {
+                    User responsible = newOffice.getResponsable();
+                    if (responsible != null) {
+                        pqrsNotificationService.sendPqrsNotification(updatedPqrs, PqrsNotificationType.PQRS_ASSIGNED, responsible);
+                    } else {
+                        LOG.warn("No responsible user found for office '{}' to send notification.", officeName);
+                    }
+                }
+                return updatedPqrs;
+            })
+            .map(pqrsMapper::toDto);
     }
 }
