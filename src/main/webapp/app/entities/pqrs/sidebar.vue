@@ -5,6 +5,15 @@
 
       <div class="d-flex flex-column gap-3">
         <b-button
+          v-can="['ask_by_office', 'pqrs']"
+          @click="$emit('ask-office')"
+          class="'w-100 font-weight-bold br-lg btn-info"
+          data-cy="sidebarToggleStatusButton"
+        >
+          <font-awesome-icon icon="briefcase" />
+          Pedir oficina
+        </b-button>
+        <b-button
           v-can="['resolve', 'pqrs']"
           v-if="pqrs && pqrs.id && pqrs.estado !== PqrsStatus.Closed"
           @click="$emit('toggle-status')"

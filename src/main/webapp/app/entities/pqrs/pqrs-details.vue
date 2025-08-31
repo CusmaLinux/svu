@@ -77,11 +77,39 @@
 
           <!-- Right Column (Actions) -->
           <b-col v-can="['view', 'sidebar']" md="4" class="mt-4 mt-md-0">
-            <sidebar v-if="pqrs" :pqrs="pqrs" @toggle-status="toggleStatusPqrs" @open-close-modal="openConfirmCloseModal" />
+            <sidebar
+              v-if="pqrs"
+              :pqrs="pqrs"
+              @toggle-status="toggleStatusPqrs"
+              @ask-office="askOffice"
+              @open-close-modal="openConfirmCloseModal"
+            />
           </b-col>
         </b-row>
       </div>
     </b-card>
+    <b-modal
+      id="askOfficeModal"
+      ref="askOfficeModal"
+      v-model="isAskOfficeModalVisible"
+      title="Oficina Sugeriada por Gemini"
+      @ok="assignSuggestedOffice"
+      :ok-title="t('entity.action.confirm')"
+      ok-variant="danger"
+      :cancel-title="t('entity.action.cancel')"
+      cancel-variant="secondary"
+      centered
+    >
+      <p>
+        <span v-if="isConsultOffice">
+          <b-spinner small></b-spinner>
+        </span>
+        <span>
+          La oficina sugerida es: <strong>{{ isConsultOffice ? '' : suggestOffice }}</strong>
+        </span>
+      </p>
+      <p>Desea asignar esta PQRS a la oficina sugerida?</p>
+    </b-modal>
     <b-modal
       id="confirmClosePqrsModal"
       ref="confirmCloseModalRef"

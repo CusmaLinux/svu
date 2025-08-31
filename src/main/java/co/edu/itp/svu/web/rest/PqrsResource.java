@@ -301,4 +301,19 @@ public class PqrsResource {
         String suggestedOffice = pqrsService.suggestOffice(id);
         return ResponseEntity.ok(suggestedOffice);
     }
+
+    /**
+     * {@code PUT  /pqrs/{id}/office} : Updates the office of an existing pqrs.
+     *
+     * @param id         the id of the pqrsDTO to update.
+     * @param officeName the name of the new office.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated pqrsDTO,
+     * or with status {@code 404 (Not Found)} if the pqrs is not found.
+     */
+    @PutMapping("/pqrs/{id}/office")
+    public ResponseEntity<PqrsDTO> updatePqrsOffice(@PathVariable("id") String id, @RequestParam("officeName") String officeName) {
+        LOG.debug("REST request to update office for Pqrs : {} with office {}", id, officeName);
+        Optional<PqrsDTO> updatedPqrsDTO = pqrsService.updatePqrsOffice(id, officeName);
+        return ResponseUtil.wrapOrNotFound(updatedPqrsDTO, HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, id));
+    }
 }

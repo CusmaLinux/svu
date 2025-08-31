@@ -74,6 +74,32 @@ export default class PqrsService {
     });
   }
 
+  public askOffice(id: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .get(`${baseApiUrl}/${id}/suggest-office`)
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  public assignOffice(id: string, officeName: string): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .put(`${baseApiUrl}/${id}/office`, null, { params: { officeName: officeName } })
+        .then(res => {
+          resolve(res);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
   public search(paginationQuery: any, query?: string): Promise<any> {
     let queryOpts = buildPaginationQueryOpts(paginationQuery);
 
