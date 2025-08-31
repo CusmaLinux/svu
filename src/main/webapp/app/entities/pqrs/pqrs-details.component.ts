@@ -29,6 +29,7 @@ export default defineComponent({
     const { formatDateLong } = useDateFormat();
     const pqrsIdFromRoute = computed(() => route.params.pqrsId as string);
     const loading = ref(false);
+    const isConsultOffice = ref(false);
 
     const dataUtils = useDataUtils();
 
@@ -37,8 +38,10 @@ export default defineComponent({
 
     const previousState = () => router.go(-1);
     const pqrs: Ref<IPqrs | null> = ref(null);
+    const suggestOffice: Ref<string | null> = ref(null);
 
     const isConfirmCloseModalVisible = ref(false);
+    const isAskOfficeModalVisible = ref(false);
     const confirmCloseModalRef = ref(null);
 
     const statusClass = computed(() => {
@@ -69,6 +72,35 @@ export default defineComponent({
         alertService.showHttpError(error.response);
       } finally {
         loading.value = false;
+      }
+    };
+
+    const askOffice = async () => {
+      if (pqrs.value && pqrs.value.id) {
+        isConsultOffice.value = true;
+        isAskOfficeModalVisible.value = true;
+        try {
+          const result = await pqrsService().askOffice(pqrs.value.id);
+          suggestOffice.value = result.data;
+        } catch (error: any) {
+          alertService.showHttpError(error.response);
+        } finally {
+          isConsultOffice.value = false;
+        }
+      }
+    };
+
+    const assignSuggestedOffice = async () => {
+      if (pqrs.value && pqrs.value.id && suggestOffice.value) {
+        try {
+          const result = await pqrsService().assignOffice(pqrs.value.id, suggestOffice.value);
+          if (pqrs.value.oficinaResponder) {
+            pqrs.value.oficinaResponder.nombre = result.data.oficinaResponder.nombre;
+          }
+          alertService.showSuccess('La PQRS fue asignada a la oficina correctamente');
+        } catch (error: any) {
+          alertService.showHttpError(error.response);
+        }
       }
     };
 
@@ -160,11 +192,15 @@ export default defineComponent({
       pqrs,
       PqrsStatus,
       isConfirmCloseModalVisible,
+      isAskOfficeModalVisible,
       confirmCloseModalRef,
       openConfirmCloseModal,
       handleConfirmClose,
+      assignSuggestedOffice,
+      suggestOffice,
       pqrsId: pqrsIdFromRoute,
       loading,
+      isConsultOffice,
       statusClass,
 
       ...dataUtils,
@@ -174,6 +210,7 @@ export default defineComponent({
       t,
       formatDateLong,
       toggleStatusPqrs,
+      askOffice,
     };
   },
 });
