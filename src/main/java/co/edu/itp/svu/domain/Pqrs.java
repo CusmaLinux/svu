@@ -75,11 +75,24 @@ public class Pqrs implements Serializable {
     @JsonIgnoreProperties(value = { "notificacions" }, allowSetters = true)
     private Oficina oficinaResponder;
 
+    @DBRef
+    @Field("satisfaction_survey")
+    @JsonIgnoreProperties(value = { "pqrs" }, allowSetters = true)
+    private SatisfactionSurvey satisfactionSurvey;
+
     @Transient
     private transient Set<ArchivoAdjunto> _transientAttachments;
 
     @Transient
     private transient Set<Respuesta> _transientResponses;
+
+    public SatisfactionSurvey getSatisfactionSurvey() {
+        return satisfactionSurvey;
+    }
+
+    public void setSatisfactionSurvey(SatisfactionSurvey satisfactionSurvey) {
+        this.satisfactionSurvey = satisfactionSurvey;
+    }
 
     public Set<ArchivoAdjunto> get_transientAttachments() {
         return _transientAttachments;
