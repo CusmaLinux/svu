@@ -3,6 +3,7 @@ package co.edu.itp.svu.web.rest;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.security.recaptcha.ValidateRecaptcha;
 import co.edu.itp.svu.service.PqrsService;
+import co.edu.itp.svu.service.dto.CreateSatisfactionSurveyDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicPqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicResponseDTO;
@@ -287,6 +288,44 @@ public class PqrsResource {
         Optional<String> accessToken = pqrsService.findAccessTokenByFileNumber(fileNumber);
 
         return accessToken.map(token -> ResponseEntity.ok(token)).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    /**
+     * {@code POST  /public/pqrs/{accessToken}/survey} : Submits a satisfaction survey for a given PQRS.
+     *
+     * @param accessToken the public access token of the PQRS.
+     * @param surveyDTO the survey data to submit.
+     * @return the {@link ResponseEntity} with status {@code 201 (Created)},
+     * or with status {@code 404 (Not Found)} if the PQRS doesn't exist,
+     * or with status {@code 409 (Conflict)} if a survey already exists or the PQRS is not resolved.
+     */
+    @PostMapping("/public/pqrs/{accessToken}/survey")
+    public ResponseEntity<Void> submitSatisfactionSurvey(
+        @PathVariable String accessToken,
+        @Valid @RequestBody CreateSatisfactionSurveyDTO surveyDTO
+    ) {
+        LOG.debug("REST request to submit satisfaction survey for PQRS with token: {}", accessToken);
+        try {
+            pqrsService.saveSatisfactionSurvey(accessToken, surveyDTO);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .headers(HeaderUtil.createAlert(applicationName, "survey.submitted", accessToken))
+                .build();
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && errorMessage.toLowerCase().contains("not found")) {
+                LOG.warn("Survey submission failed for PQRS with token {}: {}", accessToken, errorMessage);
+                return ResponseEntity.notFound().build();
+            } else if (
+                errorMessage != null &&
+                (errorMessage.toLowerCase().contains("already exists") || errorMessage.toLowerCase().contains("not resolved"))
+            ) {
+                LOG.warn("Survey submission failed for PQRS with token {}: {}", accessToken, errorMessage);
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            } else {
+                LOG.error("Unexpected error submitting survey for PQRS with token {}", accessToken, e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
     }
 
     /**
