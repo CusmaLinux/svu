@@ -4,16 +4,19 @@ import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
+import co.edu.itp.svu.domain.SatisfactionSurvey;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
+import co.edu.itp.svu.repository.SatisfactionSurveyRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
+import co.edu.itp.svu.service.dto.CreateSatisfactionSurveyDTO;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicPqrsDTO;
@@ -21,6 +24,7 @@ import co.edu.itp.svu.service.dto.api.PublicResponseDTO;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
+import co.edu.itp.svu.service.mapper.SatisfactionSurveyMapper;
 import co.edu.itp.svu.service.mapper.api.PublicPqrsMapper;
 import co.edu.itp.svu.service.mapper.api.PublicResponseMapper;
 import co.edu.itp.svu.service.notification.PqrsNotificationService;
@@ -86,6 +90,10 @@ public class PqrsService {
 
     private final FileExtractorService fileExtractorService;
 
+    private final SatisfactionSurveyRepository satisfactionSurveyRepository;
+
+    private final SatisfactionSurveyMapper satisfactionSurveyMapper;
+
     public PqrsService(
         PqrsRepository pqrsRepository,
         PqrsMapper pqrsMapper,
@@ -103,7 +111,9 @@ public class PqrsService {
         UserRepository userRepository,
         DeadlineCalculationService deadlineCalculationService,
         GeminiService geminiService,
-        FileExtractorService fileExtractorService
+        FileExtractorService fileExtractorService,
+        SatisfactionSurveyRepository satisfactionSurveyRepository,
+        SatisfactionSurveyMapper satisfactionSurveyMapper
     ) {
         this.pqrsRepository = pqrsRepository;
         this.pqrsMapper = pqrsMapper;
@@ -121,6 +131,33 @@ public class PqrsService {
         this.deadlineCalculationService = deadlineCalculationService;
         this.geminiService = geminiService;
         this.fileExtractorService = fileExtractorService;
+        this.satisfactionSurveyRepository = satisfactionSurveyRepository;
+        this.satisfactionSurveyMapper = satisfactionSurveyMapper;
+    }
+
+    public void saveSatisfactionSurvey(String accessToken, CreateSatisfactionSurveyDTO createSurveyDTO) {
+        Pqrs pqrs = pqrsRepository
+            .findByAccessToken(accessToken)
+            .orElseThrow(() -> new RuntimeException("PQRS not found with the given token."));
+
+        if (!PqrsStatus.RESOLVED.getDisplayName().equals(pqrs.getEstado())) {
+            throw new IllegalStateException("Survey can only be submitted for a resolved PQRS.");
+        }
+        if (pqrs.getSatisfactionSurvey() != null) {
+            throw new IllegalStateException("A survey has already been submitted for this PQRS.");
+        }
+
+        SatisfactionSurvey survey = new SatisfactionSurvey();
+        survey.setRating(createSurveyDTO.getRating());
+        survey.setComment(createSurveyDTO.getComment());
+
+        survey.setSubmissionDate(Instant.now());
+        survey.setPqrs(pqrs);
+
+        satisfactionSurveyRepository.save(survey);
+
+        pqrs.setSatisfactionSurvey(survey);
+        pqrsRepository.save(pqrs);
     }
 
     public String suggestOffice(String pqrsId) {
