@@ -8,12 +8,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = { SatisfactionSurveyMapper.class })
 public interface PqrsMapper extends EntityMapper<PqrsDTO, Pqrs> {
     @Mapping(target = "archivosAdjuntosDTO", source = "archivosAdjuntos")
+    @Mapping(source = "satisfactionSurvey.id", target = "satisfactionSurvey.id")
     PqrsDTO toDto(Pqrs pqrs);
 
     @Mapping(target = "archivosAdjuntos", source = "archivosAdjuntosDTO")
+    @Mapping(source = "satisfactionSurvey.id", target = "satisfactionSurvey")
     Pqrs toEntity(PqrsDTO pqrsDTO);
 
     default Set<ArchivoAdjuntoDTO> mapArchivosAdjuntosToDTOs(Set<ArchivoAdjunto> archivosAdjuntos) {

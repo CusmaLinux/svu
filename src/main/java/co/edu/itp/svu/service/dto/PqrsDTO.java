@@ -46,6 +46,16 @@ public class PqrsDTO implements Serializable {
 
     private Set<ResponseDTO> _transientResponses = new HashSet<>();
 
+    private SatisfactionSurveyDTO satisfactionSurvey;
+
+    public SatisfactionSurveyDTO getSatisfactionSurvey() {
+        return satisfactionSurvey;
+    }
+
+    public void setSatisfactionSurvey(SatisfactionSurveyDTO satisfactionSurvey) {
+        this.satisfactionSurvey = satisfactionSurvey;
+    }
+
     public Set<ArchivoAdjuntoDTO> getArchivosAdjuntosDTO() {
         return archivosAdjuntosDTO;
     }

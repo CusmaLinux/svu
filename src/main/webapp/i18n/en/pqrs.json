@@ -1,5 +1,8 @@
 {
   "ventanillaUnicaApp": {
+    "survey": {
+      "submitted": "The Satisfaction Survey has been submitted"
+    },
     "pqrs": {
       "action": {
         "title": "Actions",
