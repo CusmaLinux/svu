@@ -147,10 +147,19 @@
                 <b-row>
                   <b-col md="6">
                     <b-form-group label="Oficina Responsable" label-for="pqrs-oficinaResponder" label-class="font-weight-bold">
-                      <b-input-group>
-                        <b-input-group-prepend is-text><font-awesome-icon icon="sitemap" /></b-input-group-prepend>
-                        <b-form-select id="pqrs-oficinaResponder" v-model="pqrs.oficinaResponder" :options="oficinaOptions"></b-form-select>
-                      </b-input-group>
+                      <v-multiselect
+                        :options="oficinas"
+                        :close-on-select="true"
+                        :model-value="pqrs.oficinaResponder"
+                        @update:model-value="pqrs.oficinaResponder = $event"
+                        placeholder="Seleccione una o más oficinas"
+                        select-label="Presione enter para seleccionar"
+                        deselect-label="Presione enter para remover"
+                        selected-label="Seleccionado"
+                        label="nombre"
+                        track-by="id"
+                      >
+                      </v-multiselect>
                     </b-form-group>
                   </b-col>
                   <b-col md="6">

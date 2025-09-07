@@ -7,10 +7,8 @@ import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -104,9 +102,9 @@ public class OficinaService {
      *
      * @return the list of entities.
      */
-    public List<OficinaDTO> findAll() {
+    public Page<OficinaDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all Oficinas");
-        return oficinaRepository.findAll().stream().map(oficinaMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+        return oficinaRepository.findAll(pageable).map(oficinaMapper::toDto);
     }
 
     /**

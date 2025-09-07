@@ -247,8 +247,13 @@ export default defineComponent({
     }
 
     const initRelationships = () => {
+      const paginationQuery = {
+        page: 0,
+        size: 200,
+        sort: [`nombre,acs`, 'id'],
+      };
       oficinaService()
-        .retrieve()
+        .retrieve(paginationQuery)
         .then(res => {
           oficinas.value = res.data;
         });
@@ -315,3 +320,6 @@ export default defineComponent({
     };
   },
 });
+function sort() {
+  throw new Error('Function not implemented.');
+}

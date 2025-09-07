@@ -26,15 +26,15 @@
 
               <b-row class="mb-5">
                 <b-col lg="12" xl="6" class="mb-3 mb-lg-0">
-                  <b-button href="#" variant="primary" size="lg" class="w-100">
+                  <b-button to="/pqrs" variant="primary" size="lg" class="w-100">
                     <font-awesome-icon icon="tachometer-alt" class="mr-2" />
-                    Ver Panel
+                    Ver PQRS
                   </b-button>
                 </b-col>
-                <b-col lg="12" xl="6">
-                  <b-button href="#" variant="secondary" size="lg" class="w-100">
+                <b-col lg="12" xl="6" v-can="['user-manager', 'admin']">
+                  <b-button to="/admin/user-management" variant="secondary" size="lg" class="w-100">
                     <font-awesome-icon icon="gear" class="mr-2" />
-                    Configurar
+                    USUARIOS
                   </b-button>
                 </b-col>
               </b-row>
