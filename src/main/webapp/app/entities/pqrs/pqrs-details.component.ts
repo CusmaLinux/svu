@@ -8,10 +8,12 @@ import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { type IPqrs } from '@/shared/model/pqrs.model';
 import { useAlertService } from '@/shared/alert/alert.service';
+import { useAccountStore } from '@/shared/config/store/account-store';
 
 import PqrsActionsSidebar from './sidebar.vue';
 import ResponseItem from '@/entities/respuesta/response-item.vue';
 import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
+import { Authority } from '@/shared/security/authority';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
@@ -30,6 +32,7 @@ export default defineComponent({
     const pqrsIdFromRoute = computed(() => route.params.pqrsId as string);
     const loading = ref(false);
     const isConsultOffice = ref(false);
+    const accountStore = useAccountStore();
 
     const dataUtils = useDataUtils();
 
@@ -186,10 +189,15 @@ export default defineComponent({
       { immediate: false },
     );
 
+    const isAdmin = computed(() => {
+      return accountStore.authenticated && accountStore.userIdentity?.authorities?.includes(Authority.ADMIN);
+    });
+
     return {
       ...dateFormat,
       alertService,
       pqrs,
+      isAdmin,
       PqrsStatus,
       isConfirmCloseModalVisible,
       isAskOfficeModalVisible,

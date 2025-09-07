@@ -47,9 +47,12 @@
                   <b-col sm="6">
                     <p class="small font-weight-bold text-muted mb-1">Oficina Responsable</p>
                     <div v-if="pqrs?.oficinaResponder">
-                      <router-link :to="{ name: 'OficinaView', params: { oficinaId: pqrs.oficinaResponder.id } }">{{
-                        pqrs.oficinaResponder.nombre || pqrs.oficinaResponder.id
-                      }}</router-link>
+                      <router-link v-if="isAdmin" :to="{ name: 'OficinaView', params: { oficinaId: pqrs.oficinaResponder.id } }">
+                        {{ pqrs.oficinaResponder.nombre || pqrs.oficinaResponder.id }}
+                      </router-link>
+                      <span v-else>
+                        {{ pqrs.oficinaResponder.nombre || pqrs.oficinaResponder.id }}
+                      </span>
                     </div>
                   </b-col>
                 </b-row>

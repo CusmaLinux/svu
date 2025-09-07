@@ -1,6 +1,17 @@
 import { useAccountStore } from '@/shared/config/store/account-store';
 
-type Action = 'view' | 'create' | 'edit' | 'delete' | 'assign' | 'respond' | 'resolve' | 'close' | 'assign_due_date' | 'ask_by_office';
+type Action =
+  | 'view'
+  | 'create'
+  | 'edit'
+  | 'delete'
+  | 'assign'
+  | 'respond'
+  | 'resolve'
+  | 'close'
+  | 'assign_due_date'
+  | 'ask_by_office'
+  | 'user-manager';
 
 type Subject =
   | 'pqrs'
