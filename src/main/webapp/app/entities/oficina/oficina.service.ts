@@ -19,10 +19,11 @@ export default class OficinaService {
     });
   }
 
-  public retrieve(): Promise<any> {
+  public retrieve(paginationQuery: any): Promise<any> {
+    const queryOpts = buildPaginationQueryOpts(paginationQuery);
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(baseApiUrl)
+        .get(`${baseApiUrl}?${queryOpts}`)
         .then(res => {
           resolve(res);
         })
