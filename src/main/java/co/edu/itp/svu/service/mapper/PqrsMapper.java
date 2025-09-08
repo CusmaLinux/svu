@@ -11,7 +11,6 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring", uses = { SatisfactionSurveyMapper.class })
 public interface PqrsMapper extends EntityMapper<PqrsDTO, Pqrs> {
     @Mapping(target = "archivosAdjuntosDTO", source = "archivosAdjuntos")
-    @Mapping(source = "satisfactionSurvey.id", target = "satisfactionSurvey.id")
     PqrsDTO toDto(Pqrs pqrs);
 
     @Mapping(target = "archivosAdjuntos", source = "archivosAdjuntosDTO")
