@@ -305,27 +305,10 @@ public class PqrsResource {
         @Valid @RequestBody CreateSatisfactionSurveyDTO surveyDTO
     ) {
         LOG.debug("REST request to submit satisfaction survey for PQRS with token: {}", accessToken);
-        try {
-            pqrsService.saveSatisfactionSurvey(accessToken, surveyDTO);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                .headers(HeaderUtil.createAlert(applicationName, "survey.submitted", accessToken))
-                .build();
-        } catch (RuntimeException e) {
-            String errorMessage = e.getMessage();
-            if (errorMessage != null && errorMessage.toLowerCase().contains("not found")) {
-                LOG.warn("Survey submission failed for PQRS with token {}: {}", accessToken, errorMessage);
-                return ResponseEntity.notFound().build();
-            } else if (
-                errorMessage != null &&
-                (errorMessage.toLowerCase().contains("already exists") || errorMessage.toLowerCase().contains("not resolved"))
-            ) {
-                LOG.warn("Survey submission failed for PQRS with token {}: {}", accessToken, errorMessage);
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
-            } else {
-                LOG.error("Unexpected error submitting survey for PQRS with token {}", accessToken, e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        }
+        pqrsService.saveSatisfactionSurvey(accessToken, surveyDTO);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .headers(HeaderUtil.createAlert(applicationName, "survey.submitted", accessToken))
+            .build();
     }
 
     /**

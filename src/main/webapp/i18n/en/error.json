@@ -9,6 +9,11 @@
       "500": "Internal server error."
     },
     "concurrencyFailure": "Another user modified this data at the same time as you. Your changes were rejected.",
-    "validation": "Validation error on the server."
+    "validation": "Validation error on the server.",
+    "pqrs": {
+      "surveyNotResolved": "Survey can only be submitted for a resolved PQRS.",
+      "surveyAlreadySubmitted": "A survey has already been submitted for this PQRS.",
+      "notFoundWithToken": "PQRS not found with the given token."
+    }
   }
 }
