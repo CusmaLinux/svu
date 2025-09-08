@@ -22,7 +22,7 @@ public abstract class SatisfactionSurveyMapper implements EntityMapper<Satisfact
     public abstract SatisfactionSurveyDTO toDto(SatisfactionSurvey satisfactionSurvey);
 
     @AfterMapping
-    protected void populatePqrsDto(SatisfactionSurvey satisfactionSurvey, @MappingTarget SatisfactionSurveyDTO satisfactionSurveyDTO) {
+    public void populatePqrsDto(SatisfactionSurvey satisfactionSurvey, @MappingTarget SatisfactionSurveyDTO satisfactionSurveyDTO) {
         if (satisfactionSurvey.getPqrs() != null) {
             PqrsDTO pqrsDTO = new PqrsDTO();
             pqrsDTO.setId(satisfactionSurvey.getPqrs().getId());
@@ -35,7 +35,7 @@ public abstract class SatisfactionSurveyMapper implements EntityMapper<Satisfact
     public abstract SatisfactionSurvey toEntity(SatisfactionSurveyDTO satisfactionSurveyDTO);
 
     @AfterMapping
-    protected void linkPqrs(SatisfactionSurveyDTO satisfactionSurveyDTO, @MappingTarget SatisfactionSurvey satisfactionSurvey) {
+    public void linkPqrs(SatisfactionSurveyDTO satisfactionSurveyDTO, @MappingTarget SatisfactionSurvey satisfactionSurvey) {
         if (satisfactionSurveyDTO.getPqrs() != null && satisfactionSurveyDTO.getPqrs().getId() != null) {
             Pqrs pqrs = new Pqrs();
             pqrs.setId(satisfactionSurveyDTO.getPqrs().getId());

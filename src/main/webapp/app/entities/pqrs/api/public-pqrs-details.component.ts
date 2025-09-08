@@ -1,6 +1,7 @@
 import { computed, defineComponent, inject, ref, onMounted, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
+import SatisfactionSurveyModal from './satisfaction-survey-modal.vue';
 import { useValidation } from '@/shared/composables';
 import { useVuelidate } from '@vuelidate/core';
 import { useDateFormat } from '@/shared/composables';
@@ -17,6 +18,7 @@ export default defineComponent({
   name: 'PublicPqrsDetails',
   components: {
     'attachment-list': AttachmentList,
+    'satisfaction-survey-modal': SatisfactionSurveyModal,
   },
   props: {
     accessToken: {
@@ -42,6 +44,11 @@ export default defineComponent({
     const isUploading = ref(false);
     const dateFormat = useDateFormat();
     const { getToken } = useRecaptcha();
+    const isSurveyModalVisible = ref(false);
+    const survey = ref({
+      rating: null,
+      comment: '',
+    });
 
     const validations = useValidation();
     const validationRules = {
@@ -66,7 +73,7 @@ export default defineComponent({
       if (target && target.files && target.files.length > 0) {
         const newFiles = Array.from(target.files);
         files.value = [...files.value, ...newFiles];
-        target.value = ''; // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+        target.value = '';
       }
     };
 
@@ -93,6 +100,9 @@ export default defineComponent({
       try {
         const res = await pqrsService().findPublicByAccessToken(token);
         pqrs.value = res;
+        if (pqrs.value.estado === PqrsStatus.Resolved) {
+          openSatisfactionSurveyModal();
+        }
       } catch (error: any) {
         if (error.response && (error.response.status === 404 || error.response.status === 400)) {
           alertService.showError(t$('ventanillaUnicaApp.pqrs.errors.notFound'));
@@ -173,6 +183,35 @@ export default defineComponent({
       }
     });
 
+    const openSatisfactionSurveyModal = () => {
+      isSurveyModalVisible.value = true;
+    };
+
+    const clearSurveyForm = () => {
+      survey.value.rating = null;
+      survey.value.comment = '';
+    };
+
+    const closeSatisfactionSurveyModal = () => {
+      isSurveyModalVisible.value = false;
+      clearSurveyForm();
+    };
+
+    const handleSurveySubmit = async () => {
+      if (!survey.value.rating) {
+        alertService.showError('Por favor, seleccione una calificación.');
+        return;
+      }
+
+      try {
+        await pqrsService().submitSatisfactionSurvey(pqrs.value?.accessToken, survey.value);
+        alertService.showSuccess('¡Gracias por sus comentarios!');
+        closeSatisfactionSurveyModal();
+      } catch (error: any) {
+        alertService.showHttpError(error.response);
+      }
+    };
+
     onMounted(() => {
       const token = effectiveAccessToken.value;
       if (token) {
@@ -203,6 +242,11 @@ export default defineComponent({
       files,
       fileInput,
       v$,
+      isSurveyModalVisible,
+      survey,
+      openSatisfactionSurveyModal,
+      closeSatisfactionSurveyModal,
+      handleSurveySubmit,
       ...dateFormat,
     };
   },

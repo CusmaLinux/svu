@@ -80,7 +80,15 @@ export default class AlertService {
       }
 
       case 404:
-        errorMessage = this.i18n.t('error.http.404').toString();
+        if (httpErrorResponse.data && httpErrorResponse.data.message) {
+          errorMessage = this.i18n.t(httpErrorResponse.data.message).toString();
+        } else {
+          errorMessage = this.i18n.t('error.http.404').toString();
+        }
+        break;
+
+      case 409:
+        errorMessage = this.i18n.t(httpErrorResponse.data.message).toString();
         break;
 
       default:

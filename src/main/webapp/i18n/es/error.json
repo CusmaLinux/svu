@@ -9,6 +9,11 @@
       "500": "Error interno del servidor."
     },
     "concurrencyFailure": "Otro usuario ha modificado estos datos al mismo tiempo que tú. Tus cambios fueron rechazados.",
-    "validation": "Error de validación en el servidor."
+    "validation": "Error de validación en el servidor.",
+    "pqrs": {
+      "surveyNotResolved": "La encuesta solo puede ser enviada para una PQRS resuelta.",
+      "surveyAlreadySubmitted": "Ya se ha enviado una encuesta para esta PQRS.",
+      "notFoundWithToken": "No se encontró la PQRS con el token proporcionado."
+    }
   }
 }

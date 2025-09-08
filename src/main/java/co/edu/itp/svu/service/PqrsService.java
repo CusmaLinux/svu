@@ -30,6 +30,8 @@ import co.edu.itp.svu.service.mapper.api.PublicResponseMapper;
 import co.edu.itp.svu.service.notification.PqrsNotificationService;
 import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificationType;
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
+import co.edu.itp.svu.web.rest.errors.ConflictException;
+import co.edu.itp.svu.web.rest.errors.ResourceNotFoundException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -138,13 +140,13 @@ public class PqrsService {
     public void saveSatisfactionSurvey(String accessToken, CreateSatisfactionSurveyDTO createSurveyDTO) {
         Pqrs pqrs = pqrsRepository
             .findByAccessToken(accessToken)
-            .orElseThrow(() -> new RuntimeException("PQRS not found with the given token."));
+            .orElseThrow(() -> new ResourceNotFoundException("error.pqrs.notFoundWithToken"));
 
         if (!PqrsStatus.RESOLVED.getDisplayName().equals(pqrs.getEstado())) {
-            throw new IllegalStateException("Survey can only be submitted for a resolved PQRS.");
+            throw new ConflictException("error.pqrs.surveyNotResolved");
         }
         if (pqrs.getSatisfactionSurvey() != null) {
-            throw new IllegalStateException("A survey has already been submitted for this PQRS.");
+            throw new ConflictException("error.pqrs.surveyAlreadySubmitted");
         }
 
         SatisfactionSurvey survey = new SatisfactionSurvey();

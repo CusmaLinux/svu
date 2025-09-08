@@ -172,9 +172,21 @@
             <font-awesome-icon :icon="['fas', 'arrow-left']" class="me-2" />
             {{ t$('entity.action.back') }}
           </button>
+
+          <button v-if="pqrs.estado === PqrsStatus.Resolved" class="btn btn-info w-100 mt-2" @click="openSatisfactionSurveyModal">
+            <font-awesome-icon icon="star" class="me-2" />
+            Realizar Encuesta de Satisfacción
+          </button>
         </div>
       </div>
     </div>
+    <b-modal v-model="isSurveyModalVisible" title="Encuesta de Satisfacción" @hidden="closeSatisfactionSurveyModal">
+      <satisfaction-survey-modal v-model:rating="survey.rating" v-model:comment="survey.comment"></satisfaction-survey-modal>
+      <template #modal-footer>
+        <button type="button" class="btn btn-secondary" @click="closeSatisfactionSurveyModal">Cerrar</button>
+        <button type="button" class="btn btn-primary" @click="handleSurveySubmit" :disabled="!survey.rating">Enviar</button>
+      </template>
+    </b-modal>
   </div>
 </template>
 
