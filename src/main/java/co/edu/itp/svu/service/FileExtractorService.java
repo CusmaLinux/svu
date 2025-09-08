@@ -2,7 +2,10 @@ package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.domain.ArchivoAdjunto;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -82,21 +85,60 @@ public class FileExtractorService {
         }
     }
 
-    private String extractTextFromImage(File file) {
-        Tesseract tesseract = new Tesseract();
-        try {
-            return tesseract.doOCR(file);
-        } catch (TesseractException e) {
-            log.error("Error extracting text from image {}: {}", file.getName(), e.getMessage(), e);
-            return "";
-        }
-    }
-
     private String extractTextFromTextFile(File file) {
         try {
             return Files.readString(file.toPath());
         } catch (IOException e) {
             log.error("Error reading text file {}: {}", file.getName(), e.getMessage(), e);
+            return "";
+        }
+    }
+
+    /**
+     * Extracts text from an image file using Tesseract OCR.
+     * This method can be adapted to dynamically choose the language.
+     *
+     * @param file The image file to process.
+     * @return The extracted text as a String, or an empty string if an error occurs.
+     */
+    private String extractTextFromImage(File file) {
+        String englishText = ocrWithLanguage(file, "eng");
+        String spanishText = ocrWithLanguage(file, "spa");
+
+        return englishText + "\n" + spanishText;
+    }
+
+    /**
+     * Performs OCR on a given file using the specified language.
+     *
+     * @param file     The image file.
+     * @param language The language to use for OCR (e.g., "eng" or "spa").
+     * @return The extracted text.
+     */
+    private String ocrWithLanguage(File file, String language) {
+        Tesseract tesseract = new Tesseract();
+        try {
+            URL tessdataURL = getClass().getResource("/tessdata");
+            if (tessdataURL == null) {
+                log.error(
+                    "FATAL: Cannot find the 'tessdata' directory. Please ensure 'src/main/resources/tessdata' exists and contains your .traineddata files."
+                );
+                return "";
+            }
+
+            File tessdataFolder = new File(tessdataURL.toURI());
+
+            tesseract.setDatapath(tessdataFolder.getAbsolutePath());
+
+            tesseract.setLanguage(language);
+
+            log.info("Performing OCR on {} with language: {}", file.getName(), language);
+            return tesseract.doOCR(file);
+        } catch (TesseractException e) {
+            log.error("Error extracting text from image {} with language {}: {}", file.getName(), language, e.getMessage(), e);
+            return "";
+        } catch (URISyntaxException e) {
+            log.error("Error converting tessdata folder path. This can happen with unusual characters in the project path.", e);
             return "";
         }
     }
