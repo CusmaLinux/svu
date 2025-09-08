@@ -174,4 +174,17 @@ export default class PqrsService {
         });
     });
   }
+
+  public submitSatisfactionSurvey(accessToken: string, survey: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
+      axios
+        .post(`${publicApiUrl}/${accessToken}/survey`, survey)
+        .then(res => {
+          resolve(res.data);
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
 }
