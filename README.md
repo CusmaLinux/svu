@@ -234,3 +234,5 @@ To configure CI for your project, run the ci-cd sub-generator (`jhipster ci-cd`)
 [DefinitelyTyped]: https://definitelytyped.org/
 
 # svu
+
+Aporte de Jonier RD para la práctica de Git Forks y PR.
