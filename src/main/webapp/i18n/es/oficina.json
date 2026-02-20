@@ -4,15 +4,15 @@
       "home": {
         "title": "Oficinas",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Oficina",
+        "createLabel": "Crear nueva Oficina",
         "createOrEditLabel": "Crear o editar Oficina",
         "notFound": "Ningún Oficinas encontrado"
       },
-      "created": "Un nuevo Oficina ha sido creado con el identificador { param }",
-      "updated": "Un Oficina ha sido actualizado con el identificador { param }",
-      "deleted": "Un Oficina ha sido eliminado con el identificador { param }",
+      "created": "Una nueva oficina ha sido creada con el identificador { param }",
+      "updated": "Una Oficina ha sido actualizada con el identificador { param }",
+      "deleted": "Una Oficina ha sido eliminada con el identificador { param }",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Oficina { id }?"
+        "question": "¿Seguro que quiere eliminar la oficina { id }?"
       },
       "detail": {
         "title": "Oficina"
