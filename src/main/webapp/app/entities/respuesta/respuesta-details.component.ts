@@ -7,10 +7,14 @@ import useDataUtils from '@/shared/data/data-utils.service';
 import { useDateFormat } from '@/shared/composables';
 import { type IRespuesta } from '@/shared/model/respuesta.model';
 import { useAlertService } from '@/shared/alert/alert.service';
+import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'RespuestaDetails',
+  components: {
+    'attachment-list': AttachmentList,
+  },
   setup() {
     const dateFormat = useDateFormat();
     const respuestaService = inject('respuestaService', () => new RespuestaService());
