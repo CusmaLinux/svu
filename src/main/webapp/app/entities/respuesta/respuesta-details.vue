@@ -7,6 +7,14 @@
         </h2>
         <dl class="row jh-entity-details">
           <dt>
+            <span v-text="t$('ventanillaUnicaApp.respuesta.pqr')"></span>
+          </dt>
+          <dd>
+            <div v-if="respuesta.pqrs">
+              <router-link :to="{ name: 'PqrsView', params: { pqrsId: respuesta.pqrs.id } }">{{ respuesta.pqrs.id }}</router-link>
+            </div>
+          </dd>
+          <dt>
             <span v-text="t$('ventanillaUnicaApp.respuesta.contenido')"></span>
           </dt>
           <dd>
@@ -18,15 +26,8 @@
           <dd>
             <span v-if="respuesta.fechaRespuesta">{{ formatDateLong(respuesta.fechaRespuesta) }}</span>
           </dd>
-          <dt>
-            <span v-text="t$('ventanillaUnicaApp.respuesta.pqr')"></span>
-          </dt>
-          <dd>
-            <div v-if="respuesta.pqrs">
-              <router-link :to="{ name: 'PqrsView', params: { pqrsId: respuesta.pqrs.id } }">{{ respuesta.pqrs.id }}</router-link>
-            </div>
-          </dd>
         </dl>
+        <attachment-list :attachments="respuesta._transientAttachments"></attachment-list>
         <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">
           <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.back')"></span>
         </button>
