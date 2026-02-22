@@ -103,9 +103,9 @@
             <b-td>{{ pqr.estado }}</b-td>
             <b-td>
               <div v-if="pqr.oficinaResponder">
-                <router-link :to="{ name: 'OficinaView', params: { oficinaId: pqr.oficinaResponder.id } }">{{
-                  pqr.oficinaResponder.nombre
-                }}</router-link>
+                <secure-link :to="{ name: 'OficinaView', params: { oficinaId: pqr.oficinaResponder.id } }" action="view" subject="offices">
+                  {{ pqr.oficinaResponder.nombre }}
+                </secure-link>
               </div>
             </b-td>
             <b-td class="text-right">

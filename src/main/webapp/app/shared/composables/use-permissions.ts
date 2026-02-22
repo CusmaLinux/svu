@@ -1,6 +1,6 @@
 import { useAccountStore } from '@/shared/config/store/account-store';
 
-type Action =
+export type Action =
   | 'view'
   | 'create'
   | 'edit'
@@ -13,7 +13,7 @@ type Action =
   | 'ask_by_office'
   | 'user-manager';
 
-type Subject =
+export type Subject =
   | 'pqrs'
   | 'responses'
   | 'sidebar'

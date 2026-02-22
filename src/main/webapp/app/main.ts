@@ -10,6 +10,7 @@ import { initFortAwesome, initI18N } from './shared/config/config';
 import { initBootstrapVue } from './shared/config/config-bootstrap-vue';
 import JhiItemCountComponent from './shared/jhi-item-count.vue';
 import JhiSortIndicatorComponent from './shared/sort/jhi-sort-indicator.vue';
+import SecureLink from './core/components/secure-link.vue';
 import LoginService from './account/login.service';
 import AccountService from './account/account.service';
 import { setupAxiosInterceptors } from '@/shared/config/axios-interceptor';
@@ -180,6 +181,7 @@ initFortAwesome(app);
 app
   .component('jhi-item-count', JhiItemCountComponent)
   .component('jhi-sort-indicator', JhiSortIndicatorComponent)
+  .component('secure-link', SecureLink)
   .use(router)
   .use(pinia)
   .use(i18n)
