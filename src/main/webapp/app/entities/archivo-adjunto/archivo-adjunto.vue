@@ -12,7 +12,7 @@
             @click="navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
-            class="btn btn-primary jh-create-entity create-archivo-adjunto"
+            class="d-none btn btn-primary jh-create-entity create-archivo-adjunto"
           >
             <font-awesome-icon icon="plus"></font-awesome-icon>
             <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.home.createLabel')"></span>
