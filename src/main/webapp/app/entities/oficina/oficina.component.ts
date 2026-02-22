@@ -56,7 +56,7 @@ export default defineComponent({
     const removeId: Ref<string | undefined | null> = ref(null);
     const removeEntity = ref<any>(null);
     const prepareRemove = (instance: IOficina) => {
-      if (removeId.value) removeId.value = instance.id;
+      removeId.value = instance.id;
       removeEntity.value.show();
     };
     const closeDialog = () => {
