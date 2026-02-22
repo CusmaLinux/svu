@@ -171,7 +171,7 @@ public class UserService {
         user.setPassword(encryptedPassword);
         user.setResetKey(RandomUtil.generateResetKey());
         user.setResetDate(Instant.now());
-        user.setActivated(true);
+        user.setActivated(userDTO.isActivated());
         if (userDTO.getAuthorities() != null) {
             Set<Authority> authorities = userDTO
                 .getAuthorities()

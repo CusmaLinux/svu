@@ -140,14 +140,7 @@
               <h4 class="mb-3 text-secondary">Configuración y Permisos</h4>
 
               <b-form-group>
-                <b-form-checkbox
-                  id="activated"
-                  v-model="userAccount.activated"
-                  :disabled="userAccount.id === null"
-                  name="activated"
-                  switch
-                  size="lg"
-                >
+                <b-form-checkbox id="activated" v-model="userAccount.activated" name="activated" switch size="lg">
                   Cuenta Activada
                 </b-form-checkbox>
               </b-form-group>

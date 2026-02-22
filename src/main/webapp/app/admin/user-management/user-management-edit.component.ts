@@ -26,6 +26,9 @@ export default defineComponent({
     const userManagementService = inject('userManagementService', () => new UserManagementService(), true);
 
     const userAccount: Ref<IUser> = ref(new User());
+    userAccount.value.activated = false;
+    userAccount.value.langKey = 'es';
+    userAccount.value.authorities = ['ROLE_FUNCTIONARY'];
     const isSaving = ref(false);
     const authorities: Ref<string[]> = ref([]);
 
