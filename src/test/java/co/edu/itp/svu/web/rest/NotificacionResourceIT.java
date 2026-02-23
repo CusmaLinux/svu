@@ -10,8 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.Notificacion;
+import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.NotificacionRepository;
+import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.service.NotificacionService;
+import co.edu.itp.svu.service.UserService;
+import co.edu.itp.svu.service.dto.AdminUserDTO;
 import co.edu.itp.svu.service.dto.NotificacionDTO;
 import co.edu.itp.svu.service.mapper.NotificacionMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,7 +58,7 @@ class NotificacionResourceIT {
     private static final Boolean DEFAULT_LEIDO = false;
     private static final Boolean UPDATED_LEIDO = true;
 
-    private static final String ENTITY_API_URL = "/api/notifications";
+    private static final String ENTITY_API_URL = "/api/notification";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
     @Autowired
@@ -62,6 +66,12 @@ class NotificacionResourceIT {
 
     @Autowired
     private NotificacionRepository notificacionRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserService userService;
 
     @Mock
     private NotificacionRepository notificacionRepositoryMock;
@@ -102,6 +112,14 @@ class NotificacionResourceIT {
     @BeforeEach
     public void initTest() {
         notificacion = createEntity();
+        if (userRepository.findOneByLogin("user").isEmpty()) {
+            AdminUserDTO user = new AdminUserDTO();
+            user.setLogin("user");
+            user.setPassword("password");
+            user.setActivated(true);
+            userService.createUser(user);
+        }
+        userRepository.findAll().stream().findFirst().ifPresent(notificacion::recipient);
     }
 
     @AfterEach
@@ -110,6 +128,7 @@ class NotificacionResourceIT {
             notificacionRepository.delete(insertedNotificacion);
             insertedNotificacion = null;
         }
+        userRepository.deleteAll();
     }
 
     @Test

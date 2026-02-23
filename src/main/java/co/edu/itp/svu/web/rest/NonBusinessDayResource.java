@@ -152,11 +152,10 @@ public class NonBusinessDayResource {
     public ResponseEntity<Void> deleteNonBusinessDay(@PathVariable String id) {
         log.debug("REST request to delete NonBusinessDay : {}", id);
         Optional<NonBusinessDay> nonBusinessDayOptional = nonBusinessDayRepository.findById(id);
-        if (nonBusinessDayOptional.isPresent()) {
-            NonBusinessDay nonBusinessDay = nonBusinessDayOptional.get();
+        nonBusinessDayOptional.ifPresent(nonBusinessDay -> {
             nonBusinessDayRepository.deleteById(id);
             deadlineAdjustmentService.adjustDeadlinesForDateChange(nonBusinessDay.getDate());
-        }
+        });
 
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
     }

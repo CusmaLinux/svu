@@ -32,10 +32,12 @@ public class PqrsDTO implements Serializable {
 
     private Integer daysToReply;
 
+    @NotNull
     private Instant fechaCreacion;
 
     private Instant fechaLimiteRespuesta;
 
+    @NotNull
     private String estado;
 
     private OficinaDTO oficinaResponder;

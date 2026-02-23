@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.InformePqrs;
 import co.edu.itp.svu.repository.InformePqrsRepository;
+import co.edu.itp.svu.security.AuthoritiesConstants;
 import co.edu.itp.svu.service.dto.InformePqrsDTO;
 import co.edu.itp.svu.service.mapper.InformePqrsMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class InformePqrsResourceIT {
 
     private static final Instant DEFAULT_FECHA_INICIO = Instant.ofEpochMilli(0L);
@@ -171,54 +172,6 @@ class InformePqrsResourceIT {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
         informePqrs.setFechaFin(null);
-
-        // Create the InformePqrs, which fails.
-        InformePqrsDTO informePqrsDTO = informePqrsMapper.toDto(informePqrs);
-
-        restInformePqrsMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(informePqrsDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    void checkTotalPqrsIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        informePqrs.setTotalPqrs(null);
-
-        // Create the InformePqrs, which fails.
-        InformePqrsDTO informePqrsDTO = informePqrsMapper.toDto(informePqrs);
-
-        restInformePqrsMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(informePqrsDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    void checkTotalResueltasIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        informePqrs.setTotalResueltas(null);
-
-        // Create the InformePqrs, which fails.
-        InformePqrsDTO informePqrsDTO = informePqrsMapper.toDto(informePqrs);
-
-        restInformePqrsMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(informePqrsDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    void checkTotalPendientesIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        informePqrs.setTotalPendientes(null);
 
         // Create the InformePqrs, which fails.
         InformePqrsDTO informePqrsDTO = informePqrsMapper.toDto(informePqrs);

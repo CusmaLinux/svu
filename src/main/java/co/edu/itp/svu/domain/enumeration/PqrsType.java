@@ -5,11 +5,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
  * Represents the different types of PQRSD submissions.
- *
- * Each enum constant serves as a stable, internal identifier (e.g.,
- * {@code REQUEST}),
- * while its associated string value is used for API serialization and
- * user-facing display.
  */
 public enum PqrsType {
     REQUEST("Petición"),
@@ -24,9 +19,13 @@ public enum PqrsType {
         this.value = value;
     }
 
-    @JsonValue
     public String getValue() {
         return value;
+    }
+
+    @JsonValue
+    public String toErrorCode() {
+        return this.name();
     }
 
     @JsonCreator
@@ -34,16 +33,18 @@ public enum PqrsType {
         if (value == null) {
             return null;
         }
+
+        try {
+            return PqrsType.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {}
+
         for (PqrsType type : PqrsType.values()) {
             if (type.value.equalsIgnoreCase(value)) {
                 return type;
             }
         }
-        try {
-            return PqrsType.valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown PqrsType: '" + value + "'");
-        }
+
+        throw new IllegalArgumentException("Unknown PqrsType: '" + value + "'");
     }
 
     @Override

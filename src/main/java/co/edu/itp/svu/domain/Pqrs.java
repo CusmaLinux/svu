@@ -139,6 +139,11 @@ public class Pqrs implements Serializable {
         this.type = type;
     }
 
+    public Pqrs type(PqrsType type) {
+        this.setType(type);
+        return this;
+    }
+
     public String getTitulo() {
         return this.titulo;
     }

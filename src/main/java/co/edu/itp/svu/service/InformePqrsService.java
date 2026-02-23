@@ -1,8 +1,8 @@
 package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.domain.InformePqrs;
+import co.edu.itp.svu.domain.dto.InformPqrsCounts;
 import co.edu.itp.svu.repository.InformePqrsRepository;
-import co.edu.itp.svu.service.dto.InformPqrsCounts;
 import co.edu.itp.svu.service.dto.InformePqrsDTO;
 import co.edu.itp.svu.service.mapper.InformePqrsMapper;
 import java.util.Optional;

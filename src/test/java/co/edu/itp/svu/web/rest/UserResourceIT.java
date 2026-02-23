@@ -126,6 +126,7 @@ class UserResourceIT {
         userDTO.setActivated(true);
         userDTO.setImageUrl(DEFAULT_IMAGEURL);
         userDTO.setLangKey(DEFAULT_LANGKEY);
+        userDTO.setPassword(RandomStringUtils.randomAlphanumeric(60));
         userDTO.setAuthorities(Collections.singleton(AuthoritiesConstants.USER));
 
         var returnedUserDTO = om.readValue(

@@ -1,7 +1,7 @@
 package co.edu.itp.svu.repository;
 
+import co.edu.itp.svu.domain.dto.InformPqrsCounts;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
-import co.edu.itp.svu.service.dto.InformPqrsCounts;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

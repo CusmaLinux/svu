@@ -14,7 +14,10 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(classes = { VentanillaUnicaApp.class, JacksonConfiguration.class, AsyncSyncConfiguration.class })
+@SpringBootTest(
+    classes = { VentanillaUnicaApp.class, JacksonConfiguration.class, AsyncSyncConfiguration.class },
+    properties = { "spring.profiles.active=test" }
+)
 @EmbeddedMongo
 public @interface IntegrationTest {
 }

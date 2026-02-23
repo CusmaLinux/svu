@@ -85,7 +85,7 @@ public class RespuestaResource {
     @PutMapping("/{id}")
     public ResponseEntity<ResponseDTO> updateRespuesta(
         @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ResponseDTO respuestaDTO
+        @NotNull @Valid @RequestBody ResponseDTO respuestaDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update Respuesta : {}, {}", id, respuestaDTO);
         if (respuestaDTO.getId() == null) {

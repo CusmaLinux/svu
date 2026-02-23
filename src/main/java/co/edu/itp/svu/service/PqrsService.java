@@ -21,6 +21,9 @@ import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicPqrsDTO;
 import co.edu.itp.svu.service.dto.api.PublicResponseDTO;
+import co.edu.itp.svu.service.errors.BadRequestAlertException;
+import co.edu.itp.svu.service.errors.ConflictException;
+import co.edu.itp.svu.service.errors.ResourceNotFoundException;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
@@ -29,9 +32,6 @@ import co.edu.itp.svu.service.mapper.api.PublicPqrsMapper;
 import co.edu.itp.svu.service.mapper.api.PublicResponseMapper;
 import co.edu.itp.svu.service.notification.PqrsNotificationService;
 import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificationType;
-import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
-import co.edu.itp.svu.web.rest.errors.ConflictException;
-import co.edu.itp.svu.web.rest.errors.ResourceNotFoundException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -273,11 +273,13 @@ public class PqrsService {
         Page<Pqrs> pqrsPage = pqrsRepository.findAll(pageable);
         return pqrsPage.map(pqrs -> {
             PqrsDTO dto = pqrsMapper.toDto(pqrs);
-            Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
-            oficinaOpt.ifPresent(oficina -> {
-                OficinaDTO oficinaDTO = oficinaMapper.toDto(oficina);
-                dto.setOficinaResponder(oficinaDTO);
-            });
+            if (dto.getOficinaResponder() != null && dto.getOficinaResponder().getId() != null) {
+                Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
+                oficinaOpt.ifPresent(oficina -> {
+                    OficinaDTO oficinaDTO = oficinaMapper.toDto(oficina);
+                    dto.setOficinaResponder(oficinaDTO);
+                });
+            }
             return dto;
         });
     }
@@ -300,11 +302,13 @@ public class PqrsService {
                 pqrs.set_transientResponses(populatedResponses);
 
                 PqrsDTO dto = pqrsMapper.toDto(pqrs);
-                Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
-                oficinaOpt.ifPresent(oficina -> {
-                    OficinaDTO oficinaDTO = oficinaMapper.toDto(oficina);
-                    dto.setOficinaResponder(oficinaDTO);
-                });
+                if (dto.getOficinaResponder() != null && dto.getOficinaResponder().getId() != null) {
+                    Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
+                    oficinaOpt.ifPresent(oficina -> {
+                        OficinaDTO oficinaDTO = oficinaMapper.toDto(oficina);
+                        dto.setOficinaResponder(oficinaDTO);
+                    });
+                }
                 return dto;
             });
     }
@@ -374,6 +378,10 @@ public class PqrsService {
         LOG.info("pqrs --------------------------------- {}", pqrs.toString());
         Pqrs oldPqrs = pqrsRepository.findById(pqrs.getId()).orElse(null);
 
+        if (oldPqrs == null) {
+            throw new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound");
+        }
+
         if (SecurityUtils.isAuthenticated()) {
             if (PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado())) {
                 boolean changeState = !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado());
@@ -387,7 +395,9 @@ public class PqrsService {
                 }
             }
 
-            boolean changeOffice = !Objects.equals(oldPqrs.getOficinaResponder().getId(), pqrs.getOficinaResponder().getId());
+            boolean changeOffice =
+                (oldPqrs.getOficinaResponder() != null && pqrs.getOficinaResponder() != null) &&
+                !Objects.equals(oldPqrs.getOficinaResponder().getId(), pqrs.getOficinaResponder().getId());
 
             if (changeOffice) {
                 Oficina office = oficinaRepository.findById(pqrs.getOficinaResponder().getId()).orElse(null);

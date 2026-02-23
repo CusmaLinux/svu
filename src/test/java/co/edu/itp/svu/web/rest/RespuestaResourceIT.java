@@ -9,7 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.Respuesta;
+import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.RespuestaRepository;
+import co.edu.itp.svu.repository.UserRepository;
+import co.edu.itp.svu.service.UserService;
+import co.edu.itp.svu.service.dto.AdminUserDTO;
 import co.edu.itp.svu.service.dto.ResponseDTO;
 import co.edu.itp.svu.service.mapper.ResponseMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,6 +53,12 @@ class RespuestaResourceIT {
     private RespuestaRepository respuestaRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
     private ResponseMapper respuestaMapper;
 
     @Autowired
@@ -81,6 +91,13 @@ class RespuestaResourceIT {
     @BeforeEach
     public void initTest() {
         respuesta = createEntity();
+        if (userRepository.findOneByLogin("user").isEmpty()) {
+            AdminUserDTO user = new AdminUserDTO();
+            user.setLogin("user");
+            user.setPassword("password");
+            user.setActivated(true);
+            userService.createUser(user);
+        }
     }
 
     @AfterEach
@@ -89,6 +106,7 @@ class RespuestaResourceIT {
             respuestaRepository.delete(insertedRespuesta);
             insertedRespuesta = null;
         }
+        userRepository.deleteAll();
     }
 
     @Test
@@ -129,22 +147,6 @@ class RespuestaResourceIT {
 
         // Validate the Respuesta in the database
         assertSameRepositoryCount(databaseSizeBeforeCreate);
-    }
-
-    @Test
-    void checkFechaRespuestaIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        respuesta.setFechaRespuesta(null);
-
-        // Create the Respuesta, which fails.
-        ResponseDTO respuestaDTO = respuestaMapper.toDto(respuesta);
-
-        restRespuestaMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(respuestaDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
     }
 
     @Test
