@@ -168,10 +168,15 @@ public class PqrsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("/pqrs")
-    public ResponseEntity<PqrsDTO> createPqrs(@RequestBody PqrsDTO pqrsDTO) throws IOException {
+    public ResponseEntity<PqrsDTO> createPqrs(@Valid @RequestBody PqrsDTO pqrsDTO) throws IOException, URISyntaxException {
         LOG.debug("REST request to save Pqrs: {}", pqrsDTO);
+        if (pqrsDTO.getId() != null) {
+            throw new BadRequestAlertException("A new pqrs cannot already have an ID", ENTITY_NAME, "idexists");
+        }
         PqrsDTO result = pqrsService.create(pqrsDTO);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.created(new URI("/api/pqrs/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId()))
+            .body(result);
     }
 
     /**
@@ -187,7 +192,7 @@ public class PqrsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/pqrs/{id}")
-    public ResponseEntity<PqrsDTO> updatePqrs(@PathVariable String id, @RequestBody PqrsDTO pqrsDTO) {
+    public ResponseEntity<PqrsDTO> updatePqrs(@PathVariable String id, @Valid @RequestBody PqrsDTO pqrsDTO) {
         LOG.debug("REST request to update Pqrs: {}", pqrsDTO);
         pqrsDTO.setId(id);
         PqrsDTO result = pqrsService.update(pqrsDTO);

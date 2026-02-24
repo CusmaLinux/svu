@@ -2,6 +2,9 @@ package co.edu.itp.svu.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 public class PqrsAsserts {
 
     /**
@@ -49,10 +52,20 @@ public class PqrsAsserts {
             .as("Verify Pqrs relevant properties")
             .satisfies(e -> assertThat(e.getTitulo()).as("check titulo").isEqualTo(actual.getTitulo()))
             .satisfies(e -> assertThat(e.getDescripcion()).as("check descripcion").isEqualTo(actual.getDescripcion()))
-            .satisfies(e -> assertThat(e.getFechaCreacion()).as("check fechaCreacion").isEqualTo(actual.getFechaCreacion()))
-            .satisfies(e ->
-                assertThat(e.getFechaLimiteRespuesta()).as("check fechaLimiteRespuesta").isEqualTo(actual.getFechaLimiteRespuesta())
-            )
+            .satisfies(e -> {
+                Instant expectedFecha = e.getFechaCreacion();
+                Instant actualFecha = actual.getFechaCreacion();
+                assertThat(expectedFecha == null ? null : expectedFecha.truncatedTo(ChronoUnit.MILLIS))
+                    .as("check fechaCreacion")
+                    .isEqualTo(actualFecha == null ? null : actualFecha.truncatedTo(ChronoUnit.MILLIS));
+            })
+            .satisfies(e -> {
+                Instant expectedFecha = e.getFechaLimiteRespuesta();
+                Instant actualFecha = actual.getFechaLimiteRespuesta();
+                assertThat(expectedFecha == null ? null : expectedFecha.truncatedTo(ChronoUnit.MILLIS))
+                    .as("check fechaLimiteRespuesta")
+                    .isEqualTo(actualFecha == null ? null : actualFecha.truncatedTo(ChronoUnit.MILLIS));
+            })
             .satisfies(e -> assertThat(e.getEstado()).as("check estado").isEqualTo(actual.getEstado()));
     }
 

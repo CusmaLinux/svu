@@ -103,7 +103,7 @@ public class NotificacionDTO implements Serializable {
             ", fecha='" + getFecha() + "'" +
             ", mensaje='" + getMensaje() + "'" +
             ", leido='" + getLeido() + "'" +
-            ", recipient=[" + recipientDto.getId() + ", " + recipientDto.getLogin() + "]" +
+            ", recipient=[" + (recipientDto != null ? recipientDto.getId() + ", " + recipientDto.getLogin() : "null") + "]" +
             "}";
     }
 }

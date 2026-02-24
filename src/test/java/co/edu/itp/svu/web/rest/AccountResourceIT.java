@@ -94,6 +94,7 @@ class AccountResourceIT {
         user.setEmail("john.doe@jhipster.com");
         user.setImageUrl("http://placehold.it/50x50");
         user.setLangKey("en");
+        user.setPassword("password123");
         user.setAuthorities(authorities);
         userService.createUser(user);
 

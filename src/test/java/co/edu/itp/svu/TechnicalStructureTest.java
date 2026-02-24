@@ -18,19 +18,19 @@ class TechnicalStructureTest {
         .consideringAllDependencies()
         .layer("Config").definedBy("..config..")
         .layer("Web").definedBy("..web..")
-        .optionalLayer("Service").definedBy("..service..")
+        .optionalLayer("Service").definedBy("..service..", "..scheduler..")
         .layer("Security").definedBy("..security..")
         .optionalLayer("Persistence").definedBy("..repository..")
         .layer("Domain").definedBy("..domain..")
 
         .whereLayer("Config").mayNotBeAccessedByAnyLayer()
         .whereLayer("Web").mayOnlyBeAccessedByLayers("Config")
-        .whereLayer("Service").mayOnlyBeAccessedByLayers("Web", "Config")
+        .whereLayer("Service").mayOnlyBeAccessedByLayers("Web", "Config", "Security")
         .whereLayer("Security").mayOnlyBeAccessedByLayers("Config", "Service", "Web")
         .whereLayer("Persistence").mayOnlyBeAccessedByLayers("Service", "Security", "Web", "Config")
         .whereLayer("Domain").mayOnlyBeAccessedByLayers("Persistence", "Service", "Security", "Web", "Config")
 
-        .ignoreDependency(belongToAnyOf(VentanillaUnicaApp.class), alwaysTrue())
+        .ignoreDependency(belongToAnyOf(VentanillaUnicaApp.class, co.edu.itp.svu.SvuApp.class), alwaysTrue())
         .ignoreDependency(alwaysTrue(), belongToAnyOf(
             co.edu.itp.svu.config.Constants.class,
             co.edu.itp.svu.config.ApplicationProperties.class

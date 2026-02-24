@@ -1,6 +1,6 @@
 package co.edu.itp.svu.service;
 
-import co.edu.itp.svu.web.rest.vm.RecaptchaResponseVM;
+import co.edu.itp.svu.service.dto.RecaptchaResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,7 +39,7 @@ public class RecaptchaService {
         body.add("response", token);
 
         try {
-            RecaptchaResponseVM response = restTemplate.postForObject(verifyUrl, body, RecaptchaResponseVM.class);
+            RecaptchaResponse response = restTemplate.postForObject(verifyUrl, body, RecaptchaResponse.class);
 
             if (response == null) {
                 LOG.error("reCAPTCHA verification response was null.");

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.Pqrs;
+import co.edu.itp.svu.domain.enumeration.PqrsType;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import co.edu.itp.svu.service.mapper.PqrsMapper;
@@ -75,6 +76,7 @@ class PqrsResourceIT {
      */
     public static Pqrs createEntity() {
         return new Pqrs()
+            .type(PqrsType.REQUEST)
             .titulo(DEFAULT_TITULO)
             .descripcion(DEFAULT_DESCRIPCION)
             .fechaCreacion(DEFAULT_FECHA_CREACION)

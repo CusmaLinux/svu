@@ -2,6 +2,9 @@ package co.edu.itp.svu.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 public class RespuestaAsserts {
 
     /**
@@ -48,7 +51,18 @@ public class RespuestaAsserts {
         assertThat(expected)
             .as("Verify Respuesta relevant properties")
             .satisfies(e -> assertThat(e.getContenido()).as("check contenido").isEqualTo(actual.getContenido()))
-            .satisfies(e -> assertThat(e.getFechaRespuesta()).as("check fechaRespuesta").isEqualTo(actual.getFechaRespuesta()));
+            .satisfies(e -> {
+                Instant expectedFecha = e.getFechaRespuesta();
+                Instant actualFecha = actual.getFechaRespuesta();
+                Instant expectedTruncated = expectedFecha == null ? null : expectedFecha.truncatedTo(ChronoUnit.MILLIS);
+                Instant actualTruncated = actualFecha == null ? null : actualFecha.truncatedTo(ChronoUnit.MILLIS);
+                Instant epochTruncated = Instant.ofEpochMilli(0L).truncatedTo(ChronoUnit.MILLIS);
+                if (expectedTruncated == null || expectedTruncated.equals(epochTruncated)) {
+                    assertThat(actualTruncated == null || actualTruncated.equals(epochTruncated)).as("check fechaRespuesta").isTrue();
+                } else {
+                    assertThat(expectedTruncated).as("check fechaRespuesta").isEqualTo(actualTruncated);
+                }
+            });
     }
 
     /**

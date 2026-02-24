@@ -125,7 +125,7 @@ public class ArchivoAdjuntoResource {
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public ResponseEntity<ArchivoAdjuntoDTO> partialUpdateArchivoAdjunto(
         @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ArchivoAdjuntoDTO archivoAdjuntoDTO
+        @RequestBody ArchivoAdjuntoDTO archivoAdjuntoDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update ArchivoAdjunto partially : {}, {}", id, archivoAdjuntoDTO);
         if (archivoAdjuntoDTO.getId() == null) {

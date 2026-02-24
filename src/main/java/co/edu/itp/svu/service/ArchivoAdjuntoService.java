@@ -94,7 +94,18 @@ public class ArchivoAdjuntoService {
         return archivoAdjuntoRepository
             .findById(archivoAdjuntoDTO.getId())
             .map(existingArchivoAdjunto -> {
-                archivoAdjuntoMapper.partialUpdate(existingArchivoAdjunto, archivoAdjuntoDTO);
+                if (archivoAdjuntoDTO.getNombre() != null) {
+                    existingArchivoAdjunto.setNombre(archivoAdjuntoDTO.getNombre());
+                }
+                if (archivoAdjuntoDTO.getTipo() != null) {
+                    existingArchivoAdjunto.setTipo(archivoAdjuntoDTO.getTipo());
+                }
+                if (archivoAdjuntoDTO.getUrlArchivo() != null) {
+                    existingArchivoAdjunto.setUrlArchivo(archivoAdjuntoDTO.getUrlArchivo());
+                }
+                if (archivoAdjuntoDTO.getFechaSubida() != null) {
+                    existingArchivoAdjunto.setFechaSubida(archivoAdjuntoDTO.getFechaSubida());
+                }
 
                 return existingArchivoAdjunto;
             })

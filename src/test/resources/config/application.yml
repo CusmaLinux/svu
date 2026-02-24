@@ -96,6 +96,19 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
+gemini:
+  api-key: test-api-key
+
+google:
+  recaptcha:
+    secret-key: test-secret-key
+    verify-url: 'https://www.google.com/recaptcha/api/siteverify'
+    score-threshold: 0.5
+
+application:
+  file:
+    upload-dir: /tmp/test-uploads
+
 # application:
 management:
   health:
