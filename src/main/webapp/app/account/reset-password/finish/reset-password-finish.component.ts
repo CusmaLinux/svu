@@ -22,12 +22,6 @@ export default defineComponent({
       },
     };
   },
-  created(): void {
-    if (this.$route?.query?.key !== undefined) {
-      this.key = this.$route.query.key;
-    }
-    this.keyMissing = !this.key;
-  },
   setup(prop) {
     const loginService = inject<LoginService>('loginService');
 
@@ -56,6 +50,12 @@ export default defineComponent({
       v$: useVuelidate(),
       t$: useI18n().t,
     };
+  },
+  created(): void {
+    if (this.$route?.query?.key !== undefined) {
+      this.key = this.$route.query.key;
+    }
+    this.keyMissing = !this.key;
   },
   methods: {
     finishReset() {

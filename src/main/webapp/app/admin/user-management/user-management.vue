@@ -147,7 +147,7 @@
     </div>
     <div v-show="users && users.length > 0">
       <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
       </div>
       <div class="row justify-content-center">
         <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage" :change="loadPage(page)"></b-pagination>

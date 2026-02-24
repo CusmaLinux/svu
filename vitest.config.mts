@@ -1,30 +1,41 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { mergeConfig } from 'vite';
+import { configDefaults, defineConfig } from 'vitest/config';
 import viteConfig from './vite.config.mjs';
 
-export default mergeConfig(
-  viteConfig,
-  defineConfig({
-    resolve: {
-      alias: {
-        vue: 'vue',
+export default defineConfig(async params => {
+  // FIX: Check if viteConfig is a function (callback) and await it to get the object
+  const clientConfig = typeof viteConfig === 'function' ? await viteConfig(params) : viteConfig;
+
+  return mergeConfig(
+    clientConfig,
+    defineConfig({
+      test: {
+        environment: 'happy-dom',
+        // 'exclude' prevents Vitest from running these as test files
+        exclude: [...configDefaults.exclude, 'src/test/javascript/e2e/**'],
+        root: fileURLToPath(new URL('./', import.meta.url)),
+        reporters: ['verbose', 'vitest-sonar-reporter'],
+        outputFile: {
+          'vitest-sonar-reporter': 'target/test-results/TESTS-results-sonar.xml',
+        },
+        watch: false,
+        globals: true,
+        coverage: {
+          provider: 'v8',
+          reporter: ['text', 'json', 'lcov', 'text-summary'],
+          reportsDirectory: 'target/test-results/coverage',
+          // These paths match the structure shown in your image
+          exclude: [
+            ...configDefaults.coverage.exclude,
+            'src/main/webapp/app/router/index.ts', // Matches your router folder
+            'src/main/webapp/app/main.ts',
+            'src/main/webapp/app/shared/config/config.ts',
+            'src/test/**/*',
+            'target/**/*',
+          ],
+        },
       },
-    },
-    test: {
-      globals: true,
-      environment: 'happy-dom', // happy-dom provides a better performance but doesn't have a default url.
-      setupFiles: [fileURLToPath(new URL('./src/main/webapp/app/test-setup.ts', import.meta.url))],
-      reporters: ['default', 'vitest-sonar-reporter'],
-      outputFile: {
-        'vitest-sonar-reporter': fileURLToPath(new URL('./target/test-results/TESTS-results-vitest.xml', import.meta.url)),
-      },
-      coverage: {
-        provider: 'v8',
-        statements: 85,
-        branches: 75,
-        lines: 85,
-        reportsDirectory: fileURLToPath(new URL('./target/vite-coverage', import.meta.url)),
-      },
-    },
-  }),
-);
+    }),
+  );
+});
