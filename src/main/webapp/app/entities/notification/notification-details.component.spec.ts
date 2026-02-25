@@ -1,14 +1,14 @@
 /* tslint:disable max-line-length */
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 import { type RouteLocation } from 'vue-router';
 
-import NotificacionDetails from './notificacion-details.vue';
-import NotificacionService from './notificacion.service';
+import NotificationDetails from './notification-details.vue';
+import NotificationService from './notification.service';
 import AlertService from '@/shared/alert/alert.service';
 
-type NotificacionDetailsComponentType = InstanceType<typeof NotificacionDetails>;
+type NotificationDetailsComponentType = InstanceType<typeof NotificationDetails>;
 
 let route: Partial<RouteLocation>;
 const routerGoMock = vitest.fn();
@@ -27,13 +27,13 @@ describe('Component Tests', () => {
     vitest.resetAllMocks();
   });
 
-  describe('Notificacion Management Detail Component', () => {
-    let notificacionServiceStub: SinonStubbedInstance<NotificacionService>;
-    let mountOptions: MountingOptions<NotificacionDetailsComponentType>['global'];
+  describe('Notification Management Detail Component', () => {
+    let notificacionServiceStub: SinonStubbedInstance<NotificationService>;
+    let mountOptions: MountingOptions<NotificationDetailsComponentType>['global'];
 
     beforeEach(() => {
       route = {};
-      notificacionServiceStub = sinon.createStubInstance<NotificacionService>(NotificacionService);
+      notificacionServiceStub = sinon.createStubInstance<NotificationService>(NotificationService);
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
@@ -49,7 +49,7 @@ describe('Component Tests', () => {
         },
         provide: {
           alertService,
-          notificacionService: () => notificacionServiceStub,
+          notificationService: () => notificacionServiceStub,
         },
       };
     });
@@ -63,25 +63,25 @@ describe('Component Tests', () => {
             notificacionId: '' + 'ABC',
           },
         };
-        const wrapper = shallowMount(NotificacionDetails, { global: mountOptions });
+        const wrapper = shallowMount(NotificationDetails, { global: mountOptions });
         const comp = wrapper.vm;
         // WHEN
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(comp.notificacion).toMatchObject(notificacionSample);
+        expect(comp.notification).toMatchObject(notificacionSample);
       });
     });
 
     describe('Previous state', () => {
       it('Should go previous state', async () => {
         notificacionServiceStub.find.resolves(notificacionSample);
-        const wrapper = shallowMount(NotificacionDetails, { global: mountOptions });
+        const wrapper = shallowMount(NotificationDetails, { global: mountOptions });
         const comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         comp.previousState();
-        await comp.$nextTick();
+        await flushPromises();
 
         expect(routerGoMock).toHaveBeenCalledWith(-1);
       });

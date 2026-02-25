@@ -1,6 +1,6 @@
 import { type Ref, defineComponent, inject, onMounted, ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRouter, RouterLink } from 'vue-router';
 
 import NotificationService from './notification.service';
 import { type INotification } from '@/shared/model/notification.model';
@@ -12,6 +12,9 @@ import { NotificationType } from '@/constants';
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'Notifications',
+  components: {
+    RouterLink,
+  },
   setup() {
     const { t: t$ } = useI18n();
     const dateFormat = useDateFormat();
