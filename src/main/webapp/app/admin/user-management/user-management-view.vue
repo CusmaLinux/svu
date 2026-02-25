@@ -46,8 +46,8 @@
             </ul>
           </dd>
         </dl>
-        <router-link custom v-slot="{ navigate }" :to="{ name: 'JhiUser' }">
-          <button @click="navigate" class="btn btn-info">
+        <router-link custom v-slot="scope" :to="{ name: 'JhiUser' }">
+          <button @click="scope?.navigate" class="btn btn-info">
             <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.back')"></span>
           </button>
         </router-link>

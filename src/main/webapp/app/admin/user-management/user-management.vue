@@ -8,8 +8,8 @@
           <font-awesome-icon icon="sync" :spin="isLoading"></font-awesome-icon>
           <span v-text="t$('userManagement.home.refreshListLabel')"></span>
         </button>
-        <router-link custom v-slot="{ navigate }" :to="{ name: 'JhiUserCreate' }">
-          <button @click="navigate" class="btn btn-primary jh-create-entity">
+        <router-link custom v-slot="scope" :to="{ name: 'JhiUserCreate' }">
+          <button @click="scope?.navigate" class="btn btn-primary jh-create-entity">
             <font-awesome-icon icon="plus"></font-awesome-icon> <span v-text="t$('userManagement.home.createLabel')"></span>
           </button>
         </router-link>
@@ -106,14 +106,14 @@
             </td>
             <td class="text-right">
               <div class="btn-group">
-                <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-info btn-sm details">
+                <router-link :to="{ name: 'JhiUserView', params: { userId: user.login } }" custom v-slot="scope">
+                  <button @click="scope?.navigate" class="btn btn-info btn-sm details">
                     <font-awesome-icon icon="eye"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>
                 </router-link>
-                <router-link :to="{ name: 'JhiUserEdit', params: { userId: user.login } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-primary btn-sm edit">
+                <router-link :to="{ name: 'JhiUserEdit', params: { userId: user.login } }" custom v-slot="scope">
+                  <button @click="scope?.navigate" class="btn btn-primary btn-sm edit">
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>

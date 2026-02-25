@@ -1,5 +1,5 @@
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import axios from 'axios';
 import sinon from 'sinon';
 import { type RouteLocation } from 'vue-router';
@@ -17,6 +17,10 @@ const routerGoMock = vitest.fn();
 vitest.mock('vue-router', () => ({
   useRoute: () => route,
   useRouter: () => ({ go: routerGoMock }),
+}));
+
+vitest.mock('@/shared/composables/use-recaptcha', () => ({
+  useRecaptcha: () => ({ getToken: () => Promise.resolve('token') }),
 }));
 
 const pinia = createTestingPinia();
@@ -68,7 +72,7 @@ describe('LoginForm Component', () => {
 
     // WHEN
     loginForm.doLogin();
-    await loginForm.$nextTick();
+    await flushPromises();
 
     // THEN
     expect(
@@ -78,7 +82,6 @@ describe('LoginForm Component', () => {
         rememberMe: true,
       }),
     ).toBeTruthy();
-    await loginForm.$nextTick();
     expect(loginForm.authenticationError).toBeTruthy();
   });
 
@@ -92,7 +95,7 @@ describe('LoginForm Component', () => {
 
     // WHEN
     loginForm.doLogin();
-    await loginForm.$nextTick();
+    await flushPromises();
 
     // THEN
     expect(
@@ -117,7 +120,7 @@ describe('LoginForm Component', () => {
 
     // WHEN
     loginForm.doLogin();
-    await loginForm.$nextTick();
+    await flushPromises();
 
     // THEN
     expect(

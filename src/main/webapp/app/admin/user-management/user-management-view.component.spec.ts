@@ -65,7 +65,6 @@ describe('UserManagementView Component', () => {
         global: {
           stubs: {
             'b-badge': true,
-            'router-link': true,
             'font-awesome-icon': true,
           },
           provide: {
