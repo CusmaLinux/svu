@@ -55,6 +55,11 @@ export default class AlertService {
   }
 
   public showHttpError(httpErrorResponse: any) {
+    if (!httpErrorResponse) {
+      const message = this.i18n.t('error.internalServerError');
+      this.showError(message ? message.toString() : 'Internal Server Error');
+      return;
+    }
     let errorMessage: string | null = null;
     switch (httpErrorResponse.status) {
       case 0:
@@ -72,7 +77,10 @@ export default class AlertService {
           }
         }
         if (errorMessage && entityKey) {
-          errorMessage = this.i18n.t(errorMessage, { entityName: this.i18n.t(`global.menu.entities.${entityKey}`) }).toString();
+          const translatedEntityName = this.i18n.t(`global.menu.entities.${entityKey}`);
+          errorMessage = this.i18n
+            .t(errorMessage, { entityName: translatedEntityName ? translatedEntityName.toString() : entityKey })
+            .toString();
         } else if (!errorMessage) {
           errorMessage = this.i18n.t(httpErrorResponse.data.message).toString();
         }
@@ -92,8 +100,11 @@ export default class AlertService {
         break;
 
       default:
-        errorMessage = this.i18n.t(httpErrorResponse.data.message).toString();
+        errorMessage =
+          httpErrorResponse.data && httpErrorResponse.data.message
+            ? this.i18n.t(httpErrorResponse.data.message).toString()
+            : 'Unknown error';
     }
-    this.showError(errorMessage);
+    this.showError(errorMessage || 'Unknown error');
   }
 }
