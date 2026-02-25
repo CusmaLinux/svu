@@ -27,7 +27,7 @@ describe('Alert Service test suite', () => {
     expect(toastStub).toBeCalledTimes(1);
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
@@ -52,7 +52,7 @@ describe('Alert Service test suite', () => {
     expect(toastStub).toBeCalledTimes(1);
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
@@ -89,7 +89,7 @@ describe('Alert Service test suite', () => {
     expect(translationStub).toHaveBeenCalledWith('global.menu.entities.dummyEntity');
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
@@ -124,7 +124,7 @@ describe('Alert Service test suite', () => {
     expect(toastStub).toBeCalledTimes(1);
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
@@ -150,7 +150,7 @@ describe('Alert Service test suite', () => {
     expect(toastStub).toBeCalledTimes(1);
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
@@ -178,7 +178,7 @@ describe('Alert Service test suite', () => {
     expect(toastStub).toBeCalledTimes(1);
     expect(toastStub).toHaveBeenCalledWith(message, {
       toaster: 'b-toaster-top-center',
-      title: 'Error',
+      title: 'Ha ocurrido un error',
       variant: 'danger',
       solid: true,
       autoHideDelay: 5000,
