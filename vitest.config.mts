@@ -4,7 +4,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 import viteConfig from './vite.config.mjs';
 
 export default defineConfig(async params => {
-  // FIX: Check if viteConfig is a function (callback) and await it to get the object
+  // Check if viteConfig is a function (callback) and await it to get the object
   const clientConfig = typeof viteConfig === 'function' ? await viteConfig(params) : viteConfig;
 
   return mergeConfig(
@@ -26,10 +26,9 @@ export default defineConfig(async params => {
           provider: 'v8',
           reporter: ['text', 'json', 'lcov', 'text-summary'],
           reportsDirectory: 'target/test-results/coverage',
-          // These paths match the structure shown in your image
           exclude: [
             ...configDefaults.coverage.exclude,
-            'src/main/webapp/app/router/index.ts', // Matches your router folder
+            'src/main/webapp/app/router/index.ts',
             'src/main/webapp/app/main.ts',
             'src/main/webapp/app/shared/config/config.ts',
             'src/test/**/*',
