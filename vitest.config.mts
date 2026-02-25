@@ -21,6 +21,7 @@ export default defineConfig(async params => {
         },
         watch: false,
         globals: true,
+        setupFiles: ['src/main/webapp/app/test-setup.ts'],
         coverage: {
           provider: 'v8',
           reporter: ['text', 'json', 'lcov', 'text-summary'],
