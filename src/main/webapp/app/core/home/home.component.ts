@@ -8,16 +8,22 @@ export default defineComponent({
     const authenticated = inject<ComputedRef<boolean>>('authenticated');
     const username = inject<ComputedRef<string>>('currentUsername');
     const accountStore = useAccountStore();
+    const loginService = inject<any>('loginService');
 
     const displayMainRole = computed(() => {
       const roleKey = accountStore.userRole as keyof typeof AuthorityDisplay;
       return AuthorityDisplay[roleKey] || roleKey;
     });
 
+    const openLogin = () => {
+      loginService.openLogin();
+    };
+
     return {
       authenticated,
       username,
       displayMainRole,
+      openLogin,
     };
   },
 });

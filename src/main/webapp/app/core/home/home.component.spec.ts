@@ -16,9 +16,7 @@ describe('Home', () => {
     currentUsername = ref('');
     const wrapper = shallowMount(Home, {
       global: {
-        stubs: {
-          'router-link': true,
-        },
+        stubs: {},
         provide: {
           loginService,
           authenticated,
