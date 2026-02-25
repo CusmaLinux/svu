@@ -1,6 +1,6 @@
 /* tslint:disable max-line-length */
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import Oficina from './oficina.vue';
@@ -8,14 +8,6 @@ import OficinaService from './oficina.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type OficinaComponentType = InstanceType<typeof Oficina>;
-
-const bModalStub = {
-  render: () => {},
-  methods: {
-    hide: () => {},
-    show: () => {},
-  },
-};
 
 describe('Component Tests', () => {
   let alertService: AlertService;
@@ -26,7 +18,11 @@ describe('Component Tests', () => {
 
     beforeEach(() => {
       oficinaServiceStub = sinon.createStubInstance<OficinaService>(OficinaService);
-      oficinaServiceStub.retrieve.resolves({ headers: {} });
+      oficinaServiceStub.search.resolves({
+        headers: { 'x-total-count': '0' },
+        data: [],
+      });
+      oficinaServiceStub.delete.resolves({});
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
@@ -37,10 +33,13 @@ describe('Component Tests', () => {
 
       mountOptions = {
         stubs: {
-          bModal: bModalStub as any,
+          jhiItemCount: true,
+          bPagination: true,
+          bModal: true,
           'font-awesome-icon': true,
           'b-badge': true,
           'b-button': true,
+          RouterLink: true,
           'router-link': true,
         },
         directives: {
@@ -56,45 +55,55 @@ describe('Component Tests', () => {
     describe('Mount', () => {
       it('Should call load all on init', async () => {
         // GIVEN
-        oficinaServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 'ABC' }] });
+        oficinaServiceStub.search.resolves({
+          headers: { 'x-total-count': '1' },
+          data: [{ id: 'ABC' }],
+        });
 
         // WHEN
         const wrapper = shallowMount(Oficina, { global: mountOptions });
         const comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(oficinaServiceStub.retrieve.calledOnce).toBeTruthy();
+        expect(oficinaServiceStub.search.calledOnce).toBeTruthy();
         expect(comp.oficinas[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
     });
     describe('Handles', () => {
+      let wrapper: any;
       let comp: OficinaComponentType;
 
       beforeEach(async () => {
-        const wrapper = shallowMount(Oficina, { global: mountOptions });
+        oficinaServiceStub.search.resolves({ headers: { 'x-total-count': '0' }, data: [] });
+        wrapper = shallowMount(Oficina, { global: mountOptions });
         comp = wrapper.vm;
-        await comp.$nextTick();
-        oficinaServiceStub.retrieve.reset();
-        oficinaServiceStub.retrieve.resolves({ headers: {}, data: [] });
+        await flushPromises();
+        oficinaServiceStub.search.resetHistory();
       });
 
       it('Should call delete service on confirmDelete', async () => {
         // GIVEN
         oficinaServiceStub.delete.resolves({});
+        oficinaServiceStub.search.resolves({
+          headers: { 'x-total-count': '0' },
+          data: [],
+        });
+
+        // FIX: Manually mock the modal ref.
+        comp.removeEntity = { show: sinon.stub(), hide: sinon.stub() } as any;
 
         // WHEN
         comp.prepareRemove({ id: 'ABC' });
-
         comp.removeOficina();
-        await comp.$nextTick(); // clear components
+        await flushPromises();
 
         // THEN
-        expect(oficinaServiceStub.delete.called).toBeTruthy();
+        expect(oficinaServiceStub.delete.calledWith('ABC')).toBeTruthy();
 
         // THEN
-        await comp.$nextTick(); // handle component clear watch
-        expect(oficinaServiceStub.retrieve.callCount).toEqual(1);
+        await flushPromises();
+        expect(oficinaServiceStub.search.called).toBeTruthy();
       });
     });
   });
