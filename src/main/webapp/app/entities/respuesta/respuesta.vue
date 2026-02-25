@@ -88,14 +88,19 @@
             <td>{{ formatDateShort(respuesta.fechaRespuesta) || '' }}</td>
             <td class="text-right">
               <div class="btn-group">
-                <router-link :to="{ name: 'RespuestaView', params: { respuestaId: respuesta.id } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
+                <router-link :to="{ name: 'RespuestaView', params: { respuestaId: respuesta.id } }" custom v-slot="scope">
+                  <button @click="scope?.navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
                     <font-awesome-icon icon="eye"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>
                 </router-link>
-                <router-link :to="{ name: 'RespuestaEdit', params: { respuestaId: respuesta.id } }" custom v-slot="{ navigate }">
-                  <button v-can="['edit', 'responses']" @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <router-link :to="{ name: 'RespuestaEdit', params: { respuestaId: respuesta.id } }" custom v-slot="scope">
+                  <button
+                    v-can="['edit', 'responses']"
+                    @click="scope?.navigate"
+                    class="btn btn-primary btn-sm edit"
+                    data-cy="entityEditButton"
+                  >
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>
