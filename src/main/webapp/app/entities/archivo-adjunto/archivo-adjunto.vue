@@ -7,9 +7,9 @@
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span v-text="t$('ventanillaUnicaApp.archivoAdjunto.home.refreshListLabel')"></span>
         </button>
-        <router-link :to="{ name: 'ArchivoAdjuntoCreate' }" custom v-slot="{ navigate }">
+        <router-link :to="{ name: 'ArchivoAdjuntoCreate' }" custom v-slot="scope">
           <button
-            @click="navigate"
+            @click="scope?.navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
             class="d-none btn btn-primary jh-create-entity create-archivo-adjunto"
@@ -90,12 +90,8 @@
             <td>{{ formatDateShort(archivoAdjunto.fechaSubida) || '' }}</td>
             <td class="text-right">
               <div class="btn-group">
-                <router-link
-                  :to="{ name: 'ArchivoAdjuntoView', params: { archivoAdjuntoId: archivoAdjunto.id } }"
-                  custom
-                  v-slot="{ navigate }"
-                >
-                  <button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
+                <router-link :to="{ name: 'ArchivoAdjuntoView', params: { archivoAdjuntoId: archivoAdjunto.id } }" custom v-slot="scope">
+                  <button @click="scope?.navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
                     <font-awesome-icon icon="eye"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>

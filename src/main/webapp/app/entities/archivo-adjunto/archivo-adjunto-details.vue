@@ -44,9 +44,9 @@
           v-if="archivoAdjunto.id"
           :to="{ name: 'ArchivoAdjuntoEdit', params: { archivoAdjuntoId: archivoAdjunto.id } }"
           custom
-          v-slot="{ navigate }"
+          v-slot="scope"
         >
-          <button @click="navigate" class="btn btn-primary">
+          <button @click="scope?.navigate" class="btn btn-primary d-none">
             <font-awesome-icon icon="pencil-alt"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.edit')"></span>
           </button>
         </router-link>
