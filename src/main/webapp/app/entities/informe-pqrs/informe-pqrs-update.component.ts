@@ -1,4 +1,4 @@
-import { type Ref, computed, defineComponent, inject, ref } from 'vue';
+import { type Ref, computed, defineComponent, inject, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
@@ -17,17 +17,23 @@ export default defineComponent({
   setup() {
     const informePqrsService = inject('informePqrsService', () => new InformePqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
-
-    const informePqrs: Ref<IInformePqrs> = ref(new InformePqrs());
-
     const oficinaService = inject('oficinaService', () => new OficinaService());
 
+    const informePqrs: Ref<IInformePqrs> = ref(new InformePqrs());
     const oficinas: Ref<IOficina[]> = ref([]);
     const isSaving = ref(false);
     const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'es'), true);
 
     const route = useRoute();
     const router = useRouter();
+    const { t: t$ } = useI18n();
+    const validations = useValidation();
+    const dateFormatUtils = useDateFormat({ entityRef: informePqrs });
+
+    const page: Ref<number> = ref(1);
+    const itemsPerPage: Ref<number> = ref(200);
+    const propOrder = ref('nombre');
+    const reverse = ref(false);
 
     const previousState = () => router.go(-1);
 
@@ -42,22 +48,31 @@ export default defineComponent({
       }
     };
 
-    if (route.params?.informePqrsId) {
-      retrieveInformePqrs(route.params.informePqrsId);
-    }
+    const sort = (): Array<any> => {
+      const result = [`${propOrder.value},${reverse.value ? 'desc' : 'asc'}`];
+      if (propOrder.value !== 'id') {
+        result.push('id');
+      }
+      return result;
+    };
 
     const initRelationships = () => {
+      const paginationQuery = {
+        page: page.value - 1,
+        size: itemsPerPage.value,
+        sort: sort(),
+      };
+
       oficinaService()
-        .retrieve()
+        .retrieve(paginationQuery)
         .then(res => {
           oficinas.value = res.data;
+        })
+        .catch(error => {
+          alertService.showHttpError(error.response);
         });
     };
 
-    initRelationships();
-
-    const { t: t$ } = useI18n();
-    const validations = useValidation();
     const validationRules = {
       fechaInicio: {
         required: validations.required(t$('entity.validation.required').toString()),
@@ -67,8 +82,44 @@ export default defineComponent({
       },
       oficina: {},
     };
+
     const v$ = useVuelidate(validationRules, informePqrs as any);
-    v$.value.$validate();
+
+    const save = () => {
+      isSaving.value = true;
+      if (informePqrs.value.id) {
+        informePqrsService()
+          .update(informePqrs.value)
+          .then(param => {
+            isSaving.value = false;
+            previousState();
+            alertService.showInfo(t$('ventanillaUnicaApp.informePqrs.updated', { param: param.id }));
+          })
+          .catch(error => {
+            isSaving.value = false;
+            alertService.showHttpError(error.response);
+          });
+      } else {
+        informePqrsService()
+          .create(informePqrs.value)
+          .then(param => {
+            isSaving.value = false;
+            previousState();
+            alertService.showSuccess(t$('ventanillaUnicaApp.informePqrs.created', { param: param.id }).toString());
+          })
+          .catch(error => {
+            isSaving.value = false;
+            alertService.showHttpError(error.response);
+          });
+      }
+    };
+
+    onMounted(() => {
+      initRelationships();
+      if (route.params?.informePqrsId) {
+        retrieveInformePqrs(route.params.informePqrsId);
+      }
+    });
 
     return {
       informePqrsService,
@@ -79,39 +130,9 @@ export default defineComponent({
       currentLanguage,
       oficinas,
       v$,
-      ...useDateFormat({ entityRef: informePqrs }),
+      ...dateFormatUtils,
       t$,
+      save,
     };
-  },
-  created(): void {},
-  methods: {
-    save(): void {
-      this.isSaving = true;
-      if (this.informePqrs.id) {
-        this.informePqrsService()
-          .update(this.informePqrs)
-          .then(param => {
-            this.isSaving = false;
-            this.previousState();
-            this.alertService.showInfo(this.t$('ventanillaUnicaApp.informePqrs.updated', { param: param.id }));
-          })
-          .catch(error => {
-            this.isSaving = false;
-            this.alertService.showHttpError(error.response);
-          });
-      } else {
-        this.informePqrsService()
-          .create(this.informePqrs)
-          .then(param => {
-            this.isSaving = false;
-            this.previousState();
-            this.alertService.showSuccess(this.t$('ventanillaUnicaApp.informePqrs.created', { param: param.id }).toString());
-          })
-          .catch(error => {
-            this.isSaving = false;
-            this.alertService.showHttpError(error.response);
-          });
-      }
-    },
   },
 });
