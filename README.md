@@ -8,7 +8,7 @@
 
 ## Introduction
 
-The **Sistema de Ventanilla Única (SVU)** is a centralized platform designed to streamline and manage the lifecycle of citizen requests (PQRS) at the Technological Institute of Putumayo. Built with a focus on transparency, efficiency, and traceability, it allows both citizens and administrative staff to interact seamlessly.
+The **Sistema de Ventanilla Única (SVU)** is a centralized platform designed to streamline and manage the lifecycle of citizen requests (PQRS) at the UniPutumayo. Built with a focus on transparency, efficiency, and traceability, it allows both citizens and administrative staff to interact seamlessly.
 
 This project is built using the **JHipster** platform, leveraging **Spring Boot** for the backend, **Vue.js** for the frontend, and **MongoDB** as the primary data store.
 
