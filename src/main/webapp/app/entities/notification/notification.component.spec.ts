@@ -3,26 +3,25 @@ import { vitest } from 'vitest';
 import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
-import InformePqrs from './informe-pqrs.vue';
-import InformePqrsService from './informe-pqrs.service';
+import Notification from './notification.vue';
+import NotificationService from './notification.service';
 import AlertService from '@/shared/alert/alert.service';
 
-type InformePqrsComponentType = InstanceType<typeof InformePqrs>;
+type NotificationComponentType = InstanceType<typeof Notification>;
 
 describe('Component Tests', () => {
   let alertService: AlertService;
 
-  describe('InformePqrs Management Component', () => {
-    let informePqrsServiceStub: SinonStubbedInstance<InformePqrsService>;
-    let mountOptions: MountingOptions<InformePqrsComponentType>['global'];
+  describe('Notification Management Component', () => {
+    let notificationServiceStub: SinonStubbedInstance<NotificationService>;
+    let mountOptions: MountingOptions<NotificationComponentType>['global'];
 
     beforeEach(() => {
-      informePqrsServiceStub = sinon.createStubInstance<InformePqrsService>(InformePqrsService);
-      informePqrsServiceStub.retrieve.resolves({
+      notificationServiceStub = sinon.createStubInstance<NotificationService>(NotificationService);
+      notificationServiceStub.retrieve.resolves({
         headers: { 'x-total-count': '0' },
         data: [],
       });
-      informePqrsServiceStub.delete.resolves({});
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
@@ -43,10 +42,11 @@ describe('Component Tests', () => {
         },
         directives: {
           'b-modal': {},
+          'b-tooltip': {},
         },
         provide: {
           alertService,
-          informePqrsService: () => informePqrsServiceStub,
+          notificationService: () => notificationServiceStub,
         },
       };
     });
@@ -54,48 +54,48 @@ describe('Component Tests', () => {
     describe('Mount', () => {
       it('Should call load all on init', async () => {
         // GIVEN
-        informePqrsServiceStub.retrieve.resolves({
+        notificationServiceStub.retrieve.resolves({
           headers: { 'x-total-count': '1' },
           data: [{ id: 'ABC' }],
         });
 
         // WHEN
-        const wrapper = shallowMount(InformePqrs, { global: mountOptions });
+        const wrapper = shallowMount(Notification, { global: mountOptions });
         const comp = wrapper.vm;
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.retrieve.calledOnce).toBeTruthy();
-        expect(comp.informePqrs[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
+        expect(notificationServiceStub.retrieve.calledOnce).toBeTruthy();
+        expect(comp.notifications[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
 
       it('should calculate the sort attribute for an id', async () => {
         // WHEN
-        const wrapper = shallowMount(InformePqrs, { global: mountOptions });
+        const wrapper = shallowMount(Notification, { global: mountOptions });
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['id,asc'],
+        expect(notificationServiceStub.retrieve.lastCall.firstArg).toMatchObject({
+          sort: ['fecha,desc', 'id'],
         });
       });
     });
 
     describe('Handles', () => {
       let wrapper: any;
-      let comp: InformePqrsComponentType;
+      let comp: NotificationComponentType;
 
       beforeEach(async () => {
-        informePqrsServiceStub.retrieve.resolves({ headers: { 'x-total-count': '0' }, data: [] });
-        wrapper = shallowMount(InformePqrs, { global: mountOptions });
+        notificationServiceStub.retrieve.resolves({ headers: { 'x-total-count': '0' }, data: [] });
+        wrapper = shallowMount(Notification, { global: mountOptions });
         comp = wrapper.vm;
         await flushPromises();
-        informePqrsServiceStub.retrieve.resetHistory();
+        notificationServiceStub.retrieve.resetHistory();
       });
 
       it('should load a page', async () => {
         // GIVEN
-        informePqrsServiceStub.retrieve.resolves({
+        notificationServiceStub.retrieve.resolves({
           headers: { 'x-total-count': '1' },
           data: [{ id: 'ABC' }],
         });
@@ -105,8 +105,8 @@ describe('Component Tests', () => {
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.retrieve.called).toBeTruthy();
-        expect(comp.informePqrs[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
+        expect(notificationServiceStub.retrieve.called).toBeTruthy();
+        expect(comp.notifications[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
 
       it('should not load a page if the page is the same as the previous page', async () => {
@@ -117,58 +117,58 @@ describe('Component Tests', () => {
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.retrieve.called).toBeFalsy();
+        expect(notificationServiceStub.retrieve.called).toBeFalsy();
       });
 
       it('should re-initialize the page', async () => {
         // GIVEN
         comp.page = 2;
         await flushPromises();
-        informePqrsServiceStub.retrieve.resetHistory();
-        informePqrsServiceStub.retrieve.resolves({
+        notificationServiceStub.retrieve.resetHistory();
+        notificationServiceStub.retrieve.resolves({
           headers: { 'x-total-count': '1' },
           data: [{ id: 'ABC' }],
         });
 
         // WHEN
-        comp.clear();
+        comp.handleSyncList();
         await flushPromises();
 
         // THEN
         expect(comp.page).toEqual(1);
-        expect(informePqrsServiceStub.retrieve.called).toBeTruthy();
+        expect(notificationServiceStub.retrieve.called).toBeTruthy();
       });
 
       it('should calculate the sort attribute for a non-id attribute', async () => {
         // WHEN
-        comp.changeOrder('fechaInicio');
+        comp.changeOrder('tipo');
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['fechaInicio,asc', 'id'],
+        expect(notificationServiceStub.retrieve.lastCall.firstArg).toMatchObject({
+          sort: ['tipo,asc', 'id'],
         });
       });
 
       it('Should call delete service on confirmDelete', async () => {
         // GIVEN
-        informePqrsServiceStub.delete.resolves({});
-        informePqrsServiceStub.retrieve.resolves({
+        notificationServiceStub.delete.resolves({});
+        notificationServiceStub.retrieve.resolves({
           headers: { 'x-total-count': '0' },
           data: [],
         });
 
         // FIX: Manually mock the modal ref.
-        comp.removeEntity = { show: sinon.stub(), hide: sinon.stub() } as any;
+        comp.removeNotificationModalRef = { show: sinon.stub(), hide: sinon.stub() } as any;
 
         // WHEN
         comp.prepareRemove({ id: 'ABC' });
-        comp.removeInformePqrs();
+        comp.deleteNotifications();
         await flushPromises();
 
         // THEN
-        expect(informePqrsServiceStub.delete.calledWith('ABC')).toBeTruthy();
-        expect(informePqrsServiceStub.retrieve.called).toBeTruthy();
+        expect(notificationServiceStub.delete.calledWith('ABC')).toBeTruthy();
+        expect(notificationServiceStub.retrieve.called).toBeTruthy();
       });
     });
   });

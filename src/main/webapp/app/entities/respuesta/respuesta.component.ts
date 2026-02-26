@@ -37,6 +37,11 @@ export default defineComponent({
       return result;
     };
 
+    const clear = () => {
+      page.value = 1;
+      searchQuery.value = '';
+    };
+
     const retrieveRespuestas = async () => {
       isFetching.value = true;
       try {
@@ -123,6 +128,7 @@ export default defineComponent({
       handleSyncList,
       isFetching,
       retrieveRespuestas,
+      clear,
       ...dateFormat,
       removeId,
       removeEntity,

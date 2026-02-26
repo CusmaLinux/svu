@@ -1,5 +1,5 @@
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import axios from 'axios';
 import sinon from 'sinon';
 import { type RouteLocation } from 'vue-router';
@@ -63,7 +63,7 @@ describe('UserManagementEdit Component', () => {
       const userManagementEdit: UserManagementEditComponentType = wrapper.vm;
 
       // WHEN
-      await userManagementEdit.$nextTick();
+      await flushPromises();
 
       // THEN
       expect(axiosStub.get.calledWith('api/authorities')).toBeTruthy();
@@ -80,7 +80,7 @@ describe('UserManagementEdit Component', () => {
       const userManagementEdit: UserManagementEditComponentType = wrapper.vm;
 
       // WHEN
-      await userManagementEdit.$nextTick();
+      await flushPromises();
 
       // THEN
       expect(axiosStub.get.calledWith('api/authorities')).toBeTruthy();
@@ -108,11 +108,11 @@ describe('UserManagementEdit Component', () => {
       };
       const wrapper = shallowMount(UserManagementEdit, { global: mountOptions });
       const userManagementEdit: UserManagementEditComponentType = wrapper.vm;
-      await userManagementEdit.$nextTick();
+      await flushPromises();
 
       // WHEN
       userManagementEdit.save();
-      await userManagementEdit.$nextTick();
+      await flushPromises();
 
       // THEN
       expect(axiosStub.put.calledWith('api/admin/users', { id: 'ABC', authorities: [] })).toBeTruthy();
@@ -134,12 +134,12 @@ describe('UserManagementEdit Component', () => {
       };
       const wrapper = shallowMount(UserManagementEdit, { global: mountOptions });
       const userManagementEdit: UserManagementEditComponentType = wrapper.vm;
-      await userManagementEdit.$nextTick();
+      await flushPromises();
       userManagementEdit.userAccount = { authorities: [] };
 
       // WHEN
       userManagementEdit.save();
-      await userManagementEdit.$nextTick();
+      await flushPromises();
 
       // THEN
       expect(

@@ -7,10 +7,10 @@
           <font-awesome-icon icon="sync" :spin="isFetching"></font-awesome-icon>
           <span v-text="t$('ventanillaUnicaApp.pqrs.home.refreshListLabel')"></span>
         </button>
-        <router-link :to="{ name: 'PqrsCreate' }" custom v-slot="{ navigate }">
+        <router-link :to="{ name: 'PqrsCreate' }" custom v-slot="scope">
           <button
             v-can="['create', 'pqrs']"
-            @click="navigate"
+            @click="scope?.navigate"
             id="jh-create-entity"
             data-cy="entityCreateButton"
             class="btn btn-primary jh-create-entity create-pqrs"
@@ -110,14 +110,14 @@
             </b-td>
             <b-td class="text-right">
               <div class="btn-group">
-                <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqr.id } }" custom v-slot="{ navigate }">
-                  <button @click="navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
+                <router-link :to="{ name: 'PqrsView', params: { pqrsId: pqr.id } }" custom v-slot="scope">
+                  <button @click="scope?.navigate" class="btn btn-info btn-sm details" data-cy="entityDetailsButton">
                     <font-awesome-icon icon="eye"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.view')"></span>
                   </button>
                 </router-link>
-                <router-link :to="{ name: 'PqrsEdit', params: { pqrsId: pqr.id } }" custom v-slot="{ navigate }">
-                  <button v-can="['edit', 'pqrs']" @click="navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
+                <router-link :to="{ name: 'PqrsEdit', params: { pqrsId: pqr.id } }" custom v-slot="scope">
+                  <button v-can="['edit', 'pqrs']" @click="scope?.navigate" class="btn btn-primary btn-sm edit" data-cy="entityEditButton">
                     <font-awesome-icon icon="pencil-alt"></font-awesome-icon>
                     <span class="d-none d-md-inline" v-text="t$('entity.action.edit')"></span>
                   </button>
@@ -164,7 +164,7 @@
     </b-modal>
     <div v-show="pqrs && pqrs.length > 0">
       <div class="row justify-content-center">
-        <jhi-item-count :page="page" :total="queryCount" :itemsPerPage="itemsPerPage"></jhi-item-count>
+        <jhi-item-count :page="page" :total="queryCount" :items-per-page="itemsPerPage"></jhi-item-count>
       </div>
       <div class="row justify-content-center">
         <b-pagination size="md" :total-rows="totalItems" v-model="page" :per-page="itemsPerPage"></b-pagination>

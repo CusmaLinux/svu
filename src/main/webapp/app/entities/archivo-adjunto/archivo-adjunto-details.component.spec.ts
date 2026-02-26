@@ -32,7 +32,7 @@ describe('Component Tests', () => {
     let mountOptions: MountingOptions<ArchivoAdjuntoDetailsComponentType>['global'];
 
     beforeEach(() => {
-      route = {};
+      route = { params: {} };
       archivoAdjuntoServiceStub = sinon.createStubInstance<ArchivoAdjuntoService>(ArchivoAdjuntoService);
 
       alertService = new AlertService({
@@ -45,7 +45,6 @@ describe('Component Tests', () => {
       mountOptions = {
         stubs: {
           'font-awesome-icon': true,
-          'router-link': true,
         },
         provide: {
           alertService,

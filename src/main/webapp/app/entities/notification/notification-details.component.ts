@@ -11,7 +11,7 @@ import { NotificationType } from '@/constants';
 
 export default defineComponent({
   compatConfig: { MODE: 3 },
-  name: 'NotificacionDetails',
+  name: 'NotificationDetails',
   setup() {
     const dateFormat = useDateFormat();
     const notificationService = inject('notificationService', () => new NotificationService());

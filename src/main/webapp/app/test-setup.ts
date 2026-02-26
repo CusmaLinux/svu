@@ -1,7 +1,8 @@
 import { beforeAll } from 'vitest';
 import axios from 'axios';
 import { config } from '@vue/test-utils';
-import { createI18n } from 'vue-i18n';
+import { createPinia, setActivePinia } from 'pinia';
+import { initI18N } from './shared/config/config';
 
 beforeAll(() => {
   window.location.href = 'https://jhipster.tech/';
@@ -11,11 +12,8 @@ beforeAll(() => {
     throw new Error(`Error axios should be mocked ${request.url}`);
   });
 
-  config.global.plugins.push(
-    createI18n({
-      legacy: false,
-      missingWarn: false,
-      fallbackWarn: false,
-    }),
-  );
+  const pinia = createPinia();
+  setActivePinia(pinia);
+  config.global.plugins.push(pinia);
+  config.global.plugins.push(initI18N());
 });

@@ -3,9 +3,9 @@ import axios from 'axios';
 import sinon from 'sinon';
 import dayjs from 'dayjs';
 
-import NotificacionService from './notificacion.service';
+import NotificationService from './notification.service';
 import { DATE_TIME_FORMAT } from '@/shared/composables/date-format';
-import { Notificacion } from '@/shared/model/notificacion.model';
+import { Notification } from '@/shared/model/notification.model';
 
 const error = {
   response: {
@@ -25,15 +25,15 @@ const axiosStub = {
 };
 
 describe('Service Tests', () => {
-  describe('Notificacion Service', () => {
-    let service: NotificacionService;
+  describe('Notification Service', () => {
+    let service: NotificationService;
     let elemDefault;
     let currentDate: Date;
 
     beforeEach(() => {
-      service = new NotificacionService();
+      service = new NotificationService();
       currentDate = new Date();
-      elemDefault = new Notificacion('ABC', 'AAAAAAA', currentDate, 'AAAAAAA', false);
+      elemDefault = new Notification('ABC', 'AAAAAAA', currentDate, 'AAAAAAA', false);
     });
 
     describe('Service methods', () => {
@@ -56,7 +56,7 @@ describe('Service Tests', () => {
           });
       });
 
-      it('should create a Notificacion', async () => {
+      it('should create a Notification', async () => {
         const returnedFromService = { id: 'ABC', fecha: dayjs(currentDate).format(DATE_TIME_FORMAT), ...elemDefault };
         const expected = { fecha: currentDate, ...returnedFromService };
 
@@ -66,7 +66,7 @@ describe('Service Tests', () => {
         });
       });
 
-      it('should not create a Notificacion', async () => {
+      it('should not create a Notification', async () => {
         axiosStub.post.rejects(error);
 
         return service
@@ -77,7 +77,7 @@ describe('Service Tests', () => {
           });
       });
 
-      it('should update a Notificacion', async () => {
+      it('should update a Notification', async () => {
         const returnedFromService = {
           tipo: 'BBBBBB',
           fecha: dayjs(currentDate).format(DATE_TIME_FORMAT),
@@ -94,7 +94,7 @@ describe('Service Tests', () => {
         });
       });
 
-      it('should not update a Notificacion', async () => {
+      it('should not update a Notification', async () => {
         axiosStub.put.rejects(error);
 
         return service
@@ -105,8 +105,8 @@ describe('Service Tests', () => {
           });
       });
 
-      it('should partial update a Notificacion', async () => {
-        const patchObject = { fecha: dayjs(currentDate).format(DATE_TIME_FORMAT), ...new Notificacion() };
+      it('should partial update a Notification', async () => {
+        const patchObject = { fecha: dayjs(currentDate).format(DATE_TIME_FORMAT), ...new Notification() };
         const returnedFromService = Object.assign(patchObject, elemDefault);
 
         const expected = { fecha: currentDate, ...returnedFromService };
@@ -117,7 +117,7 @@ describe('Service Tests', () => {
         });
       });
 
-      it('should not partial update a Notificacion', async () => {
+      it('should not partial update a Notification', async () => {
         axiosStub.patch.rejects(error);
 
         return service
@@ -128,7 +128,7 @@ describe('Service Tests', () => {
           });
       });
 
-      it('should return a list of Notificacion', async () => {
+      it('should return a list of Notification', async () => {
         const returnedFromService = {
           tipo: 'BBBBBB',
           fecha: dayjs(currentDate).format(DATE_TIME_FORMAT),
@@ -143,7 +143,7 @@ describe('Service Tests', () => {
         });
       });
 
-      it('should not return a list of Notificacion', async () => {
+      it('should not return a list of Notification', async () => {
         axiosStub.get.rejects(error);
 
         return service
@@ -154,14 +154,14 @@ describe('Service Tests', () => {
           });
       });
 
-      it('should delete a Notificacion', async () => {
+      it('should delete a Notification', async () => {
         axiosStub.delete.resolves({ ok: true });
         return service.delete('ABC').then(res => {
           expect(res.ok).toBeTruthy();
         });
       });
 
-      it('should not delete a Notificacion', async () => {
+      it('should not delete a Notification', async () => {
         axiosStub.delete.rejects(error);
 
         return service

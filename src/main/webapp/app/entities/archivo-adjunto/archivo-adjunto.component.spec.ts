@@ -1,6 +1,6 @@
 /* tslint:disable max-line-length */
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import ArchivoAdjunto from './archivo-adjunto.vue';
@@ -8,14 +8,6 @@ import ArchivoAdjuntoService from './archivo-adjunto.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type ArchivoAdjuntoComponentType = InstanceType<typeof ArchivoAdjunto>;
-
-const bModalStub = {
-  render: () => {},
-  methods: {
-    hide: () => {},
-    show: () => {},
-  },
-};
 
 describe('Component Tests', () => {
   let alertService: AlertService;
@@ -26,7 +18,11 @@ describe('Component Tests', () => {
 
     beforeEach(() => {
       archivoAdjuntoServiceStub = sinon.createStubInstance<ArchivoAdjuntoService>(ArchivoAdjuntoService);
-      archivoAdjuntoServiceStub.retrieve.resolves({ headers: {} });
+      archivoAdjuntoServiceStub.search.resolves({
+        headers: { 'x-total-count': '0' },
+        data: [],
+      });
+      archivoAdjuntoServiceStub.delete.resolves({});
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
@@ -37,10 +33,13 @@ describe('Component Tests', () => {
 
       mountOptions = {
         stubs: {
-          bModal: bModalStub as any,
+          jhiItemCount: true,
+          bPagination: true,
+          bModal: true,
           'font-awesome-icon': true,
           'b-badge': true,
           'b-button': true,
+          RouterLink: true,
           'router-link': true,
         },
         directives: {
@@ -56,45 +55,55 @@ describe('Component Tests', () => {
     describe('Mount', () => {
       it('Should call load all on init', async () => {
         // GIVEN
-        archivoAdjuntoServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 'ABC' }] });
+        archivoAdjuntoServiceStub.search.resolves({
+          headers: { 'x-total-count': '1' },
+          data: [{ id: 'ABC' }],
+        });
 
         // WHEN
         const wrapper = shallowMount(ArchivoAdjunto, { global: mountOptions });
         const comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(archivoAdjuntoServiceStub.retrieve.calledOnce).toBeTruthy();
+        expect(archivoAdjuntoServiceStub.search.calledOnce).toBeTruthy();
         expect(comp.archivoAdjuntos[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
     });
     describe('Handles', () => {
+      let wrapper: any;
       let comp: ArchivoAdjuntoComponentType;
 
       beforeEach(async () => {
-        const wrapper = shallowMount(ArchivoAdjunto, { global: mountOptions });
+        archivoAdjuntoServiceStub.search.resolves({ headers: { 'x-total-count': '0' }, data: [] });
+        wrapper = shallowMount(ArchivoAdjunto, { global: mountOptions });
         comp = wrapper.vm;
-        await comp.$nextTick();
-        archivoAdjuntoServiceStub.retrieve.reset();
-        archivoAdjuntoServiceStub.retrieve.resolves({ headers: {}, data: [] });
+        await flushPromises();
+        archivoAdjuntoServiceStub.search.resetHistory();
       });
 
       it('Should call delete service on confirmDelete', async () => {
         // GIVEN
         archivoAdjuntoServiceStub.delete.resolves({});
+        archivoAdjuntoServiceStub.search.resolves({
+          headers: { 'x-total-count': '0' },
+          data: [],
+        });
+
+        // FIX: Manually mock the modal ref.
+        comp.removeEntity = { show: sinon.stub(), hide: sinon.stub() } as any;
 
         // WHEN
         comp.prepareRemove({ id: 'ABC' });
-
         comp.removeArchivoAdjunto();
-        await comp.$nextTick(); // clear components
+        await flushPromises();
 
         // THEN
-        expect(archivoAdjuntoServiceStub.delete.called).toBeTruthy();
+        expect(archivoAdjuntoServiceStub.delete.calledWith('ABC')).toBeTruthy();
 
         // THEN
-        await comp.$nextTick(); // handle component clear watch
-        expect(archivoAdjuntoServiceStub.retrieve.callCount).toEqual(1);
+        await flushPromises();
+        expect(archivoAdjuntoServiceStub.search.called).toBeTruthy();
       });
     });
   });

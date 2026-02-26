@@ -139,7 +139,7 @@ const datetimeFormats: IntlDateTimeFormats = {
 };
 
 export function initFortAwesome(vue) {
-  vue.component('font-awesome-icon', FontAwesomeIcon);
+  vue.component('FontAwesomeIcon', FontAwesomeIcon);
 
   library.add(
     faArrowLeft,

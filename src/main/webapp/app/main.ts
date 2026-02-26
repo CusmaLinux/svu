@@ -66,7 +66,6 @@ const i18n = initI18N();
 const app = createApp({
   compatConfig: { MODE: 3 },
   components: { App },
-  template: '<App/>',
   setup(_props, { emit }) {
     const loginService = new LoginService({ emit });
     provide('loginService', loginService);
@@ -165,6 +164,7 @@ const app = createApp({
 
     // jhipster-needle-add-entity-service-to-main - JHipster will import entities services here
   },
+  template: '<App/>',
 });
 
 app.directive('can', (el, binding) => {
@@ -179,7 +179,7 @@ app.directive('can', (el, binding) => {
 initFortAwesome(app);
 
 app
-  .component('jhi-item-count', JhiItemCountComponent)
+  .component('JhiItemCount', JhiItemCountComponent)
   .component('jhi-sort-indicator', JhiSortIndicatorComponent)
   .component('secure-link', SecureLink)
   .use(router)

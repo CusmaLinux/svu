@@ -6,6 +6,7 @@ import { type RouteLocation } from 'vue-router';
 
 import OficinaUpdate from './oficina-update.vue';
 import OficinaService from './oficina.service';
+import UserService from '@/entities/user/user.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type OficinaUpdateComponentType = InstanceType<typeof OficinaUpdate>;
@@ -27,14 +28,18 @@ describe('Component Tests', () => {
   describe('Oficina Management Update Component', () => {
     let comp: OficinaUpdateComponentType;
     let oficinaServiceStub: SinonStubbedInstance<OficinaService>;
+    let userServiceStub: SinonStubbedInstance<UserService>;
 
     beforeEach(() => {
       route = {};
       oficinaServiceStub = sinon.createStubInstance<OficinaService>(OficinaService);
       oficinaServiceStub.retrieve.onFirstCall().resolves(Promise.resolve([]));
 
+      userServiceStub = sinon.createStubInstance<UserService>(UserService);
+      userServiceStub.retrieve.resolves({ data: [] });
+
       alertService = new AlertService({
-        i18n: { t: vitest.fn() } as any,
+        i18n: { t: vitest.fn().mockReturnValue('mocked-string') } as any,
         bvToast: {
           toast: vitest.fn(),
         } as any,
@@ -51,6 +56,7 @@ describe('Component Tests', () => {
         provide: {
           alertService,
           oficinaService: () => oficinaServiceStub,
+          userService: () => userServiceStub,
         },
       };
     });

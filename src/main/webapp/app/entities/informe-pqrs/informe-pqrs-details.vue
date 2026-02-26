@@ -14,9 +14,9 @@
                 v-if="informePqrs.id"
                 :to="{ name: 'InformePqrsEdit', params: { informePqrsId: informePqrs.id } }"
                 custom
-                v-slot="{ navigate }"
+                v-slot="scope"
               >
-                <b-button @click="navigate" variant="link" class="text-muted p-0">
+                <b-button @click="scope?.navigate" variant="link" class="text-muted p-0">
                   <font-awesome-icon icon="pen-to-square" size="2x"></font-awesome-icon>
                 </b-button>
               </router-link>

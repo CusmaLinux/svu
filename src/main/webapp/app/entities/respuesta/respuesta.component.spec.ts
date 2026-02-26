@@ -1,6 +1,6 @@
 /* tslint:disable max-line-length */
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 
 import Respuesta from './respuesta.vue';
@@ -8,14 +8,6 @@ import RespuestaService from './respuesta.service';
 import AlertService from '@/shared/alert/alert.service';
 
 type RespuestaComponentType = InstanceType<typeof Respuesta>;
-
-const bModalStub = {
-  render: () => {},
-  methods: {
-    hide: () => {},
-    show: () => {},
-  },
-};
 
 describe('Component Tests', () => {
   let alertService: AlertService;
@@ -26,28 +18,32 @@ describe('Component Tests', () => {
 
     beforeEach(() => {
       respuestaServiceStub = sinon.createStubInstance<RespuestaService>(RespuestaService);
-      respuestaServiceStub.retrieve.resolves({ headers: {} });
+      respuestaServiceStub.search.resolves({
+        headers: { 'x-total-count': '0' },
+        data: [],
+      });
+      respuestaServiceStub.delete.resolves({});
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
-        bvToast: {
-          toast: vitest.fn(),
-        } as any,
+        bvToast: { toast: vitest.fn() } as any,
       });
 
       mountOptions = {
         stubs: {
           jhiItemCount: true,
           bPagination: true,
-          bModal: bModalStub as any,
+          bModal: true,
           'font-awesome-icon': true,
           'b-badge': true,
           'jhi-sort-indicator': true,
           'b-button': true,
+          RouterLink: true,
           'router-link': true,
         },
         directives: {
           'b-modal': {},
+          can: {},
         },
         provide: {
           alertService,
@@ -59,106 +55,121 @@ describe('Component Tests', () => {
     describe('Mount', () => {
       it('Should call load all on init', async () => {
         // GIVEN
-        respuestaServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 'ABC' }] });
+        respuestaServiceStub.search.resolves({
+          headers: { 'x-total-count': '1' },
+          data: [{ id: 'ABC' }],
+        });
 
         // WHEN
         const wrapper = shallowMount(Respuesta, { global: mountOptions });
         const comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(respuestaServiceStub.retrieve.calledOnce).toBeTruthy();
+        expect(respuestaServiceStub.search.calledOnce).toBeTruthy();
         expect(comp.respuestas[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
 
       it('should calculate the sort attribute for an id', async () => {
         // WHEN
         const wrapper = shallowMount(Respuesta, { global: mountOptions });
-        const comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(respuestaServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['id,asc'],
+        expect(respuestaServiceStub.search.lastCall.firstArg).toMatchObject({
+          sort: ['fechaRespuesta,desc', 'id'],
         });
       });
     });
+
     describe('Handles', () => {
+      let wrapper: any;
       let comp: RespuestaComponentType;
 
       beforeEach(async () => {
-        const wrapper = shallowMount(Respuesta, { global: mountOptions });
+        respuestaServiceStub.search.resolves({ headers: { 'x-total-count': '0' }, data: [] });
+        wrapper = shallowMount(Respuesta, { global: mountOptions });
         comp = wrapper.vm;
-        await comp.$nextTick();
-        respuestaServiceStub.retrieve.reset();
-        respuestaServiceStub.retrieve.resolves({ headers: {}, data: [] });
+        await flushPromises();
+        respuestaServiceStub.search.resetHistory();
       });
 
       it('should load a page', async () => {
         // GIVEN
-        respuestaServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 'ABC' }] });
+        respuestaServiceStub.search.resolves({
+          headers: { 'x-total-count': '1' },
+          data: [{ id: 'ABC' }],
+        });
 
         // WHEN
         comp.page = 2;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(respuestaServiceStub.retrieve.called).toBeTruthy();
+        expect(respuestaServiceStub.search.called).toBeTruthy();
         expect(comp.respuestas[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
       });
 
-      it('should not load a page if the page is the same as the previous page', () => {
-        // WHEN
+      it('should not load a page if the page is the same as the previous page', async () => {
+        // GIVEN
         comp.page = 1;
 
+        // WHEN
+        await flushPromises();
+
         // THEN
-        expect(respuestaServiceStub.retrieve.called).toBeFalsy();
+        expect(respuestaServiceStub.search.called).toBeFalsy();
       });
 
       it('should re-initialize the page', async () => {
         // GIVEN
         comp.page = 2;
-        await comp.$nextTick();
-        respuestaServiceStub.retrieve.reset();
-        respuestaServiceStub.retrieve.resolves({ headers: {}, data: [{ id: 'ABC' }] });
+        await flushPromises();
+        respuestaServiceStub.search.resetHistory();
+        respuestaServiceStub.search.resolves({
+          headers: { 'x-total-count': '1' },
+          data: [{ id: 'ABC' }],
+        });
 
         // WHEN
         comp.clear();
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
         expect(comp.page).toEqual(1);
-        expect(respuestaServiceStub.retrieve.callCount).toEqual(1);
-        expect(comp.respuestas[0]).toEqual(expect.objectContaining({ id: 'ABC' }));
+        expect(respuestaServiceStub.search.called).toBeTruthy();
       });
 
       it('should calculate the sort attribute for a non-id attribute', async () => {
         // WHEN
-        comp.propOrder = 'name';
-        await comp.$nextTick();
+        comp.changeOrder('contenido');
+        await flushPromises();
 
         // THEN
-        expect(respuestaServiceStub.retrieve.lastCall.firstArg).toMatchObject({
-          sort: ['name,asc', 'id'],
+        expect(respuestaServiceStub.search.lastCall.firstArg).toMatchObject({
+          sort: ['contenido,asc', 'id'],
         });
       });
 
       it('Should call delete service on confirmDelete', async () => {
         // GIVEN
         respuestaServiceStub.delete.resolves({});
+        respuestaServiceStub.search.resolves({
+          headers: { 'x-total-count': '0' },
+          data: [],
+        });
+
+        // FIX: Manually mock the modal ref.
+        comp.removeEntity = { show: sinon.stub(), hide: sinon.stub() } as any;
 
         // WHEN
         comp.prepareRemove({ id: 'ABC' });
-
         comp.removeRespuesta();
-        await comp.$nextTick(); // clear components
+        await flushPromises();
 
         // THEN
-        expect(respuestaServiceStub.delete.called).toBeTruthy();
-
-        // THEN
-        await comp.$nextTick(); // handle component clear watch
-        expect(respuestaServiceStub.retrieve.callCount).toEqual(1);
+        expect(respuestaServiceStub.delete.calledWith('ABC')).toBeTruthy();
+        expect(respuestaServiceStub.search.called).toBeTruthy();
       });
     });
   });

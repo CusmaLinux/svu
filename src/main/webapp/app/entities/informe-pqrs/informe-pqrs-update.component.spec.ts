@@ -1,6 +1,6 @@
 /* tslint:disable max-line-length */
 import { vitest } from 'vitest';
-import { type MountingOptions, shallowMount } from '@vue/test-utils';
+import { type MountingOptions, shallowMount, flushPromises } from '@vue/test-utils';
 import sinon, { type SinonStubbedInstance } from 'sinon';
 import { type RouteLocation } from 'vue-router';
 
@@ -31,11 +31,16 @@ describe('Component Tests', () => {
   describe('InformePqrs Management Update Component', () => {
     let comp: InformePqrsUpdateComponentType;
     let informePqrsServiceStub: SinonStubbedInstance<InformePqrsService>;
+    let oficinaServiceStub: SinonStubbedInstance<OficinaService>;
 
     beforeEach(() => {
       route = {};
       informePqrsServiceStub = sinon.createStubInstance<InformePqrsService>(InformePqrsService);
-      informePqrsServiceStub.retrieve.onFirstCall().resolves(Promise.resolve([]));
+      informePqrsServiceStub.retrieve.resolves([informePqrsSample]);
+      informePqrsServiceStub.find.resolves(informePqrsSample);
+
+      oficinaServiceStub = sinon.createStubInstance<OficinaService>(OficinaService);
+      oficinaServiceStub.retrieve.resolves({ data: [] });
 
       alertService = new AlertService({
         i18n: { t: vitest.fn() } as any,
@@ -55,10 +60,8 @@ describe('Component Tests', () => {
         provide: {
           alertService,
           informePqrsService: () => informePqrsServiceStub,
-          oficinaService: () =>
-            sinon.createStubInstance<OficinaService>(OficinaService, {
-              retrieve: sinon.stub().resolves({}),
-            } as any),
+          oficinaService: () => oficinaServiceStub,
+          currentLanguage: { value: 'es' },
         },
       };
     });
@@ -72,6 +75,7 @@ describe('Component Tests', () => {
         const wrapper = shallowMount(InformePqrsUpdate, { global: mountOptions });
         comp = wrapper.vm;
       });
+
       it('Should convert date from string', () => {
         // GIVEN
         const date = new Date('2019-10-15T11:42:02Z');
@@ -98,7 +102,7 @@ describe('Component Tests', () => {
 
         // WHEN
         comp.save();
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
         expect(informePqrsServiceStub.update.calledWith(informePqrsSample)).toBeTruthy();
@@ -115,7 +119,7 @@ describe('Component Tests', () => {
 
         // WHEN
         comp.save();
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
         expect(informePqrsServiceStub.create.calledWith(entity)).toBeTruthy();
@@ -126,8 +130,14 @@ describe('Component Tests', () => {
     describe('Before route enter', () => {
       it('Should retrieve data', async () => {
         // GIVEN
-        informePqrsServiceStub.find.resolves(informePqrsSample);
-        informePqrsServiceStub.retrieve.resolves([informePqrsSample]);
+        // The component converts strings to Date objects in retrieve
+        const incomingData = {
+          id: 'ABC',
+          fechaInicio: '2023-01-01T10:00:00',
+          fechaFin: '2023-01-02T10:00:00',
+        };
+        informePqrsServiceStub.find.resolves(incomingData);
+        informePqrsServiceStub.retrieve.resolves([incomingData]);
 
         // WHEN
         route = {
@@ -137,10 +147,32 @@ describe('Component Tests', () => {
         };
         const wrapper = shallowMount(InformePqrsUpdate, { global: mountOptions });
         comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         // THEN
-        expect(comp.informePqrs).toMatchObject(informePqrsSample);
+        // Verify the service was called
+        expect(informePqrsServiceStub.find.calledWith('ABC')).toBeTruthy();
+        // Verify result matches and Dates were converted
+        expect(comp.informePqrs.id).toBe('ABC');
+        expect(comp.informePqrs.fechaInicio).toBeInstanceOf(Date);
+        expect(comp.informePqrs.fechaFin).toBeInstanceOf(Date);
+      });
+    });
+
+    describe('Relationships Initialization', () => {
+      it('Should load oficinas on init', async () => {
+        // GIVEN
+        const oficinas = [{ id: '1', nombre: 'Oficina Test' }];
+        oficinaServiceStub.retrieve.resolves({ data: oficinas });
+
+        // WHEN
+        const wrapper = shallowMount(InformePqrsUpdate, { global: mountOptions });
+        comp = wrapper.vm;
+        await flushPromises();
+
+        // THEN
+        expect(oficinaServiceStub.retrieve.called).toBeTruthy();
+        expect(comp.oficinas).toEqual(oficinas);
       });
     });
 
@@ -149,10 +181,10 @@ describe('Component Tests', () => {
         informePqrsServiceStub.find.resolves(informePqrsSample);
         const wrapper = shallowMount(InformePqrsUpdate, { global: mountOptions });
         comp = wrapper.vm;
-        await comp.$nextTick();
+        await flushPromises();
 
         comp.previousState();
-        await comp.$nextTick();
+        await flushPromises();
 
         expect(routerGoMock).toHaveBeenCalledWith(-1);
       });
