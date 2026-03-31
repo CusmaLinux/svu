@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - 142-refactor-cd-vpn
-
 jobs:
   deploy:
     name: Deploy To Server
@@ -36,7 +35,7 @@ jobs:
               left=%defaultroute
               leftprotoport=17/1701
               rightprotoport=17/1701
-              right=${{ secrets.VPN_SERVER }}
+              right=${{ secrets.VPN_SERVER_IP }}
               # Removed hardcoded 3DES to allow auto-negotiation. 
               # If it fails, add them back in.
           EOF
@@ -52,7 +51,7 @@ jobs:
         run: |
           sudo tee /etc/xl2tpd/xl2tpd.conf << EOF
           [lac VPN1]
-          lns = ${{ secrets.VPN_SERVER }} # Fixed variable here
+          lns = ${{ secrets.VPN_SERVER_IP }} # Fixed variable here
           ppp debug = yes
           pppoptfile = /etc/ppp/options.l2tpd.client
           length bit = yes
@@ -102,12 +101,12 @@ jobs:
       - name: Add Routing for Internal Network
         run: |
           # Route traffic destined for the internal VM through the VPN interface
-          # Assuming the internal VM IP is stored in secrets.SERVER_URL (10.10.13.29)
-          sudo ip route add ${{ secrets.SERVER_URL }} dev ppp0
+          # Assuming the internal VM IP is stored in secrets.VPS_HOST (10.10.13.29)
+          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
 
       - name: Ping Server
         run: |
-          ping ${{ secrets.SERVER_URL }} -c 4
+          ping ${{ secrets.VPS_HOST }} -c 4
 
       - name: Execute SSH Command on VM
         run: |
@@ -115,4 +114,4 @@ jobs:
           # -p 2235 specifies the custom port from your screenshot.
           # StrictHostKeyChecking=no prevents the runner from getting stuck on the "Unknown host" prompt.
 
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 2235 svunica@${{ secrets.SERVER_URL }} "echo 'Successfully connected via SSH!' && uptime"
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 2235 svunica@${{ secrets.VPS_HOST }} "echo 'Successfully connected via SSH!' && uptime"
