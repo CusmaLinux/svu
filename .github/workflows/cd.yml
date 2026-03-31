@@ -15,10 +15,21 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass apparmor-utils
 
-      - name: Bypass AppArmor & Load Modules
+      - name: Kernel Tweaks & Modules
         run: |
+          # 1. Disable AppArmor for pppd
           sudo aa-disable /usr/sbin/pppd || true
+
+          # 2. Load necessary L2TP/PPP modules so xl2tpd uses kernel-space instead of buggy user-space
+          sudo modprobe l2tp_core || true
+          sudo modprobe l2tp_netlink || true
           sudo modprobe l2tp_ppp || true
+          sudo modprobe pppol2tp || true
+
+          # 3. Disable Reverse Path Filtering to prevent the kernel from dropping the decrypted L2TP packets
+          sudo sysctl -w net.ipv4.conf.all.rp_filter=0
+          sudo sysctl -w net.ipv4.conf.default.rp_filter=0
+          sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0
 
       - name: Add Ipsec Conf
         run: |
@@ -39,10 +50,11 @@ jobs:
               authby=secret
               type=transport
               left=%defaultroute
-              # CHANGED: Use %any to prevent port mismatch when Azure NAT scrambles the UDP ports
-              leftprotoport=17/%any
-              rightprotoport=17/%any
+              leftprotoport=17/1701
+              rightprotoport=17/1701
               right=${{ secrets.VPN_SERVER_IP }}
+              # Force NAT-T encapsulation to ensure packets survive the Azure Cloud NAT
+              forceencaps=yes
           EOF
 
       - name: Add Ipsec Secret
@@ -54,7 +66,11 @@ jobs:
 
       - name: Add Ipsec Options
         run: |
+          # Added [global] port binding to ensure it perfectly matches the IPsec policy
           sudo tee /etc/xl2tpd/xl2tpd.conf << EOF
+          [global]
+          port = 1701
+
           [lac VPN1]
           lns = ${{ secrets.VPN_SERVER_IP }}
           ppp debug = yes
@@ -66,7 +82,7 @@ jobs:
           ipcp-accept-local
           ipcp-accept-remote
           refuse-eap
-          # CHANGED: Removed require-chap so the server and client can auto-negotiate the auth method
+          require-mschap-v2
           noccp
           novj
           novjccomp
