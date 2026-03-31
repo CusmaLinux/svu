@@ -1,153 +1,118 @@
-name: Build docker SVU image and deploy to VM
+name: Connect to VPN and SSH
 
 on:
   push:
     branches:
       - 142-refactor-cd-vpn
 
-env:
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
-
 jobs:
-  build-and-push:
-    name: Generate Docker image and push to registry
+  deploy:
+    name: Deploy To Server
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Build and Push Docker image with Jib
-        run: ./mvnw package -Pprod -DskipTests jib:build -Djib.to.image=${{ env.IMAGE_NAME }}:latest
-
-      - name: Print image details
-        run: echo "Pushed image ${{ env.IMAGE_NAME }}:latest"
-
-  deploy-to-vm:
-    name: Deploy app to ITP VM via VPN and SSH
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Prepare Host Kernel Modules
+      - name: Install Network Manager & SSH tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y linux-modules-extra-$(uname -r)
-          sudo modprobe af_key
-          sudo modprobe l2tp_ppp
-          sudo modprobe ppp_generic
-          sudo modprobe ppp_async
+          sudo apt-get -y update
+          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass
 
-      - name: Connect to L2TP/IPsec VPN
+      - name: Add Ipsec Conf
         run: |
-          docker run -d --name vpn-client --privileged --net=host \
-            -v /lib/modules:/lib/modules:ro \
-            -e VPN_SERVER_IPV4='${{ secrets.VPN_SERVER_IP }}' \
-            -e VPN_PSK='${{ secrets.VPN_PSK }}' \
-            -e VPN_USERNAME='${{ secrets.VPN_USERNAME }}' \
-            -e VPN_PASSWORD='${{ secrets.VPN_PASSWORD }}' \
-            ubergarm/l2tp-ipsec-vpn-client
+          sudo tee /etc/ipsec.conf << EOF
+          config setup
 
-          echo "Waiting for ppp0 interface to get an IP address..."
+          conn %default
+              ikelifetime=60m
+              keylife=20m
+              rekeymargin=3m
+              keyingtries=1
+              keyexchange=ikev1
+              authby=secret
 
-          # Smarter loop: Waits until ppp0 has an active 'inet' (IPv4) address
-          for i in {1..45}; do
-            if ip -4 addr show ppp0 2>/dev/null | grep -q inet; then
-              echo "✅ VPN connection fully established and UP!"
-              ip a show ppp0
-              break
-            fi
-            echo "Waiting for IP assignment... ($i/45)"
-            sleep 1
-          done
+          conn VPN1
+              auto=add
+              keyexchange=ikev1
+              authby=secret
+              type=transport
+              left=%defaultroute
+              leftprotoport=17/1701
+              rightprotoport=17/1701
+              right=${{ secrets.VPN_SERVER }}
+              # Removed hardcoded 3DES to allow auto-negotiation. 
+              # If it fails, add them back in.
+          EOF
 
-          # If the loop finishes and ppp0 still doesn't have an IP, crash and print logs
-          if ! ip -4 addr show ppp0 2>/dev/null | grep -q inet; then
-            echo "❌ VPN failed to bring ppp0 UP or get an IP address."
-            echo "==== VPN CONTAINER LOGS ===="
-            docker logs vpn-client
-            exit 1
-          fi
+      - name: Add Ipsec Secret
+        run: |
+          sudo tee /etc/ipsec.secrets << EOF
+          : PSK "${{ secrets.VPN_PSK }}"
+          EOF
+          sudo chmod 600 /etc/ipsec.secrets
 
-          echo "==== NETWORK INTERFACES ===="
+      - name: Add Ipsec Options
+        run: |
+          sudo tee /etc/xl2tpd/xl2tpd.conf << EOF
+          [lac VPN1]
+          lns = ${{ secrets.VPN_SERVER }} # Fixed variable here
+          ppp debug = yes
+          pppoptfile = /etc/ppp/options.l2tpd.client
+          length bit = yes
+          EOF
+
+          sudo tee /etc/ppp/options.l2tpd.client << EOF
+          ipcp-accept-local
+          ipcp-accept-remote
+          refuse-eap
+          require-mschap-v2 # Changed from chap to mschap-v2 (more common)
+          noccp
+          noauth
+          mtu 1280
+          mru 1280
+          noipdefault
+          defaultroute
+          usepeerdns
+          connect-delay 5000
+          name "${{ secrets.VPN_USERNAME }}"
+          password "${{ secrets.VPN_PASSWORD }}"
+          EOF
+          sudo chmod 600 /etc/ppp/options.l2tpd.client
+
+      - name: Restart Services
+        run: |
+          sudo systemctl restart ipsec
+          sudo systemctl restart xl2tpd
+
+      - name: Connect To VPN
+        run: |
+          # 1. Bring up the IPSec tunnel
+          sudo ipsec up VPN1
+
+          # 2. Give IPSec a second to establish
+          sleep 3 
+
+          # 3. Bring up the L2TP/PPP interface
+          echo "c VPN1" | sudo tee /var/run/xl2tpd/l2tp-control
+
+          # 4. Wait for the ppp0 interface to be created
+          echo "Waiting for ppp0 interface..."
+          sleep 10 
+
+          # Display interfaces for debugging if it fails
           ip a
 
-      - name: Route Traffic through VPN
+      - name: Add Routing for Internal Network
         run: |
-          PPP_IP=$(ip -4 addr show ppp0 | grep -w inet | awk '{print $2}')
-          echo "Our VPN IP is: $PPP_IP"
+          # Route traffic destined for the internal VM through the VPN interface
+          # Assuming the internal VM IP is stored in secrets.SERVER_URL (10.10.13.29)
+          sudo ip route add ${{ secrets.SERVER_URL }} dev ppp0
 
-          # 1. Disable Reverse Path Filtering (Crucial for Ubuntu VPNs)
-          # By default, Ubuntu drops return packets if it thinks the routing is "asymmetric". This disables that check.
-          sudo sysctl -w net.ipv4.conf.all.rp_filter=0
-          sudo sysctl -w net.ipv4.conf.default.rp_filter=0
-          sudo sysctl -w net.ipv4.conf.ppp0.rp_filter=0
+      - name: Ping Server
+        run: |
+          ping ${{ secrets.SERVER_URL }} -c 4
 
-          # 2. Lower MTU to prevent packet fragmentation
-          # IPsec encryption adds overhead. If the packet is too big, it drops. 1350 is a safe size.
-          sudo ip link set dev ppp0 mtu 1350
+      - name: Execute SSH Command on VM
+        run: |
+          # Using sshpass to bypass the interactive password prompt.
+          # -p 2235 specifies the custom port from your screenshot.
+          # StrictHostKeyChecking=no prevents the runner from getting stuck on the "Unknown host" prompt.
 
-          # 3. Explicitly allow all traffic on the ppp0 interface in the local firewall
-          sudo iptables -I INPUT -i ppp0 -j ACCEPT
-          sudo iptables -I OUTPUT -o ppp0 -j ACCEPT
-          sudo iptables -I FORWARD -i ppp0 -j ACCEPT
-          sudo iptables -I FORWARD -o ppp0 -j ACCEPT
-
-          # 4. Add the route using our VPN IP as the source
-          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0 src $PPP_IP
-
-          # 5. Failsafe NAT masquerading
-          sudo iptables -t nat -A POSTROUTING -o ppp0 -j MASQUERADE
-
-          echo "==== ROUTE VERIFICATION ===="
-          ip route get ${{ secrets.VPS_HOST }}
-
-          echo "==== TESTING PORT ${{ secrets.VPS_PORT }} ===="
-          nc -vz -w 5 ${{ secrets.VPS_HOST }} ${{ secrets.VPS_PORT }}
-
-      - name: Copy Docker Compose files to VM
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT }}
-          source: 'src/main/docker/app.yml,src/main/docker/mongodb.yml'
-          target: '~/svu'
-          strip_components: 3
-
-      - name: Deploy to VM using SSH and create .env file
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            mkdir -p ~/svu
-            cd ~/svu/
-
-            echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > .env
-            echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> .env
-            echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> .env
-            echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> .env
-
-            docker pull ${{ env.IMAGE_NAME }}:latest
-
-            docker compose -f app.yml down
-            docker compose -f app.yml pull
-            docker compose -f app.yml up -d --remove-orphans
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 2235 svunica@${{ secrets.SERVER_URL }} "echo 'Successfully connected via SSH!' && uptime"
