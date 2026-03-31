@@ -88,10 +88,22 @@ jobs:
 
       - name: Route Traffic through VPN
         run: |
-          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
+          # 1. Grab the exact internal IP address the VPN just assigned us
+          PPP_IP=$(ip -4 addr show ppp0 | grep -w inet | awk '{print $2}')
+          echo "Our VPN IP is: $PPP_IP"
 
-          echo "==== TESTING PORT 2235 RECHABILITY ===="
-          # nc (netcat) checks if a specific port is open and responding
+          # 2. Add the route, explicitly telling Linux to use our VPN IP as the source
+          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0 src $PPP_IP
+
+          # 3. Failsafe: Force NAT masquerading so packets don't get lost on the return trip
+          sudo iptables -t nat -A POSTROUTING -o ppp0 -j MASQUERADE
+
+          # 4. Print the exact path Linux will take (for debugging)
+          echo "==== ROUTE VERIFICATION ===="
+          ip route get ${{ secrets.VPS_HOST }}
+
+          # 5. Retest the connection to port 2235
+          echo "==== TESTING PORT ${{ secrets.VPS_PORT }} ===="
           nc -vz -w 5 ${{ secrets.VPS_HOST }} ${{ secrets.VPS_PORT }}
 
       - name: Copy Docker Compose files to VM
