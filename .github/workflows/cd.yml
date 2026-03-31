@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 142-refactor-cd-vpn
+
 jobs:
   deploy:
     name: Deploy To Server
@@ -12,7 +13,14 @@ jobs:
       - name: Install Network Manager & SSH tools
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass
+          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass apparmor-utils
+
+      - name: Bypass AppArmor & Load Modules
+        run: |
+          # Disable AppArmor for pppd so the runner doesn't block it from creating the ppp0 interface
+          sudo aa-disable /usr/sbin/pppd || true
+          # Ensure necessary kernel modules for L2TP are loaded in the Ubuntu runner
+          sudo modprobe l2tp_ppp || true
 
       - name: Add Ipsec Conf
         run: |
@@ -36,8 +44,6 @@ jobs:
               leftprotoport=17/1701
               rightprotoport=17/1701
               right=${{ secrets.VPN_SERVER_IP }}
-              # Removed hardcoded 3DES to allow auto-negotiation. 
-              # If it fails, add them back in.
           EOF
 
       - name: Add Ipsec Secret
@@ -51,7 +57,7 @@ jobs:
         run: |
           sudo tee /etc/xl2tpd/xl2tpd.conf << EOF
           [lac VPN1]
-          lns = ${{ secrets.VPN_SERVER_IP }} # Fixed variable here
+          lns = ${{ secrets.VPN_SERVER_IP }}
           ppp debug = yes
           pppoptfile = /etc/ppp/options.l2tpd.client
           length bit = yes
@@ -61,8 +67,10 @@ jobs:
           ipcp-accept-local
           ipcp-accept-remote
           refuse-eap
-          require-mschap-v2 # Changed from chap to mschap-v2 (more common)
+          require-chap
           noccp
+          novj
+          novjccomp
           noauth
           mtu 1280
           mru 1280
@@ -93,15 +101,21 @@ jobs:
 
           # 4. Wait for the ppp0 interface to be created
           echo "Waiting for ppp0 interface..."
-          sleep 10 
+          sleep 12 
 
-          # Display interfaces for debugging if it fails
+          # Display interfaces for debugging
           ip a
+
+          # 5. VERY IMPORTANT: If ppp0 is missing, output the logs so we can see WHY it failed
+          if ! ip link show ppp0 > /dev/null 2>&1; then
+            echo "--------- L2TP / PPP LOGS ---------"
+            sudo grep -E 'xl2tpd|pppd' /var/log/syslog || sudo journalctl -u xl2tpd --no-pager
+            exit 1
+          fi
 
       - name: Add Routing for Internal Network
         run: |
           # Route traffic destined for the internal VM through the VPN interface
-          # Assuming the internal VM IP is stored in secrets.VPS_HOST (10.10.13.29)
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
 
       - name: Ping Server
