@@ -86,6 +86,10 @@ jobs:
           echo "==== NETWORK INTERFACES ===="
           ip a
 
+          # 3. Test basic network reachability
+          echo "==== PINGING TARGET SERVER ===="
+          ping -c 4 ${{ secrets.VPS_HOST }}
+
       - name: Route Traffic through VPN
         run: |
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
