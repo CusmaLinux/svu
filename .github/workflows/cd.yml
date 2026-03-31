@@ -17,17 +17,16 @@ jobs:
 
       - name: Configure Kernel & Load Modules
         run: |
-          # 1. Disable AppArmor for pppd safely without crashing
+          # 1. Disable AppArmor for pppd safely
           sudo ln -s /etc/apparmor.d/usr.sbin.pppd /etc/apparmor.d/disable/ || true
           sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.pppd || true
 
-          # 2. Load the native L2TP/PPP modules (adding || true so it won't crash if the Azure kernel complains)
+          # 2. Load L2TP/PPP modules
           sudo modprobe l2tp_core || true
           sudo modprobe l2tp_netlink || true
           sudo modprobe l2tp_ppp || true
-          # (Removed pppol2tp entirely as it does not exist in Linux kernel 6+)
 
-          # 3. Disable Reverse Path Filtering to prevent dropped decrypted packets
+          # 3. Disable Reverse Path Filtering to prevent dropped packets
           sudo sysctl -w net.ipv4.conf.all.rp_filter=0 || true
           sudo sysctl -w net.ipv4.conf.default.rp_filter=0 || true
           sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0 || true
@@ -51,10 +50,8 @@ jobs:
               authby=secret
               type=transport
               left=%defaultroute
-              leftprotoport=17/1701
-              rightprotoport=17/1701
               right=${{ secrets.VPN_SERVER_IP }}
-              # Force NAT-T encapsulation to ensure packets survive the Azure Cloud NAT
+              # Removed leftprotoport and rightprotoport to accept any port Azure NAT creates
               forceencaps=yes
           EOF
 
