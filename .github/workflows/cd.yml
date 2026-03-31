@@ -88,21 +88,34 @@ jobs:
 
       - name: Route Traffic through VPN
         run: |
-          # 1. Grab the exact internal IP address the VPN just assigned us
           PPP_IP=$(ip -4 addr show ppp0 | grep -w inet | awk '{print $2}')
           echo "Our VPN IP is: $PPP_IP"
 
-          # 2. Add the route, explicitly telling Linux to use our VPN IP as the source
+          # 1. Disable Reverse Path Filtering (Crucial for Ubuntu VPNs)
+          # By default, Ubuntu drops return packets if it thinks the routing is "asymmetric". This disables that check.
+          sudo sysctl -w net.ipv4.conf.all.rp_filter=0
+          sudo sysctl -w net.ipv4.conf.default.rp_filter=0
+          sudo sysctl -w net.ipv4.conf.ppp0.rp_filter=0
+
+          # 2. Lower MTU to prevent packet fragmentation
+          # IPsec encryption adds overhead. If the packet is too big, it drops. 1350 is a safe size.
+          sudo ip link set dev ppp0 mtu 1350
+
+          # 3. Explicitly allow all traffic on the ppp0 interface in the local firewall
+          sudo iptables -I INPUT -i ppp0 -j ACCEPT
+          sudo iptables -I OUTPUT -o ppp0 -j ACCEPT
+          sudo iptables -I FORWARD -i ppp0 -j ACCEPT
+          sudo iptables -I FORWARD -o ppp0 -j ACCEPT
+
+          # 4. Add the route using our VPN IP as the source
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0 src $PPP_IP
 
-          # 3. Failsafe: Force NAT masquerading so packets don't get lost on the return trip
+          # 5. Failsafe NAT masquerading
           sudo iptables -t nat -A POSTROUTING -o ppp0 -j MASQUERADE
 
-          # 4. Print the exact path Linux will take (for debugging)
           echo "==== ROUTE VERIFICATION ===="
           ip route get ${{ secrets.VPS_HOST }}
 
-          # 5. Retest the connection to port 2235
           echo "==== TESTING PORT ${{ secrets.VPS_PORT }} ===="
           nc -vz -w 5 ${{ secrets.VPS_HOST }} ${{ secrets.VPS_PORT }}
 
