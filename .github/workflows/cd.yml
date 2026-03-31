@@ -61,7 +61,7 @@ jobs:
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
 
       - name: Copy Docker Compose files to VM
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -72,7 +72,7 @@ jobs:
           strip_components: 3
 
       - name: Deploy to VM using SSH and create .env file
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
