@@ -13,24 +13,24 @@ jobs:
       - name: Install VPN Tools and Kernel Modules
         run: |
           sudo apt-get -y update
-          # CRITICAL FIX: Install linux-modules-extra to get the L2TP kernel modules for the Azure runner
-          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass apparmor-utils linux-modules-extra-$(uname -r)
+          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass apparmor-utils linux-modules-extra-$(uname -r) || true
 
       - name: Configure Kernel & Load Modules
         run: |
-          # 1. Disable AppArmor for pppd
-          sudo aa-disable /usr/sbin/pppd || true
+          # 1. Disable AppArmor for pppd safely without crashing
+          sudo ln -s /etc/apparmor.d/usr.sbin.pppd /etc/apparmor.d/disable/ || true
+          sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.pppd || true
 
-          # 2. Load the newly installed native L2TP/PPP modules
-          sudo modprobe l2tp_core
-          sudo modprobe l2tp_netlink
-          sudo modprobe l2tp_ppp
-          sudo modprobe pppol2tp
+          # 2. Load the native L2TP/PPP modules (adding || true so it won't crash if the Azure kernel complains)
+          sudo modprobe l2tp_core || true
+          sudo modprobe l2tp_netlink || true
+          sudo modprobe l2tp_ppp || true
+          # (Removed pppol2tp entirely as it does not exist in Linux kernel 6+)
 
-          # 3. Disable Reverse Path Filtering to prevent dropped packets
-          sudo sysctl -w net.ipv4.conf.all.rp_filter=0
-          sudo sysctl -w net.ipv4.conf.default.rp_filter=0
-          sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0
+          # 3. Disable Reverse Path Filtering to prevent dropped decrypted packets
+          sudo sysctl -w net.ipv4.conf.all.rp_filter=0 || true
+          sudo sysctl -w net.ipv4.conf.default.rp_filter=0 || true
+          sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0 || true
 
       - name: Add Ipsec Conf
         run: |
@@ -54,6 +54,7 @@ jobs:
               leftprotoport=17/1701
               rightprotoport=17/1701
               right=${{ secrets.VPN_SERVER_IP }}
+              # Force NAT-T encapsulation to ensure packets survive the Azure Cloud NAT
               forceencaps=yes
           EOF
 
