@@ -49,6 +49,8 @@ jobs:
           sudo apt-get install -y linux-modules-extra-$(uname -r)
           sudo modprobe af_key
           sudo modprobe l2tp_ppp
+          sudo modprobe ppp_generic
+          sudo modprobe ppp_async
 
       - name: Connect to L2TP/IPsec VPN
         run: |
@@ -60,11 +62,26 @@ jobs:
             -e VPN_PASSWORD='${{ secrets.VPN_PASSWORD }}' \
             ubergarm/l2tp-ipsec-vpn-client
 
-          echo "Waiting for VPN connection to establish..."
-          sleep 15
+          echo "Waiting for ppp0 interface to establish..."
 
-          echo "==== VPN CONTAINER LOGS ===="
-          docker logs vpn-client
+          # Smart loop to wait up to 45 seconds for ppp0 to appear
+          for i in {1..45}; do
+            if ip link show ppp0 > /dev/null 2>&1; then
+              echo "✅ VPN connection established successfully!"
+              ip a show ppp0
+              break
+            fi
+            echo "Waiting... ($i/45)"
+            sleep 1
+          done
+
+          # If the loop finishes and ppp0 still doesn't exist, fail the job and print logs
+          if ! ip link show ppp0 > /dev/null 2>&1; then
+            echo "❌ VPN failed to create ppp0 interface."
+            echo "==== VPN CONTAINER LOGS ===="
+            docker logs vpn-client
+            exit 1
+          fi
 
           echo "==== NETWORK INTERFACES ===="
           ip a
