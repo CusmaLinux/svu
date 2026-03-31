@@ -45,7 +45,7 @@ jobs:
 
       - name: Connect to L2TP/IPsec VPN
         run: |
-          docker run -d --privileged --net=host \
+          docker run -d --name vpn-client --privileged --net=host \
             -v /lib/modules:/lib/modules:ro \
             -e VPN_SERVER_IPV4='${{ secrets.VPN_SERVER_IP }}' \
             -e VPN_PSK='${{ secrets.VPN_PSK }}' \
