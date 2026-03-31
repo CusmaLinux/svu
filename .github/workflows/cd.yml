@@ -56,6 +56,12 @@ jobs:
           echo "Waiting for VPN connection to establish..."
           sleep 15
 
+          echo "==== VPN CONTAINER LOGS ===="
+          docker logs vpn-client
+
+          echo "==== NETWORK INTERFACES ===="
+          ip a
+
       - name: Route Traffic through VPN
         run: |
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
