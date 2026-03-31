@@ -1,11 +1,12 @@
 name: Build docker SVU image and deploy to VM
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/itp-svu
+  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
 
 jobs:
   build-and-push:
@@ -35,17 +36,50 @@ jobs:
         run: echo "Pushed image ${{ env.IMAGE_NAME }}:latest"
 
   deploy-to-vm:
-    name: Deploy app to GCP VM via SSH
+    name: Deploy app to ITP VM via VPN and SSH
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VM using SSH and create .env file
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Connect to L2TP/IPsec VPN
+        run: |
+          docker run -d --privileged --net=host \
+            -v /lib/modules:/lib/modules:ro \
+            -e VPN_SERVER_IPV4='${{ secrets.VPN_SERVER_IP }}' \
+            -e VPN_PSK='${{ secrets.VPN_PSK }}' \
+            -e VPN_USERNAME='${{ secrets.VPN_USERNAME }}' \
+            -e VPN_PASSWORD='${{ secrets.VPN_PASSWORD }}' \
+            ubergarm/l2tp-ipsec-vpn-client
+
+          echo "Waiting for VPN connection to establish..."
+          sleep 15
+
+      - name: Route Traffic through VPN
+        run: |
+          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
+
+      - name: Copy Docker Compose files to VM
+        uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT }}
+          source: 'src/main/docker/app.yml,src/main/docker/mongodb.yml'
+          target: '~/svu'
+          strip_components: 3
+
+      - name: Deploy to VM using SSH and create .env file
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT }}
           script: |
+            mkdir -p ~/svu
             cd ~/svu/
 
             echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > .env
