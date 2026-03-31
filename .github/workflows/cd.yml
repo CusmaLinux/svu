@@ -43,6 +43,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Prepare Host Kernel Modules
+        run: |
+          sudo modprobe af_key
+          sudo modprobe l2tp_ppp
+
       - name: Connect to L2TP/IPsec VPN
         run: |
           docker run -d --name vpn-client --privileged --net=host \
