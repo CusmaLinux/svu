@@ -86,13 +86,13 @@ jobs:
           echo "==== NETWORK INTERFACES ===="
           ip a
 
-          # 3. Test basic network reachability
-          echo "==== PINGING TARGET SERVER ===="
-          ping -c 4 ${{ secrets.VPS_HOST }}
-
       - name: Route Traffic through VPN
         run: |
           sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
+
+          echo "==== TESTING PORT 2235 RECHABILITY ===="
+          # nc (netcat) checks if a specific port is open and responding
+          nc -vz -w 5 ${{ secrets.VPS_HOST }} ${{ secrets.VPS_PORT }}
 
       - name: Copy Docker Compose files to VM
         uses: appleboy/scp-action@v1
