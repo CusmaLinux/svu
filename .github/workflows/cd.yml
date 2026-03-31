@@ -1,9 +1,9 @@
 name: Build docker SVU image and deploy to VM
 
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    branches:
+      - 142-refactor-cd-vpn
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
