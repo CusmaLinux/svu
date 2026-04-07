@@ -5,135 +5,46 @@ on:
     branches:
       - 142-refactor-cd-vpn
 
+env:
+  IMAGE_NAME: ventanillaunica
+
 jobs:
-  deploy:
-    name: Deploy To Server
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    name: Build and deploy SVU
+    runs-on: self-hosted
     steps:
-      - name: Install VPN Tools and Kernel Modules
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Docker image directly to local VM daemon
+        # jib:dockerBuild skips the registry and builds straight to the host's Docker daemon
+        run: ./mvnw package -Pprod -DskipTests jib:dockerBuild -Djib.to.image=${{ env.IMAGE_NAME }}:latest
+
+      - name: Prepare deployment directory and copy assets
         run: |
-          sudo apt-get -y update
-          sudo apt-get -y install strongswan xl2tpd libstrongswan-standard-plugins libstrongswan-extra-plugins sshpass apparmor-utils linux-modules-extra-$(uname -r) || true
+          # Ensure the target directory exists
+          mkdir -p ~/deploy-svu
+          
+          # Copy the compose file from the repository to the persistent directory
+          # Note: Adjust the path to app.yml if it is located inside src/main/docker/
+          cp app.yml ~/deploy-svu/
+          cp mongodb.yml ~/deploy-svu/
+          
+          # Write environment variables to the target directory
+          echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > ~/svu/.env
+          echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> ~/svu/.env
+          echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> ~/svu/.env
+          echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> ~/svu/.env
 
-      - name: Configure Kernel & Load Modules
+      - name: Deploy app via Docker Compose
+        working-directory: ~/svu
         run: |
-          # 1. Disable AppArmor for pppd safely
-          sudo ln -s /etc/apparmor.d/usr.sbin.pppd /etc/apparmor.d/disable/ || true
-          sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.pppd || true
-
-          # 2. Load L2TP/PPP modules
-          sudo modprobe l2tp_core || true
-          sudo modprobe l2tp_netlink || true
-          sudo modprobe l2tp_ppp || true
-
-          # 3. Disable Reverse Path Filtering to prevent dropped packets
-          sudo sysctl -w net.ipv4.conf.all.rp_filter=0 || true
-          sudo sysctl -w net.ipv4.conf.default.rp_filter=0 || true
-          sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0 || true
-
-      - name: Add Ipsec Conf
-        run: |
-          sudo tee /etc/ipsec.conf << EOF
-          config setup
-
-          conn %default
-              ikelifetime=60m
-              keylife=20m
-              rekeymargin=3m
-              keyingtries=1
-              keyexchange=ikev1
-              authby=secret
-
-          conn VPN1
-              auto=add
-              keyexchange=ikev1
-              authby=secret
-              type=transport
-              left=%defaultroute
-              right=${{ secrets.VPN_SERVER_IP }}
-              # Removed leftprotoport and rightprotoport to accept any port Azure NAT creates
-              forceencaps=yes
-          EOF
-
-      - name: Add Ipsec Secret
-        run: |
-          sudo tee /etc/ipsec.secrets << EOF
-          : PSK "${{ secrets.VPN_PSK }}"
-          EOF
-          sudo chmod 600 /etc/ipsec.secrets
-
-      - name: Add Ipsec Options
-        run: |
-          sudo tee /etc/xl2tpd/xl2tpd.conf << EOF
-          [global]
-          port = 1701
-
-          [lac VPN1]
-          lns = ${{ secrets.VPN_SERVER_IP }}
-          ppp debug = yes
-          pppoptfile = /etc/ppp/options.l2tpd.client
-          length bit = yes
-          EOF
-
-          sudo tee /etc/ppp/options.l2tpd.client << EOF
-          ipcp-accept-local
-          ipcp-accept-remote
-          refuse-eap
-          require-mschap-v2
-          noccp
-          novj
-          novjccomp
-          noauth
-          mtu 1280
-          mru 1280
-          noipdefault
-          defaultroute
-          usepeerdns
-          connect-delay 5000
-          name "${{ secrets.VPN_USERNAME }}"
-          password "${{ secrets.VPN_PASSWORD }}"
-          EOF
-          sudo chmod 600 /etc/ppp/options.l2tpd.client
-
-      - name: Restart Services
-        run: |
-          sudo systemctl restart ipsec
-          sudo systemctl restart xl2tpd
-
-      - name: Connect To VPN
-        run: |
-          # 1. Bring up the IPSec tunnel
-          sudo ipsec up VPN1
-          sleep 4
-
-          # 2. Bring up the L2TP/PPP interface
-          echo "c VPN1" | sudo tee /var/run/xl2tpd/l2tp-control
-
-          # 3. Wait for the ppp0 interface to be created
-          echo "Waiting for ppp0 interface..."
-          sleep 12 
-
-          # Display interfaces for debugging
-          ip a
-
-          # 4. If ppp0 is missing, output the logs
-          if ! ip link show ppp0 > /dev/null 2>&1; then
-            echo "--------- IPSEC STATUS ---------"
-            sudo ipsec statusall
-            echo "--------- L2TP / PPP LOGS ---------"
-            sudo grep -E 'xl2tpd|pppd' /var/log/syslog || sudo journalctl -u xl2tpd --no-pager
-            exit 1
-          fi
-
-      - name: Add Routing for Internal Network
-        run: |
-          # Route traffic destined for the internal VM through the VPN interface
-          sudo ip route add ${{ secrets.VPS_HOST }} dev ppp0
-
-      - name: Ping Server
-        run: |
-          ping ${{ secrets.VPS_HOST }} -c 4
-
-      - name: Execute SSH Command on VM
-        run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 2235 svunica@${{ secrets.VPS_HOST }} "echo 'Successfully connected via SSH!' && uptime"
+          docker compose -f app.yml down
+          docker compose -f app.yml up -d --remove-orphans
