@@ -10,7 +10,7 @@ env:
 
 jobs:
   build-and-deploy:
-    name: Build and deploy SVU
+    name: Build, Push, and Deploy SVU
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -23,28 +23,28 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build Docker image directly to local VM daemon
-        # jib:dockerBuild skips the registry and builds straight to the host's Docker daemon
-        run: ./mvnw package -Pprod -DskipTests jib:dockerBuild -Djib.to.image=${{ env.IMAGE_NAME }}:latest
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and Push Docker image with Jib
+        run: ./mvnw package -Pprod -DskipTests jib:build -Djib.to.image=${{ env.IMAGE_NAME }}:latest
 
       - name: Prepare deployment directory and copy assets
         run: |
-          # Ensure the target directory exists
-          mkdir -p ~/deploy-svu
+          mkdir -p /opt/svu
+          cp app.yml /opt/svu/
           
-          # Copy the compose file from the repository to the persistent directory
-          # Note: Adjust the path to app.yml if it is located inside src/main/docker/
-          cp app.yml ~/deploy-svu/
-          cp mongodb.yml ~/deploy-svu/
-          
-          # Write environment variables to the target directory
-          echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > ~/svu/.env
-          echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> ~/svu/.env
-          echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> ~/svu/.env
-          echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> ~/svu/.env
+          echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > /opt/svu/.env
+          echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> /opt/svu/.env
+          echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> /opt/svu/.env
+          echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> /opt/svu/.env
 
       - name: Deploy app via Docker Compose
-        working-directory: ~/svu
+        working-directory: /opt/svu
         run: |
           docker compose -f app.yml down
+          docker compose -f app.yml pull
           docker compose -f app.yml up -d --remove-orphans
