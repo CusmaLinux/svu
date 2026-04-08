@@ -35,7 +35,7 @@ jobs:
       - name: Prepare deployment directory and copy assets
         run: |
           mkdir -p /opt/svu
-          cp app.yml /opt/svu/
+          cp src/main/docker/app.yml src/main/docker/mongodb.yml /opt/svu/
           
           echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > /opt/svu/.env
           echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> /opt/svu/.env
