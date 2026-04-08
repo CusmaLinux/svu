@@ -39,7 +39,7 @@ public class ApplicationProperties {
 
     public static class File {
 
-        private String uploadDir = "/home/adrian/Adr/svufiles/";
+        private String uploadDir = "/var/www/svu/uploads/";
 
         public String getUploadDir() {
             return this.uploadDir;
