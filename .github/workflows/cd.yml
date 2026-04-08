@@ -1,16 +1,16 @@
-name: Build docker SVU image and deploy to VM
+name: Connect to VPN and SSH
 
 on:
   release:
     types: [published]
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/itp-svu
+  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
 
 jobs:
-  build-and-push:
-    name: Generate Docker image and push to registry
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    name: Build, Push, and Deploy SVU
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,30 +31,20 @@ jobs:
       - name: Build and Push Docker image with Jib
         run: ./mvnw package -Pprod -DskipTests jib:build -Djib.to.image=${{ env.IMAGE_NAME }}:latest
 
-      - name: Print image details
-        run: echo "Pushed image ${{ env.IMAGE_NAME }}:latest"
+      - name: Prepare deployment directory and copy assets
+        run: |
+          mkdir -p /opt/svu
+          cp src/main/docker/app.yml src/main/docker/mongodb.yml /opt/svu/
+          
+          echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > /opt/svu/.env
+          echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> /opt/svu/.env
+          echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> /opt/svu/.env
+          echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> /opt/svu/.env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY}}" >> /opt/svu/.env
 
-  deploy-to-vm:
-    name: Deploy app to GCP VM via SSH
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to VM using SSH and create .env file
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          script: |
-            cd ~/svu/
-
-            echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" > .env
-            echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> .env
-            echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> .env
-            echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> .env
-
-            docker pull ${{ env.IMAGE_NAME }}:latest
-
-            docker compose -f app.yml down
-            docker compose -f app.yml pull
-            docker compose -f app.yml up -d --remove-orphans
+      - name: Deploy app via Docker Compose
+        working-directory: /opt/svu
+        run: |
+          docker compose -f app.yml down
+          docker compose -f app.yml pull
+          docker compose -f app.yml up -d --remove-orphans
