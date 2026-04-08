@@ -6,7 +6,7 @@ services:
     volumes:
       - /var/www/svu/uploads:/var/www/svu/uploads
     env_file:
-      - ../resources/.env
+      - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
@@ -30,3 +30,6 @@ services:
     extends:
       file: ./mongodb.yml
       service: mongodb
+
+volumes:
+  mongodb_data: 
