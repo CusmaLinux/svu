@@ -1,9 +1,8 @@
 name: Connect to VPN and SSH
 
 on:
-  push:
-    branches:
-      - 142-refactor-cd-vpn
+  release:
+    types: [published]
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
