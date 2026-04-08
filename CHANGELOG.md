@@ -57,3 +57,36 @@ Features:
 
 - Fixed a bug that prevented images from loading correctly (#82).
 - Reverted a recent change related to the App Password feature to resolve an issue (#83).
+
+## 0.5.1 (04-07-2026)
+
+### Features & Enhancements
+
+- **AI Integration:** Added a button and backend logic to suggest the appropriate office using Gemini models [#111](https://github.com/CusmaLinux/svu/pull/111), [#112](https://github.com/CusmaLinux/svu/pull/112).
+- **User Features & Management:**
+  - Introduced a calendar feature to handle special dates [#108](https://github.com/CusmaLinux/svu/pull/108).
+  - Added password change functionality for management users [#106](https://github.com/CusmaLinux/svu/pull/106).
+  - Implemented the logic and public UI modal for the new Satisfaction Survey [#114](https://github.com/CusmaLinux/svu/pull/114), [#117](https://github.com/CusmaLinux/svu/pull/117).
+  - Created a `simple-link` component to properly restrict access to the office page [#131](https://github.com/CusmaLinux/svu/pull/131).
+- **Search & Filters:**
+  - Added a search filter to the responses page [#105](https://github.com/CusmaLinux/svu/pull/105).
+  - Added a search filter to the attachments panel [#102](https://github.com/CusmaLinux/svu/pull/102).
+- **UI & Design:**
+  - Increased the number of users displayed in offices and improved the response page UI [#107](https://github.com/CusmaLinux/svu/pull/107).
+  - Added a list of attachment files to the response detail view [#130](https://github.com/CusmaLinux/svu/pull/130).
+  - Hidden the bottom button to create a new attached file where appropriate [#129](https://github.com/CusmaLinux/svu/pull/129).
+  - Improved the `informe-pqrs-update` component [#139](https://github.com/CusmaLinux/svu/pull/139).
+- **DevOps, Config & Refactoring:**
+  - Refactored the continuous deployment pipeline to connect via an action runner to the new VM [#144](https://github.com/CusmaLinux/svu/pull/144).
+  - Refactored the `extractTextFromImage` function to use a trained tessdata source.
+  - Updated the README with the complete project setup instructions [#141](https://github.com/CusmaLinux/svu/pull/141).
+  - Implemented minor improvements to the configuration files in Spring Boot and Vue.js [#145](https://github.com/CusmaLinux/svu/pull/145).
+  - Applied various minimal improvements and changes across the codebase [#103](https://github.com/CusmaLinux/svu/pull/103), [#116](https://github.com/CusmaLinux/svu/pull/116).
+
+### Fixes
+
+- Corrected an issue with the creation of PQRS by authenticated users [#104](https://github.com/CusmaLinux/svu/pull/104).
+- Fixed an error that occurred when removing an office [#128](https://github.com/CusmaLinux/svu/pull/128).
+- Fixed a bug related to the "activated" field in the form when creating a user [#133](https://github.com/CusmaLinux/svu/pull/133).
+- Fixed failing frontend tests [#137](https://github.com/CusmaLinux/svu/pull/137).
+- Fixed failing unit and integration tests in the backend [#135](https://github.com/CusmaLinux/svu/pull/135).
