@@ -17,9 +17,15 @@
 ---
 # Conditionally disable springdoc on missing api-docs profile
 spring:
+  application:
+    name: VentanillaUnica
   config:
     activate:
       on-profile: '!api-docs'
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 springdoc:
   api-docs:
     enabled: false
@@ -149,9 +155,6 @@ server:
     session:
       cookie:
         http-only: true
-    multipart:
-      max-file-size: 50MB # Tamaño máximo permitido para un solo archivo
-      max-request-size: 50MB # Tamaño máximo permitido para toda la solicitud
 
 springdoc:
   show-actuator: true
@@ -206,4 +209,4 @@ jhipster:
 
 application:
   file:
-    upload-dir: /home/adrian/Adr/svufiles/
+    upload-dir: /var/www/svu/uploads/
