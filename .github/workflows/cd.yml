@@ -41,6 +41,7 @@ jobs:
           echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> /opt/svu/.env
           echo "JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${{ secrets.JHIPSTER_JWT_SECRET }}" >> /opt/svu/.env
           echo "GOOGLE_RECAPTCHA_SECRET_KEY=${{ secrets.GOOGLE_RECAPTCHA_SECRET_KEY}}" >> /opt/svu/.env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY}}" >> /opt/svu/.env
 
       - name: Deploy app via Docker Compose
         working-directory: /opt/svu
