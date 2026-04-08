@@ -2,7 +2,7 @@ import { logger } from '@/shared/logger';
 declare const grecaptcha: any;
 
 export function useRecaptcha() {
-  const recaptchaSiteKey = '6LdUgYUrAAAAANDMJgId1RFXJsgb9wiyhGq9IDZp';
+  const recaptchaSiteKey = '6Le2BJ4sAAAAAPTOSIsAFINpe2qo75yr1yTTO_iz';
 
   const getToken = (action: string): Promise<string> => {
     return new Promise((resolve, reject) => {
