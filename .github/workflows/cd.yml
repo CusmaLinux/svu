@@ -6,7 +6,7 @@ on:
       - 142-refactor-cd-vpn
 
 env:
-  IMAGE_NAME: ventanillaunica
+  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ventanillaunica
 
 jobs:
   build-and-deploy:
