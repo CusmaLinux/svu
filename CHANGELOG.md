@@ -90,3 +90,9 @@ Features:
 - Fixed a bug related to the "activated" field in the form when creating a user [#133](https://github.com/CusmaLinux/svu/pull/133).
 - Fixed failing frontend tests [#137](https://github.com/CusmaLinux/svu/pull/137).
 - Fixed failing unit and integration tests in the backend [#135](https://github.com/CusmaLinux/svu/pull/135).
+
+## 0.5.2 (08-31-2026)
+
+### Features & Enhancements
+
+- Permit that users with functionary and frontdesk roles can change the password
