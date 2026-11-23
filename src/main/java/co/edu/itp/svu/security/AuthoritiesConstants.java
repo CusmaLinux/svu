@@ -15,5 +15,8 @@ public final class AuthoritiesConstants {
 
     public static final String FRONT_DESK_CS = "ROLE_FRONT_DESK_CS";
 
+    /** Grants access to institutional and office-level aggregate PQRSD reports. */
+    public static final String PQRSD_REPORTS = "ROLE_PQRSD_REPORTS";
+
     private AuthoritiesConstants() {}
 }
