@@ -1,0 +1,62 @@
+name: PQRSD Block 1 Verification
+
+on:
+  push:
+    branches:
+      - feat/informes-gestion-pqrsd
+    paths:
+      - '.github/workflows/pqrs-block1-verification.yml'
+      - 'pom.xml'
+      - 'mvnw'
+      - '.mvn/**'
+      - 'src/main/**'
+      - 'src/test/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pqrs-block1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Java 17 / MongoDB security and data tests
+    if: github.ref == 'refs/heads/feat/informes-gestion-pqrsd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout the feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Check Maven wrapper
+        run: |
+          java -version
+          chmod +x ./mvnw
+          ./mvnw -version
+
+      - name: Compile application and tests
+        run: ./mvnw -B -ntp -DskipTests test-compile
+
+      - name: Run PQRSD block 1 integration tests with isolated MongoDB Testcontainers
+        run: |
+          ./mvnw -B -ntp -Dit.test=PqrsOfficeSecurityIT,PqrsOfficeQueryIT,ReportResourceSecurityIT -DfailIfNoTests=false verify
+
+      - name: Publish Maven test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pqrs-block1-test-results
+          path: |
+            target/surefire-reports/**
+            target/failsafe-reports/**
+          if-no-files-found: warn
+          retention-days: 7
