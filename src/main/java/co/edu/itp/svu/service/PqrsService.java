@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -235,7 +236,12 @@ public class PqrsService {
 
             String userResponsibleId = currentUser.getId();
 
-            officeId = oficinaRepository.findByResponsable_Id(userResponsibleId).map(Oficina::getId).orElse(null);
+            // Fail closed: a functionary without an assigned office must not receive institution-wide results.
+            officeId = oficinaRepository
+                .findByResponsable_Id(userResponsibleId)
+                .map(Oficina::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .orElseThrow(() -> new AccessDeniedException("No office assigned to current functionary"));
         }
 
         return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
