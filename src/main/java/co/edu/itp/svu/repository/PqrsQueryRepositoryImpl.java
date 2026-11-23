@@ -4,6 +4,7 @@ import co.edu.itp.svu.domain.Pqrs;
 import org.bson.types.ObjectId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -28,8 +29,8 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
         List<Criteria> allCriteria = new ArrayList<>();
 
         if (StringUtils.hasText(queryString)) {
-            Criteria titleCriteria = Criteria.where("titulo").regex(queryString, "i");
-            Criteria fileNumberCriteria = Criteria.where("file_number").regex(queryString, "i");
+            Criteria titleCriteria = Criteria.where("titulo").regex(Pattern.quote(queryString), "i");
+            Criteria fileNumberCriteria = Criteria.where("file_number").regex(Pattern.quote(queryString), "i");
             allCriteria.add(new Criteria().orOperator(titleCriteria, fileNumberCriteria));
         }
 
