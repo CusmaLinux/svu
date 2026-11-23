@@ -84,6 +84,10 @@ public class SecurityConfiguration {
                         .requestMatchers(mvc.pattern("/api/oficina/**"))
                         .hasAnyAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/archivo-adjuntos/**")).permitAll()
+                        // Report downloads must not fall through to the generic authenticated /api/** rule.
+                        // Preserve access for current administrators; dedicated reporting access is opt-in.
+                        .requestMatchers(mvc.pattern("/api/reports/**"))
+                        .hasAnyAuthority(AuthoritiesConstants.ADMIN, AuthoritiesConstants.PQRSD_REPORTS)
                         .requestMatchers(mvc.pattern("/api/informe-pqrs/**"))
                         .hasAnyAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/sse-notifications/subscribe"))
