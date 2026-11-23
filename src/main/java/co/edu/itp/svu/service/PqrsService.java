@@ -187,6 +187,9 @@ public class PqrsService {
         return pqrsRepository
             .findById(pqrsDTO.getId())
             .map(existingPqrs -> {
+                Pqrs proposed = pqrsMapper.toEntity(pqrsMapper.toDto(existingPqrs));
+                pqrsMapper.partialUpdate(proposed, pqrsDTO);
+                checkCaseWriteAccess(existingPqrs, proposed);
                 pqrsMapper.partialUpdate(existingPqrs, pqrsDTO);
                 return existingPqrs;
             })
@@ -222,6 +225,31 @@ public class PqrsService {
         if (officeId != null && (pqrs.getOficinaResponder() == null ||
             !officeId.equals(pqrs.getOficinaResponder().getId()))) {
             throw new AccessDeniedException("PQRSD belongs to another office");
+        }
+    }
+
+    private void requireAdministrativeCaseAccess() {
+        if (!SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FRONT_DESK_CS)) {
+            throw new AccessDeniedException("Only administration or front desk can manage case assignment");
+        }
+    }
+
+    private void checkCaseWriteAccess(Pqrs existing, Pqrs proposed) {
+        String officeId = requireOfficeForCurrentFunctionary();
+        if (officeId == null) {
+            return;
+        }
+        if (existing.getOficinaResponder() == null || !officeId.equals(existing.getOficinaResponder().getId())) {
+            throw new AccessDeniedException("Cannot change another office's PQRSD");
+        }
+        if (proposed.getOficinaResponder() == null ||
+            !officeId.equals(proposed.getOficinaResponder().getId())) {
+            throw new AccessDeniedException("Functionary cannot reassign PQRSD");
+        }
+        if (!Objects.equals(existing.getDaysToReply(), proposed.getDaysToReply()) ||
+            !Objects.equals(existing.getFechaLimiteRespuesta(), proposed.getFechaLimiteRespuesta()) ||
+            !Objects.equals(existing.getFechaCreacion(), proposed.getFechaCreacion())) {
+            throw new AccessDeniedException("Functionary cannot alter PQRSD deadlines or creation date");
         }
     }
 
@@ -279,6 +307,7 @@ public class PqrsService {
      * @param id the id of the entity.
      */
     public void delete(String id) {
+        requireAdministrativeCaseAccess();
         LOG.debug("Request to delete Pqrs : {}", id);
         pqrsRepository.deleteById(id);
     }
@@ -349,6 +378,7 @@ public class PqrsService {
     }
 
     public PqrsDTO create(PqrsDTO pqrsDTO) {
+        requireAdministrativeCaseAccess();
         LOG.debug("Request to create a Pqrs: {}", pqrsDTO);
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
         pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
@@ -403,6 +433,7 @@ public class PqrsService {
         if (oldPqrs == null) {
             throw new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound");
         }
+        checkCaseWriteAccess(oldPqrs, pqrs);
 
         if (SecurityUtils.isAuthenticated()) {
             if (PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado())) {
@@ -641,6 +672,7 @@ public class PqrsService {
      */
     @Transactional
     public Optional<PqrsDTO> updatePqrsOffice(String pqrsId, String officeName) {
+        requireAdministrativeCaseAccess();
         LOG.debug("Request to update office for Pqrs ID: {} to office: {}", pqrsId, officeName);
 
         return pqrsRepository
