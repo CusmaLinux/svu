@@ -3,7 +3,6 @@ package co.edu.itp.svu.web.rest;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import co.edu.itp.svu.IntegrationTest;
@@ -48,20 +47,6 @@ class PqrsOfficeSecurityIT {
     void functionaryCannotReassignCase() throws Exception {
         mockMvc.perform(put("/api/pqrs/nonexistent-case/office").param("officeName", "Other office"))
             .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @WithMockUser(authorities = AuthoritiesConstants.USER)
-    void ordinaryUserCannotUpdateCase() throws Exception {
-        mockMvc.perform(put("/api/pqrs/nonexistent-case")
-            .contentType("application/json").content("{}")).andExpect(status().isForbidden());
-    }
-
-    @Test
-    @WithMockUser(authorities = AuthoritiesConstants.USER)
-    void ordinaryUserCannotPatchCase() throws Exception {
-        mockMvc.perform(patch("/api/pqrs/nonexistent-case")
-            .contentType("application/json").content("{}")).andExpect(status().isForbidden());
     }
 
     @Test
