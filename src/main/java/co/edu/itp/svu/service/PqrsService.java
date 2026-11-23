@@ -187,9 +187,8 @@ public class PqrsService {
         return pqrsRepository
             .findById(pqrsDTO.getId())
             .map(existingPqrs -> {
-                Pqrs proposed = pqrsMapper.toEntity(pqrsMapper.toDto(existingPqrs));
-                pqrsMapper.partialUpdate(proposed, pqrsDTO);
-                checkCaseWriteAccess(existingPqrs, proposed);
+                // Partial updates can modify sensitive fields; only privileged staff may use this endpoint.
+                requireAdministrativeCaseAccess();
                 pqrsMapper.partialUpdate(existingPqrs, pqrsDTO);
                 return existingPqrs;
             })
@@ -248,8 +247,14 @@ public class PqrsService {
         }
         if (!Objects.equals(existing.getDaysToReply(), proposed.getDaysToReply()) ||
             !Objects.equals(existing.getFechaLimiteRespuesta(), proposed.getFechaLimiteRespuesta()) ||
-            !Objects.equals(existing.getFechaCreacion(), proposed.getFechaCreacion())) {
-            throw new AccessDeniedException("Functionary cannot alter PQRSD deadlines or creation date");
+            !Objects.equals(existing.getFechaCreacion(), proposed.getFechaCreacion()) ||
+            !Objects.equals(existing.getFileNumber(), proposed.getFileNumber()) ||
+            !Objects.equals(existing.getAccessToken(), proposed.getAccessToken()) ||
+            !Objects.equals(existing.getRequesterEmail(), proposed.getRequesterEmail()) ||
+            !Objects.equals(existing.getType(), proposed.getType()) ||
+            !Objects.equals(existing.getTitulo(), proposed.getTitulo()) ||
+            !Objects.equals(existing.getArchivosAdjuntos(), proposed.getArchivosAdjuntos())) {
+            throw new AccessDeniedException("Functionary may not alter case identity, requester or deadlines");
         }
     }
 
