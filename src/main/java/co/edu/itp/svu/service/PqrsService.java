@@ -165,6 +165,7 @@ public class PqrsService {
 
     public String suggestOffice(String pqrsId) {
         Pqrs pqrs = pqrsRepository.findById(pqrsId).orElseThrow(() -> new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound"));
+        checkCaseReadAccess(pqrs);
 
         List<Oficina> offices = oficinaRepository.findAll();
 
@@ -199,7 +200,39 @@ public class PqrsService {
      * @param pageable the pagination information.
      * @return the list of entities.
      */
+    private String requireOfficeForCurrentFunctionary() {
+        if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FRONT_DESK_CS)) {
+            return null;
+        }
+        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
+            throw new AccessDeniedException("PQRSD access denied");
+        }
+        String login = SecurityUtils.getCurrentUserLogin()
+            .orElseThrow(() -> new AccessDeniedException("Missing login"));
+        User user = userRepository.findOneByLogin(login)
+            .orElseThrow(() -> new AccessDeniedException("Unknown user"));
+        return oficinaRepository.findByResponsable_Id(user.getId())
+            .map(Oficina::getId)
+            .filter(id -> id != null && !id.isBlank())
+            .orElseThrow(() -> new AccessDeniedException("No office assigned"));
+    }
+
+    private void checkCaseReadAccess(Pqrs pqrs) {
+        String officeId = requireOfficeForCurrentFunctionary();
+        if (officeId != null && (pqrs.getOficinaResponder() == null ||
+            !officeId.equals(pqrs.getOficinaResponder().getId()))) {
+            throw new AccessDeniedException("PQRSD belongs to another office");
+        }
+    }
+
     public Page<PqrsDTO> findAll(String state, String idOffice, LocalDate date, Pageable pageable) {
+        String authorizedOffice = requireOfficeForCurrentFunctionary();
+        if (authorizedOffice != null) {
+            if (idOffice != null && !idOffice.isBlank() && !authorizedOffice.equals(idOffice)) {
+                throw new AccessDeniedException("Cannot list another office");
+            }
+            idOffice = authorizedOffice;
+        }
         LOG.debug("Request to get all Pqrs");
         String closedState = "CERRADA";
         boolean isIdOfficeProvided = idOffice != null && !idOffice.trim().isEmpty();
@@ -224,25 +257,7 @@ public class PqrsService {
     public Page<PqrsDTO> search(String criteria, Pageable pageable) {
         LOG.debug("Request to search for a page of Pqrs for query {}", criteria);
 
-        String officeId = null;
-
-        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
-            String currentUserLogin = SecurityUtils.getCurrentUserLogin()
-                .orElseThrow(() -> new IllegalStateException("Current user login not found"));
-
-            User currentUser = userRepository
-                .findOneByLogin(currentUserLogin)
-                .orElseThrow(() -> new IllegalStateException("User not found: " + currentUserLogin));
-
-            String userResponsibleId = currentUser.getId();
-
-            // Fail closed: a functionary without an assigned office must not receive institution-wide results.
-            officeId = oficinaRepository
-                .findByResponsable_Id(userResponsibleId)
-                .map(Oficina::getId)
-                .filter(id -> id != null && !id.isBlank())
-                .orElseThrow(() -> new AccessDeniedException("No office assigned to current functionary"));
-        }
+        String officeId = requireOfficeForCurrentFunctionary();
 
         return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
     }
@@ -295,6 +310,7 @@ public class PqrsService {
         return pqrsRepository
             .findById(id)
             .map(pqrs -> {
+                checkCaseReadAccess(pqrs);
                 Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
                 pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
