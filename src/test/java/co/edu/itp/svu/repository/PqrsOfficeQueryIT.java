@@ -50,4 +50,20 @@ class PqrsOfficeQueryIT {
             mongoTemplate.remove(second);
         }
     }
+    @Test
+    void searchTreatsRegexMetacharactersAsLiteralText() {
+        String marker = "literal-" + UUID.randomUUID();
+        Pqrs matching = new Pqrs().type(PqrsType.REQUEST).titulo(marker + "[test]").estado("PENDIENTE");
+        Pqrs other = new Pqrs().type(PqrsType.REQUEST).titulo(marker + "test").estado("PENDIENTE");
+        try {
+            mongoTemplate.save(matching);
+            mongoTemplate.save(other);
+            var results = queryRepository.search(marker + "[test]", null, PageRequest.of(0, 20));
+            assertThat(results.getContent()).extracting(Pqrs::getId).containsExactly(matching.getId());
+        } finally {
+            if (matching.getId() != null) mongoTemplate.remove(matching);
+            if (other.getId() != null) mongoTemplate.remove(other);
+        }
+    }
+
 }
