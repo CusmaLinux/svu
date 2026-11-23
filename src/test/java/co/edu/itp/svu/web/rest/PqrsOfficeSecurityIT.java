@@ -49,6 +49,20 @@ class PqrsOfficeSecurityIT {
             .andExpect(status().isForbidden());
     }
 
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.FUNCTIONARY)
+    void functionaryCannotDeleteCase() throws Exception {
+        mockMvc.perform(delete("/api/pqrs/nonexistent-case")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.USER)
+    void ordinaryUserCannotReassignCase() throws Exception {
+        mockMvc.perform(put("/api/pqrs/nonexistent-case/office").param("officeName", "Other office"))
+            .andExpect(status().isForbidden());
+    }
+
     @Test
     @WithMockUser(authorities = AuthoritiesConstants.USER)
     void ordinaryUserCannotReadCaseDetail() throws Exception {
