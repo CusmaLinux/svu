@@ -50,6 +50,28 @@ jobs:
         run: |
           ./mvnw -B -ntp -Dit.test=PqrsOfficeSecurityIT,PqrsOfficeQueryIT,ReportResourceSecurityIT -DfailIfNoTests=false verify
 
+      - name: Print integration test failures and root causes
+        if: failure()
+        shell: bash
+        run: |
+          echo "::group::Failsafe summary"
+          if [ -f target/failsafe-reports/failsafe-summary.xml ]; then
+            cat target/failsafe-reports/failsafe-summary.xml
+          fi
+          echo "::endgroup::"
+          echo "::group::Test errors (first 200 relevant lines)"
+          if [ -d target/failsafe-reports ]; then
+            grep -R -n -m 5 -E 'Caused by:|Exception|ERROR|Tests run:|Error:' target/failsafe-reports --include='*.txt' | head -200 || true
+            for f in target/failsafe-reports/*.txt; do
+              [ -f "$f" ] || continue
+              echo "===== $f ====="
+              sed -n '1,95p' "$f"
+            done
+          else
+            echo "No Failsafe reports were generated."
+          fi
+          echo "::endgroup::"
+
       - name: Publish Maven test results
         if: always()
         uses: actions/upload-artifact@v4
