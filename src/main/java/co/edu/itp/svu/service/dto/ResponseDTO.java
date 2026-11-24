@@ -93,19 +93,8 @@ public class ResponseDTO implements Serializable {
         return Objects.hash(this.id);
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        String resolverId = (getResolver() != null) ? getResolver().getId() : "null";
-
-        return "RespuestaDTO{" +
-                "id='" + getId() + "'" +
-                ", contenido='" + getContenido() + "'" +
-                ", fechaRespuesta='" + getFechaRespuesta() + "'" +
-                ", resolver='" + resolverId + "'" +
-                ", pqrs=" + getPqrs() +
-                ", _transientAttachmentsCount=" +
-                (_transientAttachments != null ? _transientAttachments.size() : 0) +
-                "}";
+        return "ResponseDTO{id='" + id + "'}";
     }
 }

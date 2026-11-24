@@ -1,6 +1,7 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Respuesta;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -12,5 +13,5 @@ public interface ResponseQueryRepository {
      * @param pageable the pagination information.
      * @return a page of matching answers entities.
      */
-    Page<Respuesta> search(String query, String officeId, Pageable pageable);
+    Page<Respuesta> search(String query, Optional<String> officeId, Pageable pageable);
 }

@@ -3,6 +3,8 @@ package co.edu.itp.svu.repository;
 import co.edu.itp.svu.domain.Respuesta;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
@@ -28,7 +30,7 @@ public class ResponseQueryRepositoryImpl implements ResponseQueryRepository {
     }
 
     @Override
-    public Page<Respuesta> search(String querySearch, String officeId, Pageable pageable) {
+    public Page<Respuesta> search(String querySearch, Optional<String> officeId, Pageable pageable) {
         List<AggregationOperation> aggregationOperations = new ArrayList<>();
 
         aggregationOperations.add(Aggregation.lookup("pqrs", "pqrs.$id", "_id", "pqrsDetails"));
@@ -37,12 +39,12 @@ public class ResponseQueryRepositoryImpl implements ResponseQueryRepository {
 
         List<Criteria> allCriteria = new ArrayList<>();
 
-        if (StringUtils.hasText(officeId)) {
-            allCriteria.add(Criteria.where("pqrsDetails.oficinaResponder.$id").is(new ObjectId(officeId)));
-        }
+        officeId.ifPresent(id ->
+            allCriteria.add(Criteria.where("pqrsDetails.oficinaResponder.$id").is(ObjectId.isValid(id) ? new ObjectId(id) : id))
+        );
 
         if (StringUtils.hasText(querySearch)) {
-            allCriteria.add(Criteria.where("pqrsDetails.file_number").regex(querySearch, "i"));
+            allCriteria.add(Criteria.where("pqrsDetails.file_number").regex(Pattern.quote(querySearch), "i"));
         }
 
         if (!allCriteria.isEmpty()) {
@@ -60,9 +62,10 @@ public class ResponseQueryRepositoryImpl implements ResponseQueryRepository {
             aggregationOperations.add(Aggregation.sort(remapSort(pageable.getSort())));
         }
 
-        aggregationOperations.add(Aggregation.skip(pageable.getOffset()));
-
-        aggregationOperations.add(Aggregation.limit(pageable.getPageSize()));
+        if (pageable.isPaged()) {
+            aggregationOperations.add(Aggregation.skip(pageable.getOffset()));
+            aggregationOperations.add(Aggregation.limit(pageable.getPageSize()));
+        }
 
         TypedAggregation<Respuesta> dataAggregation = Aggregation.newAggregation(Respuesta.class, aggregationOperations);
         List<Respuesta> respuestas = mongoTemplate.aggregate(dataAggregation, "respuesta", Respuesta.class).getMappedResults();

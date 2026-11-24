@@ -1,246 +1,170 @@
 package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.domain.ArchivoAdjunto;
-import co.edu.itp.svu.domain.Oficina;
+import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
-import co.edu.itp.svu.repository.OficinaRepository;
+import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.UserRepository;
-import co.edu.itp.svu.security.AuthoritiesConstants;
+import co.edu.itp.svu.security.PqrsAuthorizationService;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.ResponseDTO;
+import co.edu.itp.svu.service.errors.BadRequestAlertException;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.ResponseMapper;
 import java.time.Instant;
-import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Service Implementation for managing {@link co.edu.itp.svu.domain.Respuesta}.
- */
 @Service
 public class RespuestaService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RespuestaService.class);
-
     private final RespuestaRepository respuestaRepository;
-
+    private final PqrsRepository pqrsRepository;
     private final ArchivoAdjuntoRepository attachedFileRepository;
-
     private final ResponseMapper responseMapper;
-
     private final ArchivoAdjuntoMapper attachedFileMapper;
-
     private final UserRepository userRepository;
-
-    private final OficinaRepository oficinaRepository;
+    private final PqrsAuthorizationService authorization;
 
     public RespuestaService(
         RespuestaRepository respuestaRepository,
-        ResponseMapper responseMapper,
-        UserRepository userRepository,
+        PqrsRepository pqrsRepository,
         ArchivoAdjuntoRepository attachedFileRepository,
-        OficinaRepository oficinaRepository,
-        ArchivoAdjuntoMapper attachedFileMapper
+        ResponseMapper responseMapper,
+        ArchivoAdjuntoMapper attachedFileMapper,
+        UserRepository userRepository,
+        PqrsAuthorizationService authorization
     ) {
         this.respuestaRepository = respuestaRepository;
-        this.responseMapper = responseMapper;
-        this.userRepository = userRepository;
+        this.pqrsRepository = pqrsRepository;
         this.attachedFileRepository = attachedFileRepository;
-        this.oficinaRepository = oficinaRepository;
+        this.responseMapper = responseMapper;
         this.attachedFileMapper = attachedFileMapper;
+        this.userRepository = userRepository;
+        this.authorization = authorization;
     }
 
-    @Transactional(readOnly = true)
     public Page<ResponseDTO> search(String criteria, Pageable pageable) {
-        LOG.debug("Request to search for a page of responses or query {}", criteria);
-
-        String officeId = null;
-
-        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
-            String currentUserLogin = SecurityUtils.getCurrentUserLogin()
-                .orElseThrow(() -> new IllegalStateException("Current user login not found"));
-
-            User currentUser = userRepository
-                .findOneByLogin(currentUserLogin)
-                .orElseThrow(() -> new IllegalStateException("User not found: " + currentUserLogin));
-
-            String userResponsibleId = currentUser.getId();
-
-            officeId = oficinaRepository.findByResponsable_Id(userResponsibleId).map(Oficina::getId).orElse(null);
-        }
-
-        return respuestaRepository.search(criteria, officeId, pageable).map(responseMapper::toDto);
+        return respuestaRepository.search(criteria, authorization.requireOperationalOffice(), pageable).map(responseMapper::toDto);
     }
 
-    /**
-     * Save a response.
-     *
-     * @param respuestaDTO the entity to save.
-     * @return the persisted entity.
-     */
-    public ResponseDTO save(ResponseDTO responseDTO) {
-        LOG.debug("Request to save Respuesta : {}", responseDTO);
-
-        String currentUserLogin = SecurityUtils.getCurrentUserLogin()
-            .orElseThrow(() -> new IllegalStateException("Current user login not found"));
-
-        User currentUser = userRepository
-            .findOneByLogin(currentUserLogin)
-            .orElseThrow(() -> new IllegalStateException("User with login '" + currentUserLogin + "' not found"));
-
-        Respuesta response = responseMapper.toEntity(responseDTO);
-
-        response.setFechaRespuesta(Instant.now());
-        response.setResolver(currentUser);
-
-        Respuesta resultResponse = respuestaRepository.save(response);
-
-        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
-
-        if (responseDTO.get_transientAttachments() != null && !responseDTO.get_transientAttachments().isEmpty()) {
-            for (ArchivoAdjuntoDTO adjuntoDTO : responseDTO.get_transientAttachments()) {
-                if (adjuntoDTO.getId() != null) {
-                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
-                    adjuntoOpt.ifPresentOrElse(
-                        adjuntoToLink -> {
-                            adjuntoToLink.setResponseAttachment(resultResponse);
-                            attachedFileRepository.save(adjuntoToLink);
-                            successfullyLinkedAttachments.add(adjuntoToLink);
-                        },
-                        () ->
-                            LOG.warn(
-                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
-                                adjuntoDTO.getId(),
-                                resultResponse.getId()
-                            )
-                    );
-                } else {
-                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
-                }
-            }
-        }
-
-        if (!successfullyLinkedAttachments.isEmpty()) {
-            response.set_transientAttachments(successfullyLinkedAttachments);
-        } else {
-            response.set_transientAttachments(new HashSet<>());
-        }
-
-        return responseMapper.toDto(response);
-    }
-
-    /**
-     * Update a response.
-     *
-     * @param respuestaDTO the entity to save.
-     * @return the persisted entity.
-     */
-    public ResponseDTO update(ResponseDTO responseDTO) {
-        LOG.debug("Request to update Respuesta : {}", responseDTO);
-        Respuesta response = responseMapper.toEntity(responseDTO);
-        Respuesta resultResponse = respuestaRepository.save(response);
-        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
-
-        if (responseDTO.get_transientAttachments() != null && !responseDTO.get_transientAttachments().isEmpty()) {
-            for (ArchivoAdjuntoDTO adjuntoDTO : responseDTO.get_transientAttachments()) {
-                if (adjuntoDTO.getId() != null) {
-                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
-                    adjuntoOpt.ifPresentOrElse(
-                        adjuntoToLink -> {
-                            adjuntoToLink.setResponseAttachment(resultResponse);
-                            attachedFileRepository.save(adjuntoToLink);
-                            successfullyLinkedAttachments.add(adjuntoToLink);
-                        },
-                        () ->
-                            LOG.warn(
-                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
-                                adjuntoDTO.getId(),
-                                resultResponse.getId()
-                            )
-                    );
-                } else {
-                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
-                }
-            }
-        }
-
-        if (!successfullyLinkedAttachments.isEmpty()) {
-            response.set_transientAttachments(successfullyLinkedAttachments);
-        } else {
-            response.set_transientAttachments(new HashSet<>());
-        }
-
-        return responseMapper.toDto(response);
-    }
-
-    /**
-     * Partially update a response.
-     *
-     * @param respuestaDTO the entity to update partially.
-     * @return the persisted entity.
-     */
-    public Optional<ResponseDTO> partialUpdate(ResponseDTO respuestaDTO) {
-        LOG.debug("Request to partially update Respuesta : {}", respuestaDTO);
-
-        return respuestaRepository
-            .findById(respuestaDTO.getId())
-            .map(existingRespuesta -> {
-                responseMapper.partialUpdate(existingRespuesta, respuestaDTO);
-
-                return existingRespuesta;
-            })
-            .map(respuestaRepository::save)
-            .map(responseMapper::toDto);
-    }
-
-    /**
-     * Get all the respuestas.
-     *
-     * @param pageable the pagination information.
-     * @return the list of entities.
-     */
     public Page<ResponseDTO> findAll(Pageable pageable) {
-        LOG.debug("Request to get all Respuestas");
-        return respuestaRepository.findAll(pageable).map(responseMapper::toDto);
+        return search("", pageable);
     }
 
-    /**
-     * Get one response by id.
-     *
-     * @param id the id of the entity.
-     * @return the entity.
-     */
     public Optional<ResponseDTO> findOne(String id) {
-        LOG.debug("Request to get Respuesta : {}", id);
-        Optional<ResponseDTO> responseDTO = respuestaRepository.findById(id).map(responseMapper::toDto);
-
-        responseDTO.ifPresent(response -> {
-            Set<ArchivoAdjunto> attachedFiles = attachedFileRepository.findByResponseAttachment_Id(id);
-            response.set_transientAttachments(attachedFiles.stream().map(attachedFileMapper::toDto).collect(Collectors.toSet()));
-        });
-
-        return responseDTO;
+        Optional<String> office = authorization.requireOperationalOffice();
+        return respuestaRepository
+            .findById(id)
+            .map(response -> {
+                Pqrs pqrs = persistedCase(response);
+                authorization.checkCaseInAuthorizedOffice(pqrs, office);
+                return toDetail(response, pqrs);
+            });
     }
 
-    /**
-     * Delete the response by id.
-     *
-     * @param id the id of the entity.
-     */
+    public ResponseDTO save(ResponseDTO input) {
+        Optional<String> office = authorization.requireResponseCreationOffice();
+        User author = SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .orElseThrow(() -> new AccessDeniedException("Unknown response author"));
+        Pqrs pqrs = findCase(input.getPqrs() == null ? null : input.getPqrs().getId()).orElseThrow(() ->
+            new BadRequestAlertException("Select an existing PQRSD", "respuesta", "pqrsrequired")
+        );
+        authorization.checkCaseInAuthorizedOffice(pqrs, office);
+        validateAttachments(input, null, pqrs);
+        Respuesta response = new Respuesta().contenido(input.getContenido()).fechaRespuesta(Instant.now()).pqrs(pqrs);
+        response.setResolver(author);
+        return responseMapper.toDto(respuestaRepository.insert(response));
+    }
+
+    public ResponseDTO update(ResponseDTO input, boolean partial) {
+        authorization.requireResponseManagementAccess();
+        Respuesta response = respuestaRepository
+            .findById(input.getId())
+            .orElseThrow(() -> new BadRequestAlertException("Entity not found", "respuesta", "idnotfound"));
+        Pqrs pqrs = persistedCase(response);
+
+        if (
+            (input.getPqrs() != null && !Objects.equals(input.getPqrs().getId(), pqrs.getId())) ||
+            (input.getResolver() != null &&
+                (response.getResolver() == null || !Objects.equals(input.getResolver().getId(), response.getResolver().getId()))) ||
+            (input.getFechaRespuesta() != null && !Objects.equals(input.getFechaRespuesta(), response.getFechaRespuesta()))
+        ) {
+            throw new AccessDeniedException("Cannot change response case, author or creation date");
+        }
+
+        validateAttachments(input, response.getId(), pqrs);
+        if (!partial || input.getContenido() != null) {
+            response.setContenido(input.getContenido());
+        }
+        return toDetail(respuestaRepository.save(response), pqrs);
+    }
+
     public void delete(String id) {
-        LOG.debug("Request to delete Respuesta : {}", id);
-        respuestaRepository.deleteById(id);
+        authorization.requireResponseManagementAccess();
+        respuestaRepository
+            .findById(id)
+            .ifPresent(response -> {
+                persistedCase(response);
+                respuestaRepository.delete(response);
+            });
+    }
+
+    private Optional<Pqrs> findCase(String id) {
+        return id == null ? Optional.empty() : pqrsRepository.findById(id);
+    }
+
+    private Pqrs persistedCase(Respuesta response) {
+        return findCase(response.getPqrs() == null ? null : response.getPqrs().getId()).orElseThrow(() ->
+            new AccessDeniedException("Response case unavailable")
+        );
+    }
+
+    private ResponseDTO toDetail(Respuesta response, Pqrs pqrs) {
+        ResponseDTO dto = responseMapper.toDto(response);
+        dto.set_transientAttachments(
+            attachedFileRepository
+                .findByResponseAttachment_Id(response.getId())
+                .stream()
+                .filter(file -> belongsToCase(file, pqrs))
+                .map(attachedFileMapper::toDto)
+                .collect(Collectors.toSet())
+        );
+        return dto;
+    }
+
+    private boolean belongsToCase(ArchivoAdjunto file, Pqrs pqrs) {
+        return file.getPqrsAttachment() == null || Objects.equals(file.getPqrsAttachment().getId(), pqrs.getId());
+    }
+
+    private void validateAttachments(ResponseDTO input, String responseId, Pqrs pqrs) {
+        Set<ArchivoAdjuntoDTO> attachments = input.get_transientAttachments();
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        // The existing upload records do not establish who may claim an unlinked file.
+        if (responseId == null) {
+            throw new AccessDeniedException("New attachment associations are unavailable");
+        }
+        Set<String> retainedIds = attachedFileRepository
+            .findByResponseAttachment_Id(responseId)
+            .stream()
+            .filter(file -> belongsToCase(file, pqrs))
+            .map(ArchivoAdjunto::getId)
+            .collect(Collectors.toSet());
+        if (attachments.stream().anyMatch(file -> file == null || !retainedIds.contains(file.getId()))) {
+            throw new AccessDeniedException("Attachment is not associated with this response");
+        }
     }
 }

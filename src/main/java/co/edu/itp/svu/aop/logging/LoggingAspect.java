@@ -63,13 +63,27 @@ public class LoggingAspect {
     )
     public void directoryOrNotificationPointcut() {}
 
+    @Pointcut(
+        "within(co.edu.itp.svu..*Respuesta*) || within(co.edu.itp.svu.repository.ResponseQueryRepository+) " +
+        "|| execution(* co.edu.itp.svu.service.PqrsService.findPublicPqrsByAccessToken(..)) " +
+        "|| execution(* co.edu.itp.svu.service.PqrsService.addPublicResponseToPqrs(..)) " +
+        "|| execution(* co.edu.itp.svu.service.PqrsService.findPqrsById(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.getPublicPqrsByAccessToken(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.submitPublicResponse(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.getPqrs(..))"
+    )
+    public void responseDataPointcut() {}
+
     /**
      * Advice that logs methods throwing exceptions.
      *
      * @param joinPoint join point for advice.
      * @param e exception.
      */
-    @AfterThrowing(pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut()", throwing = "e")
+    @AfterThrowing(
+        pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut()",
+        throwing = "e"
+    )
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
         if (env.acceptsProfiles(Profiles.of(JHipsterConstants.SPRING_PROFILE_DEVELOPMENT))) {
             logger(joinPoint).error(
@@ -95,7 +109,7 @@ public class LoggingAspect {
      * @return result.
      * @throws Throwable throws {@link IllegalArgumentException}.
      */
-    @Around("applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut()")
+    @Around("applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         Logger log = logger(joinPoint);
         if (log.isDebugEnabled()) {

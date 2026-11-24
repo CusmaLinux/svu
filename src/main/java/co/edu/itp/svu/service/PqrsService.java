@@ -520,7 +520,6 @@ public class PqrsService {
 
     @Transactional(readOnly = true)
     public Optional<PublicPqrsDTO> findPublicPqrsByAccessToken(String accessToken) {
-        LOG.debug("Request to get public Pqrs by access token : {}", accessToken);
         Optional<Pqrs> pqrsOpt = pqrsRepository.findByAccessToken(accessToken);
 
         return pqrsOpt.map(pqrs -> {
@@ -541,7 +540,6 @@ public class PqrsService {
     }
 
     public PublicResponseDTO addPublicResponseToPqrs(String accessToken, PublicResponseDTO publicResponseDTO, List<MultipartFile> files) {
-        LOG.debug("Request to add public response to Pqrs with access token: {}", accessToken);
         Pqrs pqrs = pqrsRepository
             .findByAccessToken(accessToken)
             .orElseThrow(() -> new BadRequestAlertException("Pqrs not found for the given access token", "Pqrs", "accessTokenNotFound"));

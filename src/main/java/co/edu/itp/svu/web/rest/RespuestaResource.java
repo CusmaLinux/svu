@@ -1,6 +1,5 @@
 package co.edu.itp.svu.web.rest;
 
-import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.service.RespuestaService;
 import co.edu.itp.svu.service.dto.ResponseDTO;
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
@@ -11,8 +10,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -32,8 +29,6 @@ import tech.jhipster.web.util.ResponseUtil;
 @RequestMapping("/api/respuestas")
 public class RespuestaResource {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RespuestaResource.class);
-
     private static final String ENTITY_NAME = "respuesta";
 
     @Value("${jhipster.clientApp.name}")
@@ -41,11 +36,8 @@ public class RespuestaResource {
 
     private final RespuestaService respuestaService;
 
-    private final RespuestaRepository respuestaRepository;
-
-    public RespuestaResource(RespuestaService respuestaService, RespuestaRepository respuestaRepository) {
+    public RespuestaResource(RespuestaService respuestaService) {
         this.respuestaService = respuestaService;
-        this.respuestaRepository = respuestaRepository;
     }
 
     /**
@@ -59,7 +51,6 @@ public class RespuestaResource {
      */
     @PostMapping("")
     public ResponseEntity<ResponseDTO> createResponse(@Valid @RequestBody ResponseDTO responseDTO) throws URISyntaxException {
-        LOG.debug("REST request to save Respuesta : {}", responseDTO);
         if (responseDTO.getId() != null) {
             throw new BadRequestAlertException("A new respuesta cannot already have an ID", ENTITY_NAME, "idexists");
         }
@@ -87,7 +78,6 @@ public class RespuestaResource {
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @Valid @RequestBody ResponseDTO respuestaDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to update Respuesta : {}, {}", id, respuestaDTO);
         if (respuestaDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -95,11 +85,7 @@ public class RespuestaResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        if (!respuestaRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
-
-        respuestaDTO = respuestaService.update(respuestaDTO);
+        respuestaDTO = respuestaService.update(respuestaDTO, false);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, respuestaDTO.getId()))
             .body(respuestaDTO);
@@ -126,7 +112,6 @@ public class RespuestaResource {
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody ResponseDTO respuestaDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Respuesta partially : {}, {}", id, respuestaDTO);
         if (respuestaDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -134,16 +119,9 @@ public class RespuestaResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        if (!respuestaRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
+        ResponseDTO result = respuestaService.update(respuestaDTO, true);
 
-        Optional<ResponseDTO> result = respuestaService.partialUpdate(respuestaDTO);
-
-        return ResponseUtil.wrapOrNotFound(
-            result,
-            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, respuestaDTO.getId())
-        );
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, id)).body(result);
     }
 
     /**
@@ -155,7 +133,6 @@ public class RespuestaResource {
      */
     @GetMapping("")
     public ResponseEntity<List<ResponseDTO>> getAllRespuestas(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
-        LOG.debug("REST request to get a page of Respuestas");
         Page<ResponseDTO> page = respuestaService.findAll(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
@@ -166,7 +143,6 @@ public class RespuestaResource {
         @RequestParam(required = false, defaultValue = "") String query,
         @ParameterObject Pageable pageable
     ) {
-        LOG.debug("REST request to search for a page of Response with query: {}", query);
         Page<ResponseDTO> page = respuestaService.search(query, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
@@ -181,7 +157,6 @@ public class RespuestaResource {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ResponseDTO> getRespuesta(@PathVariable("id") String id) {
-        LOG.debug("REST request to get Respuesta : {}", id);
         Optional<ResponseDTO> respuestaDTO = respuestaService.findOne(id);
         return ResponseUtil.wrapOrNotFound(respuestaDTO);
     }
@@ -194,7 +169,6 @@ public class RespuestaResource {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRespuesta(@PathVariable("id") String id) {
-        LOG.debug("REST request to delete Respuesta : {}", id);
         respuestaService.delete(id);
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
     }

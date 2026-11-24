@@ -8,8 +8,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import co.edu.itp.svu.IntegrationTest;
+import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.domain.enumeration.PqrsType;
 import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.service.UserService;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,7 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = "ROLE_ADMIN")
 class RespuestaResourceIT {
 
     private static final String DEFAULT_CONTENIDO = "AAAAAAAAAA";
@@ -64,6 +67,11 @@ class RespuestaResourceIT {
     @Autowired
     private MockMvc restRespuestaMockMvc;
 
+    @Autowired
+    private MongoTemplate mongo;
+
+    private Pqrs pqrs;
+    private boolean createdUser;
     private Respuesta respuesta;
 
     private Respuesta insertedRespuesta;
@@ -90,13 +98,16 @@ class RespuestaResourceIT {
 
     @BeforeEach
     public void initTest() {
-        respuesta = createEntity();
+        pqrs = mongo.save(new Pqrs().type(PqrsType.REQUEST).titulo("Caso sintético").estado("PENDIENTE"));
+        respuesta = createEntity().pqrs(pqrs);
+        createdUser = false;
         if (userRepository.findOneByLogin("user").isEmpty()) {
             AdminUserDTO user = new AdminUserDTO();
             user.setLogin("user");
             user.setPassword("password");
             user.setActivated(true);
             userService.createUser(user);
+            createdUser = true;
         }
     }
 
@@ -106,7 +117,8 @@ class RespuestaResourceIT {
             respuestaRepository.delete(insertedRespuesta);
             insertedRespuesta = null;
         }
-        userRepository.deleteAll();
+        if (pqrs != null) mongo.remove(pqrs);
+        if (createdUser) userRepository.findOneByLogin("user").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -194,7 +206,7 @@ class RespuestaResourceIT {
 
         // Update the respuesta
         Respuesta updatedRespuesta = respuestaRepository.findById(respuesta.getId()).orElseThrow();
-        updatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
+        updatedRespuesta.contenido(UPDATED_CONTENIDO);
         ResponseDTO respuestaDTO = respuestaMapper.toDto(updatedRespuesta);
 
         restRespuestaMockMvc
@@ -310,7 +322,7 @@ class RespuestaResourceIT {
         Respuesta partialUpdatedRespuesta = new Respuesta();
         partialUpdatedRespuesta.setId(respuesta.getId());
 
-        partialUpdatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(UPDATED_FECHA_RESPUESTA);
+        partialUpdatedRespuesta.contenido(UPDATED_CONTENIDO).fechaRespuesta(DEFAULT_FECHA_RESPUESTA);
 
         restRespuestaMockMvc
             .perform(
@@ -324,6 +336,7 @@ class RespuestaResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertRespuestaUpdatableFieldsEquals(partialUpdatedRespuesta, getPersistedRespuesta(partialUpdatedRespuesta));
+        assertThat(getPersistedRespuesta(partialUpdatedRespuesta).getPqrs().getId()).isEqualTo(pqrs.getId());
     }
 
     @Test

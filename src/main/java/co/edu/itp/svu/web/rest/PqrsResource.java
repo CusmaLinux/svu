@@ -238,7 +238,6 @@ public class PqrsResource {
      */
     @GetMapping("/public/pqrs/{access_token}")
     public ResponseEntity<PublicPqrsDTO> getPublicPqrsByAccessToken(@PathVariable("access_token") String access_token) {
-        LOG.debug("REST request to get public Pqrs by access_token : {}", access_token);
         Optional<PublicPqrsDTO> publicPqrsDTO = pqrsService.findPublicPqrsByAccessToken(access_token);
         return ResponseUtil.wrapOrNotFound(publicPqrsDTO);
     }
@@ -263,8 +262,6 @@ public class PqrsResource {
         ) PublicResponseDTO publicResponseDTO,
         @RequestPart(value = "files", required = false) List<MultipartFile> files
     ) throws URISyntaxException {
-        LOG.debug("REST request to submit public response for Pqrs with access_token : {}", access_token);
-
         if (publicResponseDTO.getId() != null) {
             throw new BadRequestAlertException("A new public response cannot already have an ID", "publicResponse", "idexists");
         }

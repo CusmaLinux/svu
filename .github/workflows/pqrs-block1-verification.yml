@@ -50,7 +50,7 @@ jobs:
       - name: Verify PQRSD authorization and integration with isolated MongoDB Testcontainers
         env:
           REQUIRED_UNIT_SUITE: PqrsAuthorizationServiceTest
-          REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT
+          REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT,RespuestaResourceIT,ResponseSecurityIT
         run: |
           ./mvnw -B -ntp -Dskip.installnodenpm -Dskip.npm \
             -DfailIfNoTests=true -Dfailsafe.failIfNoSpecifiedTests=true \

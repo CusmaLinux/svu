@@ -46,18 +46,37 @@ public class PqrsAuthorizationService {
         if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
             throw new AccessDeniedException("PQRSD access denied");
         }
+        return Optional.of(requireFunctionaryOffice());
+    }
+
+    public Optional<String> requireResponseCreationOffice() {
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            return Optional.empty();
+        }
+        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
+            throw new AccessDeniedException("PQRSD response creation denied");
+        }
+        return Optional.of(requireFunctionaryOffice());
+    }
+
+    public void requireResponseManagementAccess() {
+        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            throw new AccessDeniedException("PQRSD response management denied");
+        }
+    }
+
+    private String requireFunctionaryOffice() {
         String userId = SecurityUtils.getCurrentUserLogin()
             .flatMap(userRepository::findOneByLogin)
             .map(User::getId)
             .filter(id -> !id.isBlank())
             .orElseThrow(() -> new AccessDeniedException("Missing PQRSD operator"));
         try {
-            String officeId = oficinaRepository
+            return oficinaRepository
                 .findByResponsable_Id(userId)
                 .map(Oficina::getId)
                 .filter(id -> !id.isBlank())
                 .orElseThrow(() -> new AccessDeniedException("No office assigned"));
-            return Optional.of(officeId);
         } catch (IncorrectResultSizeDataAccessException ex) {
             throw new AccessDeniedException("Ambiguous office assignment", ex);
         }
@@ -74,7 +93,12 @@ public class PqrsAuthorizationService {
 
     /** Call with the case loaded from the repository. */
     public void checkCaseReadAccess(Pqrs persisted) {
-        requireOperationalOffice().ifPresent(officeId -> requireCaseInOffice(persisted, officeId));
+        checkCaseInAuthorizedOffice(persisted, requireOperationalOffice());
+    }
+
+    /** Use only a scope resolved by the authorization policy for the requested action. */
+    public void checkCaseInAuthorizedOffice(Pqrs persisted, Optional<String> authorizedOffice) {
+        authorizedOffice.ifPresent(officeId -> requireCaseInOffice(persisted, officeId));
     }
 
     private void requireCaseInOffice(Pqrs pqrs, String officeId) {
