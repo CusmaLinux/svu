@@ -1,5 +1,6 @@
 package co.edu.itp.svu.service.report;
 
+import co.edu.itp.svu.domain.InvalidPqrsStatisticsFilter;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.domain.enumeration.PqrsType;
 import co.edu.itp.svu.repository.PqrsStatisticsRepository;
@@ -14,11 +15,13 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PqrsStatisticsService {
 
+    private static final int DEFAULT_MAXIMUM_DAYS = 366;
     private static final ZoneId ZONE = ZoneId.of("America/Bogota");
     private static final Map<String, String> DEFERRED = Map.ofEntries(
         Map.entry("IND-08", "PARTIAL_SOURCE"),
@@ -38,22 +41,72 @@ public class PqrsStatisticsService {
     private final PqrsStatisticsRepository repository;
     private final PqrsAuthorizationService authorization;
     private final Clock clock;
+    private final int maximumDays;
 
     @Autowired
+    public PqrsStatisticsService(
+        PqrsStatisticsRepository repository,
+        PqrsAuthorizationService authorization,
+        @Value("${svu.pqrs-statistics.max-period-days:366}") int maximumDays
+    ) {
+        this(repository, authorization, Clock.systemUTC(), maximumDays);
+    }
+
     public PqrsStatisticsService(PqrsStatisticsRepository repository, PqrsAuthorizationService authorization) {
-        this(repository, authorization, Clock.systemUTC());
+        this(repository, authorization, DEFAULT_MAXIMUM_DAYS);
     }
 
     PqrsStatisticsService(PqrsStatisticsRepository repository, PqrsAuthorizationService authorization, Clock clock) {
+        this(repository, authorization, clock, DEFAULT_MAXIMUM_DAYS);
+    }
+
+    PqrsStatisticsService(PqrsStatisticsRepository repository, PqrsAuthorizationService authorization, Clock clock, int maximumDays) {
+        if (maximumDays < 1) throw new IllegalArgumentException("Positive reporting period limit required");
         this.repository = repository;
         this.authorization = authorization;
         this.clock = clock;
+        this.maximumDays = maximumDays;
+    }
+
+    public record Configuration(
+        List<PqrsStatisticsFilter.Scope> scopes,
+        String zone,
+        int maxPeriodDays,
+        int maxOfficeIdLength,
+        List<String> availableIndicators,
+        Map<String, String> deferredIndicators,
+        List<String> limitations
+    ) {}
+
+    private static final List<String> LIMITATIONS = List.of(
+        "ONLY_DATED_ROOTS",
+        "OFFICE_AND_STATE_AT_OBSERVATION",
+        "HISTORICAL_COMPLETENESS_UNMEASURED",
+        "OBSERVATION_NOT_TRANSACTIONAL"
+    );
+
+    public Configuration configuration() {
+        authorization.requireStatisticalAccess();
+        return new Configuration(
+            List.of(PqrsStatisticsFilter.Scope.values()),
+            ZONE.getId(),
+            maximumDays,
+            PqrsStatisticsFilter.MAX_OFFICE_ID_LENGTH,
+            List.of("IND-01", "IND-02", "IND-03", "IND-04", "IND-05", "IND-06", "IND-07"),
+            DEFERRED,
+            LIMITATIONS
+        );
     }
 
     public PqrsStatistics calculate(PqrsStatisticsFilter filter) {
         authorization.requireStatisticalAccess();
         Instant observed = clock.instant().truncatedTo(ChronoUnit.MILLIS);
-        if (filter.end().isAfter(observed.atZone(ZONE).toLocalDate())) throw new IllegalArgumentException("Future reporting date");
+        if (filter.end().isAfter(observed.atZone(ZONE).toLocalDate())) {
+            throw new InvalidPqrsStatisticsFilter("futurePeriod", "Future reporting date");
+        }
+        if (ChronoUnit.DAYS.between(filter.start(), filter.end()) + 1 > maximumDays) {
+            throw new InvalidPqrsStatisticsFilter("periodTooLong", "Reporting period exceeds the maximum number of days");
+        }
         YearMonth first = YearMonth.from(filter.start());
         Instant end = startOfDay(filter.end().plusDays(1));
         Instant cutoff = end.isAfter(observed) ? observed : end;
@@ -128,11 +181,7 @@ public class PqrsStatisticsService {
             .filter(c -> !c.equals("ASSIGNED"))
             .forEach(c -> warnings.add("OFFICE_" + c));
         if (cutoff.isBefore(end)) warnings.add("PROVISIONAL_PERIOD");
-        var coverage = new Coverage(
-            warnings.isEmpty() ? "OBSERVED" : "PARTIAL",
-            List.copyOf(warnings),
-            List.of("ONLY_DATED_ROOTS", "OFFICE_AND_STATE_AT_OBSERVATION", "HISTORICAL_COMPLETENESS_UNMEASURED")
-        );
+        var coverage = new Coverage(warnings.isEmpty() ? "OBSERVED" : "PARTIAL", List.copyOf(warnings), LIMITATIONS);
         return new PqrsStatistics(
             filter,
             new PqrsStatistics.Period(ZONE.getId(), window.start(), end, cutoff, observed),

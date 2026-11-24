@@ -53,4 +53,15 @@ class PqrsStatisticsServiceTest {
         assertThat(result.types()).allMatch(row -> row.denominator() == 0 && row.percent() == null);
         assertThat(result.deferredIndicators()).hasSize(12);
     }
+
+    @Test
+    void configuredLimitIncludesBothCivilDatesAndIsAppliedBeforeRepositoryAccess() {
+        var limited = new PqrsStatisticsService(repository, auth, Clock.fixed(now, ZoneOffset.UTC), 2);
+        assertThat(limited.configuration().maxPeriodDays()).isEqualTo(2);
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> limited.calculate(new PqrsStatisticsFilter(today.minusDays(2), today, Scope.OFFICE, "office")));
+        verifyNoInteractions(repository);
+        limited.calculate(new PqrsStatisticsFilter(today.minusDays(1), today, Scope.OFFICE, "office"));
+        verify(repository).office(any(), eq("office"));
+    }
 }

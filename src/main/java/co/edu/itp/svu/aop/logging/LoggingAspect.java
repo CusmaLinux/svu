@@ -74,6 +74,10 @@ public class LoggingAspect {
     )
     public void responseDataPointcut() {}
 
+    // Statistical filters and small counts should stay out of argument and result logs.
+    @Pointcut("within(co.edu.itp.svu..PqrsStatistics*)")
+    public void statisticsPointcut() {}
+
     /**
      * Advice that logs methods throwing exceptions.
      *
@@ -81,7 +85,7 @@ public class LoggingAspect {
      * @param e exception.
      */
     @AfterThrowing(
-        pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut()",
+        pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !statisticsPointcut()",
         throwing = "e"
     )
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
@@ -109,7 +113,9 @@ public class LoggingAspect {
      * @return result.
      * @throws Throwable throws {@link IllegalArgumentException}.
      */
-    @Around("applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut()")
+    @Around(
+        "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !statisticsPointcut()"
+    )
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         Logger log = logger(joinPoint);
         if (log.isDebugEnabled()) {

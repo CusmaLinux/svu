@@ -1,13 +1,17 @@
 package co.edu.itp.svu.repository;
 
+import co.edu.itp.svu.domain.InvalidPqrsStatisticsFilter;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.domain.enumeration.PqrsType;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -16,8 +20,17 @@ public class PqrsStatisticsRepository {
 
     private final MongoTemplate mongo;
 
-    public PqrsStatisticsRepository(MongoTemplate mongo) {
+    private final long queryTimeoutMs;
+
+    @Autowired
+    public PqrsStatisticsRepository(MongoTemplate mongo, @Value("${svu.pqrs-statistics.query-timeout-ms:10000}") long queryTimeoutMs) {
+        if (queryTimeoutMs < 1) throw new IllegalArgumentException("Positive statistics query timeout required");
         this.mongo = mongo;
+        this.queryTimeoutMs = queryTimeoutMs;
+    }
+
+    public PqrsStatisticsRepository(MongoTemplate mongo) {
+        this(mongo, 10_000);
     }
 
     public record Window(Instant previousMonthStart, Instant firstMonthStart, Instant start, Instant cutoff, ZoneId zone) {}
@@ -40,8 +53,9 @@ public class PqrsStatisticsRepository {
             .find(new Document("_id", new Document("$in", ids)))
             .projection(new Document("_id", 1))
             .limit(2)
+            .maxTime(queryTimeoutMs, TimeUnit.MILLISECONDS)
             .into(new ArrayList<>());
-        if (matches.size() != 1) throw new IllegalArgumentException("Unknown or ambiguous office");
+        if (matches.size() != 1) throw new InvalidPqrsStatisticsFilter("unknownOrAmbiguousOffice", "Unknown or ambiguous office");
         return aggregate(window, Optional.of(matches.get(0).get("_id")));
     }
 
@@ -116,6 +130,7 @@ public class PqrsStatisticsRepository {
         return mongo
             .getCollection("pqrs")
             .aggregate(pipeline)
+            .maxTime(queryTimeoutMs, TimeUnit.MILLISECONDS)
             .map(row -> {
                 Document group = row.get("_id", Document.class);
                 List<Document> catalog = row.getList("catalog", Document.class);
