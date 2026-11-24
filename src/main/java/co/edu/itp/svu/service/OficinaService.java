@@ -6,9 +6,11 @@ import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.security.PqrsAuthorizationService;
 import co.edu.itp.svu.service.dto.OfficeCases;
+import co.edu.itp.svu.service.dto.OfficeCases.CaseReference;
 import co.edu.itp.svu.service.dto.OfficeOption;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,7 +199,7 @@ public class OficinaService {
     }
 
     public Page<OfficeOption> catalog(Pageable pageable) {
-        return oficinaRepository.findOptions(pageable);
+        return oficinaRepository.findOptions(pageable).map(office -> new OfficeOption(office.id(), office.nombre()));
     }
 
     public Optional<OfficeCases> getOficina(String id) {
@@ -205,6 +207,13 @@ public class OficinaService {
         String officeId = authorization.requireOfficeFilter(id).orElseThrow();
         return oficinaRepository
             .findOptionById(officeId)
-            .map(office -> new OfficeCases(office.id(), office.nombre(), pqrsRepository.findReferencesByOficinaResponder_Id(office.id())));
+            .map(office -> {
+                List<CaseReference> references = pqrsRepository
+                    .findReferencesByOficinaResponder_Id(office.id())
+                    .stream()
+                    .map(reference -> new CaseReference(reference.id(), reference.fileNumber()))
+                    .toList();
+                return new OfficeCases(office.id(), office.nombre(), references);
+            });
     }
 }

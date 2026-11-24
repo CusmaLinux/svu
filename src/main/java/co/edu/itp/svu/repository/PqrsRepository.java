@@ -1,7 +1,7 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Pqrs;
-import co.edu.itp.svu.service.dto.OfficeCases.CaseReference;
+import co.edu.itp.svu.repository.projection.CaseReferenceProjection;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface PqrsRepository extends MongoRepository<Pqrs, String>, PqrsQueryRepository {
-    List<CaseReference> findReferencesByOficinaResponder_Id(String oficinaId);
+    List<CaseReferenceProjection> findReferencesByOficinaResponder_Id(String oficinaId);
 
     List<Pqrs> findByEstadoAndFechaCreacionLessThanEqual(String state, LocalDate date, Pageable pageable);
 

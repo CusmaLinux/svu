@@ -1,7 +1,7 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Oficina;
-import co.edu.itp.svu.service.dto.OfficeOption;
+import co.edu.itp.svu.repository.projection.OfficeOptionProjection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,9 +15,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface OficinaRepository extends MongoRepository<Oficina, String>, OfficeQueryRepository {
     @Query(value = "{}", fields = "{ '_id': 1, 'nombre': 1 }")
-    Page<OfficeOption> findOptions(Pageable pageable);
+    Page<OfficeOptionProjection> findOptions(Pageable pageable);
 
-    Optional<OfficeOption> findOptionById(String id);
+    Optional<OfficeOptionProjection> findOptionById(String id);
 
     Optional<Oficina> findByResponsable_Id(String userId);
 
