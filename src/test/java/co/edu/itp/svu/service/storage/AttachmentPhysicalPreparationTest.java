@@ -270,4 +270,34 @@ class AttachmentPhysicalPreparationTest {
         fails(Failure.CLAIM_LOST, () -> storage().prepare(context, Map.of(file.logicalId(), source(DATA))));
         assertThat(Files.readAllBytes(root.resolve(file.storageKey()))).containsExactly(DATA);
     }
+
+    @Test
+    void rejectsAProviderThatLeavesTheWriterOpenOnClose() throws Exception {
+        var channels = new ArrayList<SeekableByteChannel>();
+        var io = new AttachmentStorage.DurableIo() {
+            @Override
+            SeekableByteChannel open(SecureDirectoryStream<Path> directory, Path key, boolean parent) throws IOException {
+                var channel = super.open(directory, key, parent);
+                channels.add(channel);
+                return channel;
+            }
+
+            @Override
+            void close(SeekableByteChannel channel) throws IOException {
+                if (channel == channels.get(0)) super.close(channel);
+            }
+        };
+        try {
+            var storage = new AttachmentStorage(root, UUID::randomUUID, 10, 10, io);
+            var file = reserved(DATA);
+            var context = context(file);
+            fails(Failure.CLOSE_FAILED, () -> storage.prepare(context, Map.of(file.logicalId(), source(DATA))));
+            assertThat(channels.get(1).isOpen()).isTrue();
+            assertThat(channels.get(0).isOpen()).isFalse();
+            assertThat(Files.readAllBytes(root.resolve(file.storageKey()))).containsExactly(DATA);
+            fails(Failure.CONTEXT_CONSUMED, () -> storage.prepare(context, Map.of()));
+        } finally {
+            for (var channel : channels) channel.close();
+        }
+    }
 }

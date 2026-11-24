@@ -1,5 +1,6 @@
 package co.edu.itp.svu.repository;
 
+import static co.edu.itp.svu.repository.AttachmentOperationRepository.PhysicalSelection.*;
 import static org.assertj.core.api.Assertions.*;
 
 import co.edu.itp.svu.config.ApplicationProperties;
@@ -968,5 +969,275 @@ class AttachmentOperationStandaloneIT {
         );
         assertThatThrownBy(() -> repository.reserve(v2)).isInstanceOf(IdempotencyConflict.class);
         assertThat(manifests().countDocuments()).isOne();
+    }
+
+    private record Prepared(AttachmentStorage.PreparedGeneration evidence, AttachmentWriterCapability writer) {}
+
+    private Prepared prepareForSelection(AttachmentStorage storage, String key, byte[]... content) throws Exception {
+        var acquired = acquire(repository.reserve(logicalBatch(key, content)));
+        return prepareForSelection(storage, acquired, content);
+    }
+
+    private Prepared prepareForSelection(AttachmentStorage storage, AttachmentOperation acquired, byte[]... content) throws Exception {
+        var writer = writer(acquired);
+        var reserved = repository.reservePhysicalGeneration(lease(acquired), writer).orElseThrow();
+        var context = repository.authorizePhysicalWrite(lease(reserved), writer).orElseThrow();
+        var sources = new HashMap<String, ByteArrayInputStream>();
+        for (int i = 0; i < content.length; i++) sources.put(context.files().get(i).logicalId(), new ByteArrayInputStream(content[i]));
+        return new Prepared(storage.prepare(context, sources), writer);
+    }
+
+    @Test
+    void selectsSingleMultipleAndEmptyPhysicalBatchesWithExactBsonTypes(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        for (byte[][] bytes : List.of(new byte[][] { PHYSICAL_BYTES }, new byte[][] { PHYSICAL_BYTES, {}, { 1 } }, new byte[][] {})) {
+            var prepared = prepareForSelection(storage, "selection-" + bytes.length, bytes);
+            var claim = prepared.evidence().lease();
+            int writes = writeConcerns.size();
+            assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(SELECTED);
+            assertThat(writeConcerns.subList(writes, writeConcerns.size()))
+                .singleElement()
+                .satisfies(concern -> {
+                    assertThat(concern.getNumber("w").intValue()).isOne();
+                    assertThat(concern.getBoolean("j").getValue()).isTrue();
+                    assertThat(concern.getNumber("wtimeout").longValue()).isEqualTo(10_000L);
+                });
+            var selected = repository.findById(claim.version().id()).orElseThrow();
+            var raw = raw(selected);
+            var batch = raw.getList("physical_generations", Document.class).get(0);
+            assertThat(raw.get("selected_physical_generation")).isEqualTo(1L);
+            assertThat(raw.get("revision")).isEqualTo(claim.version().revision() + 1);
+            assertThat(raw.get("state")).isEqualTo("FILES_READY");
+            assertThat(batch.get("state")).isEqualTo("VERIFIED");
+            var entries = batch.getList("entries", Document.class);
+            assertThat(entries).hasSize(bytes.length);
+            for (int i = 0; i < bytes.length; i++) {
+                var actual = prepared.evidence().files().get(i);
+                var entry = entries.get(i);
+                assertThat(entry.get("observed_size_bytes")).isEqualTo(actual.size());
+                assertThat(entry.get("observed_sha256")).isEqualTo(actual.sha256());
+                assertThat(entry.get("verified_at")).isInstanceOf(Date.class).isEqualTo(raw.get("updated_at"));
+                assertThat(entry.get("logical_id")).isEqualTo(actual.logicalId());
+                assertThat(entry.get("storage_key")).isEqualTo(actual.storageKey());
+                assertThat(Files.readAllBytes(root.resolve(actual.storageKey()))).containsExactly(bytes[i]);
+            }
+            assertThat(repository.beginPersistence(lease(selected))).isEmpty();
+            assertThatThrownBy(() -> repository.reservePhysicalGeneration(lease(selected), prepared.writer())).isInstanceOf(
+                IllegalArgumentException.class
+            );
+        }
+    }
+
+    @Test
+    void rejectsOtherStorageOtherOperationRawEvidenceAndWrongCapability(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root.resolve("configured"));
+        var foreign = physicalStorage(Files.createDirectory(root.resolve("foreign")));
+        Files.createDirectory(root.resolve("configured"));
+        var foreignPrepared = prepareForSelection(foreign, "foreign-volume", PHYSICAL_BYTES);
+        var selector = new AttachmentOperationRepository(template, storage);
+        assertThat(selector.selectPhysicalGeneration(foreignPrepared.evidence(), foreignPrepared.writer())).isEqualTo(CONFLICT);
+
+        var prepared = prepareForSelection(storage, "own-volume", PHYSICAL_BYTES);
+        var claim = prepared.evidence().lease();
+        var unauthorized = new AttachmentWriterCapability(UUID.fromString(claim.version().id()), claim.fencing());
+        assertThat(selector.selectPhysicalGeneration(prepared.evidence(), unauthorized)).isEqualTo(CONFLICT);
+        assertThat(selector.selectPhysicalGeneration(prepared.evidence(), foreignPrepared.writer())).isEqualTo(CONFLICT);
+        assertThat(selector.selectPhysicalGeneration(new PhysicalPreparationVerifier.Evidence() {}, prepared.writer())).isEqualTo(CONFLICT);
+        var reservedOnly = acquire(repository.reserve(logicalBatch("confirmed-only", PHYSICAL_BYTES)));
+        var reservedWriter = writer(reservedOnly);
+        var reserved = repository.reservePhysicalGeneration(lease(reservedOnly), reservedWriter).orElseThrow();
+        assertThat(repository.confirmPhysicalReservation(lease(reserved), reservedWriter)).isPresent();
+        assertThat(selector.selectPhysicalGeneration(null, reservedWriter)).isEqualTo(CONFLICT);
+
+        String proof = repository.findPhysicalGeneration(claim.version().id(), claim.fencing()).orElseThrow().writerProofHash();
+        var field = AttachmentWriterCapability.class.getDeclaredField("secret");
+        field.setAccessible(true);
+        System.arraycopy(HexFormat.of().parseHex(proof), 0, field.get(unauthorized), 0, 32);
+        assertThat(selector.selectPhysicalGeneration(prepared.evidence(), unauthorized)).isEqualTo(CONFLICT);
+        assertStillPreparing(claim.version().id());
+        assertStillPreparing(foreignPrepared.evidence().lease().version().id());
+    }
+
+    @Test
+    void rejectsRenewedReleasedExpiredReassignedAndWrongOwnerClaims(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        for (String change : List.of("renew", "confirm", "release", "expire", "reassign", "wrong-owner")) {
+            var prepared = prepareForSelection(storage, change, PHYSICAL_BYTES);
+            var claim = prepared.evidence().lease();
+            String id = claim.version().id();
+            switch (change) {
+                case "renew" -> assertThat(repository.renew(claim, Duration.ofMinutes(2))).isPresent();
+                case "confirm" -> assertThat(repository.confirmPhysicalReservation(claim, prepared.writer())).isPresent();
+                case "release" -> assertThat(repository.release(claim)).isPresent();
+                case "expire" -> expire(id);
+                case "reassign" -> {
+                    expire(id);
+                    assertThat(acquire(repository.findById(id).orElseThrow()).getClaim().getFencingToken()).isEqualTo(claim.fencing() + 1);
+                }
+                case "wrong-owner" -> manifests()
+                    .updateOne(new Document("_id", id), new Document("$set", new Document("claim.owner_id", UUID.randomUUID().toString())));
+                default -> throw new AssertionError(change);
+            }
+            assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(CLAIM_LOST);
+            assertStillPreparing(id);
+            assertThat(Files.readAllBytes(root.resolve(prepared.evidence().files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+        }
+    }
+
+    @Test
+    void preservesEarlierAttemptsAndRecoversLostAcknowledgmentWithoutReplacingSelection(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        var acquired = acquire(repository.reserve(logicalBatch("race-selection", PHYSICAL_BYTES)));
+        var abandoned = repository.reservePhysicalGeneration(lease(acquired), writer(acquired)).orElseThrow();
+        var previous = raw(abandoned).getList("physical_generations", Document.class).get(0);
+        expire(acquired.getId());
+        var next = acquire(repository.findById(acquired.getId()).orElseThrow());
+        var prepared = prepareForSelection(storage, next, PHYSICAL_BYTES);
+        var other = new AttachmentOperationRepository(template, storage);
+        var results = race(
+            () -> selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer()),
+            () -> other.selectPhysicalGeneration(prepared.evidence(), prepared.writer())
+        );
+        assertThat(results).containsExactlyInAnyOrder(SELECTED, ALREADY_SELECTED);
+        var selected = repository.findById(acquired.getId()).orElseThrow();
+        var originalHistory = raw(selected).getList("physical_generations", Document.class);
+        assertThat(originalHistory.get(0)).isEqualTo(previous);
+
+        // Discard the acknowledged return values. Re-identification performs a new journaled revision CAS.
+        int writes = writeConcerns.size();
+        assertThat(other.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(ALREADY_SELECTED);
+        assertThat(writeConcerns.subList(writes, writeConcerns.size()))
+            .singleElement()
+            .satisfies(concern -> assertThat(concern.getBoolean("j").getValue()).isTrue());
+        var confirmed = repository.findById(acquired.getId()).orElseThrow();
+        assertThat(confirmed.getRevision()).isEqualTo(selected.getRevision() + 1);
+        expire(acquired.getId());
+        var taken = acquire(confirmed);
+        assertThat(taken.getClaim().getFencingToken()).isEqualTo(next.getClaim().getFencingToken() + 1);
+        assertThat(taken.getSelectedPhysicalGeneration()).isEqualTo(next.getClaim().getFencingToken());
+        assertThat(raw(taken).getList("physical_generations", Document.class)).isEqualTo(originalHistory);
+        assertThat(other.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(UNCERTAIN);
+        assertThat(repository.beginPersistence(lease(taken))).isEmpty();
+        assertThat(Files.readAllBytes(root.resolve(prepared.evidence().files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+    }
+
+    @Test
+    void rejectsMismatchedPersistedEvidenceWithNoPartialUpdates(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        var changedFields = Map.of(
+            "missing-entries",
+            new Document("physical_generations.0.entries", List.of()),
+            "wrong-logical",
+            new Document("physical_generations.0.entries.0.logical_id", UUID.randomUUID().toString()),
+            "wrong-key",
+            new Document("physical_generations.0.entries.0.storage_key", UUID.randomUUID().toString()),
+            "wrong-size",
+            new Document("files.0.expected_size_bytes", 2L),
+            "wrong-digest",
+            new Document("files.0.expected_sha256", "0".repeat(64))
+        );
+        for (var change : changedFields.entrySet()) {
+            var prepared = prepareForSelection(storage, change.getKey(), PHYSICAL_BYTES, new byte[] { 1 });
+            String id = prepared.evidence().lease().version().id();
+            var filter = new Document("_id", id);
+            manifests().updateOne(filter, new Document("$set", change.getValue()));
+            Document before = manifests().find(filter).first();
+            assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(CONFLICT);
+            assertThat(manifests().find(filter).first()).isEqualTo(before);
+        }
+
+        for (boolean duplicate : List.of(false, true)) {
+            var prepared = prepareForSelection(storage, "order-" + duplicate, PHYSICAL_BYTES, new byte[] { 1 });
+            var filter = new Document("_id", prepared.evidence().lease().version().id());
+            var entries = manifests()
+                .find(filter)
+                .first()
+                .getList("physical_generations", Document.class)
+                .get(0)
+                .getList("entries", Document.class);
+            var wrong = List.of(entries.get(1), entries.get(duplicate ? 1 : 0));
+            manifests().updateOne(filter, new Document("$set", new Document("physical_generations.0.entries", wrong)));
+            var before = manifests().find(filter).first();
+            assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(CONFLICT);
+            assertThat(manifests().find(filter).first()).isEqualTo(before);
+        }
+
+        for (int version : List.of(1, 3)) {
+            var prepared = prepareForSelection(storage, "format-" + version, PHYSICAL_BYTES);
+            var filter = new Document("_id", prepared.evidence().lease().version().id());
+            manifests().updateOne(filter, new Document("$set", new Document("format_version", version)));
+            assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(CONFLICT);
+            assertThat(manifests().find(filter).first()).doesNotContainKey("selected_physical_generation");
+        }
+    }
+
+    @Test
+    void checksExactBsonBudgetWithoutDiscardingPreparedFiles(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        var probe = prepareForSelection(storage, "budget-probe", PHYSICAL_BYTES);
+        assertThat(selector.selectPhysicalGeneration(probe.evidence(), probe.writer())).isEqualTo(SELECTED);
+        var probeRaw = manifests().find(new Document("_id", probe.evidence().lease().version().id())).first();
+        int paddedLength =
+            AttachmentOperationRepository.MAX_MANIFEST_BYTES - repository.bsonSize(new Document(probeRaw).append("synthetic_padding", ""));
+        for (int extra : List.of(0, 1)) {
+            var tested = prepareForSelection(storage, "budget-" + extra, PHYSICAL_BYTES);
+            var filter = new Document("_id", tested.evidence().lease().version().id());
+            // Deliberately perturb the manifest after preparation to exercise the selector's independent budget check.
+            manifests().updateOne(filter, new Document("$set", new Document("synthetic_padding", "x".repeat(paddedLength + extra))));
+            var before = manifests().find(filter).first();
+            assertThat(selector.selectPhysicalGeneration(tested.evidence(), tested.writer())).isEqualTo(
+                extra == 0 ? SELECTED : RECONCILIATION_REQUIRED
+            );
+            var after = manifests().find(filter).first();
+            if (extra == 0) assertThat(repository.bsonSize(after)).isEqualTo(1_048_576);
+            else assertThat(after).isEqualTo(before);
+            assertThat(Files.readAllBytes(root.resolve(tested.evidence().files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+        }
+    }
+
+    @Test
+    void selectionLoggingRedactsEvidenceAndWriterAndDoesNotDiscloseTheSecret(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        var prepared = prepareForSelection(storage, "selection-logs", PHYSICAL_BYTES);
+        var factory = new org.springframework.aop.aspectj.annotation.AspectJProxyFactory(selector);
+        var env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("dev");
+        factory.addAspect(new co.edu.itp.svu.aop.logging.LoggingAspect(env));
+        AttachmentOperationRepository proxy = factory.getProxy();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(AttachmentOperationRepository.class);
+        var oldLevel = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            var field = AttachmentWriterCapability.class.getDeclaredField("secret");
+            field.setAccessible(true);
+            var secret = (byte[]) field.get(prepared.writer());
+            var claim = prepared.evidence().lease();
+            var foreignWriter = new AttachmentWriterCapability(UUID.fromString(claim.version().id()), claim.fencing());
+            assertThat(proxy.selectPhysicalGeneration(prepared.evidence(), foreignWriter)).isEqualTo(CONFLICT);
+            assertThat(proxy.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(SELECTED);
+            assertThat(appender.list.stream().map(event -> event.getFormattedMessage()).toList())
+                .anySatisfy(message -> assertThat(message).contains("PreparedGeneration[redacted]", "AttachmentWriterCapability[redacted]"))
+                .allSatisfy(message ->
+                    assertThat(message).doesNotContain(
+                        HexFormat.of().formatHex(secret),
+                        Base64.getEncoder().encodeToString(secret),
+                        Arrays.toString(secret),
+                        prepared.evidence().files().get(0).storageKey()
+                    )
+                );
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(oldLevel);
+            appender.stop();
+        }
     }
 }

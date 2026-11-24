@@ -4,6 +4,7 @@ import co.edu.itp.svu.config.ApplicationProperties;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Lease;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.PhysicalWriteContext;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.ReservedFile;
+import co.edu.itp.svu.repository.PhysicalPreparationVerifier;
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -41,7 +43,7 @@ import org.springframework.util.unit.DataSize;
 
 /** Physical storage only. Callers must authorize the document before opening or removing it. */
 @Component
-public class AttachmentStorage {
+public class AttachmentStorage implements PhysicalPreparationVerifier {
 
     public enum Failure {
         INVALID_KEY,
@@ -136,18 +138,24 @@ public class AttachmentStorage {
 
     /** Construction is restricted to a successful preparation in this storage component. */
     @JsonIgnoreType
-    public static final class PreparedGeneration {
+    public static final class PreparedGeneration implements Evidence {
 
-        private final Lease lease;
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        private final AttachmentStorage storage;
+
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        private final PhysicalWriteContext context;
+
         private final List<PreparedFile> files;
 
-        private PreparedGeneration(Lease lease, List<PreparedFile> files) {
-            this.lease = lease;
+        private PreparedGeneration(AttachmentStorage storage, PhysicalWriteContext context, List<PreparedFile> files) {
+            this.storage = storage;
+            this.context = context;
             this.files = List.copyOf(files);
         }
 
         public Lease lease() {
-            return lease;
+            return context.lease();
         }
 
         public List<PreparedFile> files() {
@@ -163,7 +171,21 @@ public class AttachmentStorage {
     /** Streams are borrowed from the caller. All destination channels are owned here. */
     public PreparedGeneration prepare(PhysicalWriteContext context, Map<String, ? extends InputStream> sources) throws StorageException {
         if (!context.start()) throw new StorageException(Failure.CONTEXT_CONSUMED);
-        return new PreparedGeneration(context.lease(), prepareReserved(context.files(), sources, context::current));
+        return new PreparedGeneration(this, context, prepareReserved(context.files(), sources, context::current));
+    }
+
+    @Override
+    public final Optional<VerifiedPreparation> verifyPreparation(Evidence evidence) {
+        if (!(evidence instanceof PreparedGeneration prepared) || prepared.storage != this) return Optional.empty();
+        return Optional.of(
+            new VerifiedPreparation(
+                prepared.context,
+                prepared.files
+                    .stream()
+                    .map(file -> new Observation(file.logicalId(), file.storageKey(), file.size(), file.sha256()))
+                    .toList()
+            )
+        );
     }
 
     // Separated from proof issuance so the storage boundary can be tested with real or failing channels.
@@ -341,6 +363,7 @@ public class AttachmentStorage {
     private void closeDurableChannel(SeekableByteChannel channel) throws StorageException {
         try {
             durableIo.close(channel);
+            if (channel.isOpen()) throw new StorageException(Failure.CLOSE_FAILED);
         } catch (IOException | RuntimeException ex) {
             throw new StorageException(Failure.CLOSE_FAILED);
         }

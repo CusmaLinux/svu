@@ -8,6 +8,8 @@ import co.edu.itp.svu.domain.attachment.AttachmentOperation.LogicalFile;
 import co.edu.itp.svu.domain.attachment.AttachmentOperation.PhysicalGeneration;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationState;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
+import co.edu.itp.svu.repository.PhysicalPreparationVerifier.Evidence;
+import co.edu.itp.svu.repository.PhysicalPreparationVerifier.VerifiedPreparation;
 import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ReadPreference;
@@ -29,6 +31,7 @@ import org.bson.codecs.EncoderContext;
 import org.bson.conversions.Bson;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -58,9 +61,16 @@ public class AttachmentOperationRepository {
     private static final WriteConcern JOURNALED = WriteConcern.W1.withJournal(true).withWTimeout(10, TimeUnit.SECONDS);
 
     private final MongoTemplate mongo;
+    private final PhysicalPreparationVerifier preparationVerifier;
 
     public AttachmentOperationRepository(MongoTemplate mongo) {
+        this(mongo, evidence -> Optional.empty());
+    }
+
+    @Autowired
+    AttachmentOperationRepository(MongoTemplate mongo, PhysicalPreparationVerifier preparationVerifier) {
         this.mongo = mongo;
+        this.preparationVerifier = preparationVerifier;
     }
 
     /** Explicit and idempotent. Call only from an authorized migration or isolated test. */
@@ -617,6 +627,7 @@ public class AttachmentOperationRepository {
             return Optional.of(
                 new PhysicalWriteContext(
                     currentLease,
+                    writer,
                     files,
                     () -> collection().find(filter).projection(new Document("_id", 1)).first() != null
                 )
@@ -630,12 +641,17 @@ public class AttachmentOperationRepository {
     public static final class PhysicalWriteContext {
 
         private final Lease lease;
+
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        private final AttachmentWriterCapability writer;
+
         private final List<ReservedFile> files;
         private final BooleanSupplier current;
         private final AtomicBoolean started = new AtomicBoolean();
 
-        private PhysicalWriteContext(Lease lease, List<ReservedFile> files, BooleanSupplier current) {
+        private PhysicalWriteContext(Lease lease, AttachmentWriterCapability writer, List<ReservedFile> files, BooleanSupplier current) {
             this.lease = lease;
+            this.writer = writer;
             this.files = List.copyOf(files);
             this.current = current;
         }
@@ -664,6 +680,210 @@ public class AttachmentOperationRepository {
         public String toString() {
             return "PhysicalWriteContext[redacted]";
         }
+    }
+
+    public enum PhysicalSelection {
+        SELECTED,
+        ALREADY_SELECTED,
+        CONFLICT,
+        CLAIM_LOST,
+        UNCERTAIN,
+        RECONCILIATION_REQUIRED,
+    }
+
+    public PhysicalSelection selectPhysicalGeneration(Evidence evidence, AttachmentWriterCapability writer) {
+        var verified = preparationVerifier.verifyPreparation(evidence);
+        if (verified.isEmpty()) return PhysicalSelection.CONFLICT;
+        var prepared = verified.orElseThrow();
+        var context = prepared.context();
+        if (context.writer != writer || !context.started.get()) return PhysicalSelection.CONFLICT;
+
+        var lease = context.lease();
+        try {
+            Document current = collection().find(eq("_id", lease.version().id())).first();
+            if (current == null) return PhysicalSelection.CLAIM_LOST;
+            if (!Integer.valueOf(2).equals(current.get(FORMAT))) return PhysicalSelection.CONFLICT;
+            if (RECONCILIATION_REQUIRED.name().equals(current.get("state"))) return PhysicalSelection.RECONCILIATION_REQUIRED;
+            if (current.containsKey(SELECTED)) return confirmPriorSelection(current, prepared, writer);
+            return selectReservedBatch(current, prepared, writer);
+        } catch (MongoException ex) {
+            return PhysicalSelection.UNCERTAIN;
+        } catch (ClassCastException | NullPointerException ex) {
+            // A damaged persisted shape is never passed to an update and is left available for review.
+            return PhysicalSelection.RECONCILIATION_REQUIRED;
+        }
+    }
+
+    private PhysicalSelection selectReservedBatch(Document current, VerifiedPreparation prepared, AttachmentWriterCapability writer) {
+        Lease lease = prepared.context().lease();
+        if (!PREPARING.name().equals(current.get("state")) || !Objects.equals(current.get("revision"), lease.version().revision())) {
+            return PhysicalSelection.CLAIM_LOST;
+        }
+        var batch = matchingBatch(current, prepared, writer, "RESERVED");
+        if (batch.isEmpty()) return PhysicalSelection.CONFLICT;
+
+        Document reserved = batch.orElseThrow();
+        List<Document> observations = prepared
+            .observations()
+            .stream()
+            .map(file ->
+                new Document("logical_id", file.logicalId())
+                    .append("storage_key", file.storageKey())
+                    .append("observed_size_bytes", file.size())
+                    .append("observed_sha256", file.sha256())
+            )
+            .toList();
+        Document selected = new Document(reserved)
+            .append("state", "VERIFIED")
+            .append("entries", observations.stream().map(file -> new Document(file).append("verified_at", new Date(0))).toList());
+        List<Document> projected = current
+            .getList(GENERATIONS, Document.class)
+            .stream()
+            .map(generation -> generation.equals(reserved) ? selected : generation)
+            .toList();
+        Document next = new Document(current)
+            .append(GENERATIONS, projected)
+            .append(SELECTED, lease.fencing())
+            .append("state", FILES_READY.name());
+        int completedBytes = bsonSize(next);
+        if (completedBytes > MAX_MANIFEST_BYTES) return PhysicalSelection.RECONCILIATION_REQUIRED;
+
+        Document verifiedEntries = new Document(
+            "$map",
+            new Document("input", new Document("$literal", observations))
+                .append("as", "entry")
+                .append("in", new Document("$mergeObjects", List.of("$$entry", new Document("verified_at", "$$NOW"))))
+        );
+        Document updatedBatch = new Document(
+            "$mergeObjects",
+            List.of("$$batch", new Document("state", "VERIFIED").append("entries", verifiedEntries))
+        );
+        Document replace = new Document(
+            "$map",
+            new Document("input", "$" + GENERATIONS)
+                .append("as", "batch")
+                .append(
+                    "in",
+                    new Document(
+                        "$cond",
+                        List.of(new Document("$eq", List.of("$$batch.generation", lease.fencing())), updatedBatch, "$$batch")
+                    )
+                )
+        );
+        Bson guard = and(physicalLease(lease), sameSelectionInputs(current), sizeGuard(current, completedBytes));
+        Document changes = new Document(GENERATIONS, replace).append(SELECTED, lease.fencing()).append("state", FILES_READY.name());
+        if (change(guard, changes).isPresent()) return PhysicalSelection.SELECTED;
+
+        Document observed = collection().find(eq("_id", lease.version().id())).first();
+        if (observed != null && observed.containsKey(SELECTED)) return confirmPriorSelection(observed, prepared, writer);
+        return PhysicalSelection.CLAIM_LOST;
+    }
+
+    private PhysicalSelection confirmPriorSelection(Document current, VerifiedPreparation prepared, AttachmentWriterCapability writer) {
+        var original = prepared.context().lease();
+        if (
+            !Integer.valueOf(2).equals(current.get(FORMAT)) ||
+            !FILES_READY.name().equals(current.get("state")) ||
+            !Objects.equals(current.get(SELECTED), original.fencing()) ||
+            matchingBatch(current, prepared, writer, "VERIFIED").isEmpty()
+        ) {
+            return PhysicalSelection.CONFLICT;
+        }
+        // The primary read identifies the result. A real revision CAS provides the journal barrier for a lost acknowledgment.
+        long revision = current.getLong("revision");
+        if (revision <= original.version().revision() || revision >= Long.MAX_VALUE - 1) return PhysicalSelection.UNCERTAIN;
+        var lease = new Lease(new Version(original.version().id(), FILES_READY, revision, 2), original.owner(), original.fencing());
+        Bson guard = and(
+            lease.filter(),
+            eq(SELECTED, original.fencing()),
+            sameSelectionInputs(current),
+            sizeGuard(current, bsonSize(current))
+        );
+        return change(guard, new Document()).isPresent() ? PhysicalSelection.ALREADY_SELECTED : PhysicalSelection.UNCERTAIN;
+    }
+
+    private static Bson sameSelectionInputs(Document current) {
+        return and(eq("files", current.get("files")), eq(GENERATIONS, current.get(GENERATIONS)));
+    }
+
+    private static Optional<Document> matchingBatch(
+        Document current,
+        VerifiedPreparation prepared,
+        AttachmentWriterCapability writer,
+        String state
+    ) {
+        var context = prepared.context();
+        var lease = context.lease();
+        String proof = writer.proof(lease.version().id(), lease.fencing());
+        var batches = current
+            .getList(GENERATIONS, Document.class)
+            .stream()
+            .filter(batch -> Objects.equals(batch.get("generation"), lease.fencing()))
+            .toList();
+        if (batches.size() != 1) return Optional.empty();
+        var batch = batches.get(0);
+        if (
+            !state.equals(batch.get("state")) ||
+            !proof.equals(batch.get("writer_proof_hash")) ||
+            !(batch.get("reserved_at") instanceof Date)
+        ) {
+            return Optional.empty();
+        }
+        var files = current.getList("files", Document.class);
+        var entries = batch.getList("entries", Document.class);
+        var observed = prepared.observations();
+        if (
+            files.size() != entries.size() || files.size() != observed.size() || files.size() != context.files().size()
+        ) return Optional.empty();
+
+        Set<String> identities = new HashSet<>();
+        Set<String> keys = new HashSet<>();
+        for (int i = 0; i < files.size(); i++) {
+            var file = files.get(i);
+            var entry = entries.get(i);
+            var actual = observed.get(i);
+            if (
+                !matchesFile(file, entry, context.files().get(i), actual) ||
+                !identities.add(actual.logicalId()) ||
+                !keys.add(actual.storageKey()) ||
+                !matchesObservation(entry, actual, state)
+            ) return Optional.empty();
+        }
+        return Optional.of(batch);
+    }
+
+    private static boolean matchesFile(
+        Document file,
+        Document entry,
+        ReservedFile reserved,
+        PhysicalPreparationVerifier.Observation actual
+    ) {
+        return (
+            canonicalUuid(actual.logicalId()) &&
+            canonicalUuid(actual.storageKey()) &&
+            digest(actual.sha256()) &&
+            actual.size() >= 0 &&
+            reserved.logicalId().equals(actual.logicalId()) &&
+            reserved.storageKey().equals(actual.storageKey()) &&
+            reserved.expectedSize() == actual.size() &&
+            reserved.expectedSha256().equals(actual.sha256()) &&
+            actual.logicalId().equals(file.get("logical_id")) &&
+            actual.logicalId().equals(entry.get("logical_id")) &&
+            actual.storageKey().equals(entry.get("storage_key")) &&
+            Objects.equals(file.get("expected_size_bytes"), actual.size()) &&
+            actual.sha256().equals(file.get("expected_sha256"))
+        );
+    }
+
+    private static boolean matchesObservation(Document entry, PhysicalPreparationVerifier.Observation actual, String state) {
+        if ("RESERVED".equals(state)) {
+            return !entry.containsKey("verified_at") && !entry.containsKey("observed_size_bytes") && !entry.containsKey("observed_sha256");
+        }
+        return (
+            entry.get("verified_at") instanceof Date &&
+            Objects.equals(entry.get("observed_size_bytes"), actual.size()) &&
+            actual.sha256().equals(entry.get("observed_sha256"))
+        );
     }
 
     private static Bson physicalLease(Lease lease) {
