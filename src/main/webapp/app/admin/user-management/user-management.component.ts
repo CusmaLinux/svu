@@ -59,7 +59,7 @@ export default defineComponent({
         totalItems.value = Number(res.headers['x-total-count']);
         queryCount.value = totalItems.value;
       } catch (err) {
-        logger.error(err);
+        logger.error('Directory request failed');
       } finally {
         isLoading.value = false;
       }

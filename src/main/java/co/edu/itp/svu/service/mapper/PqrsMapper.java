@@ -1,8 +1,10 @@
 package co.edu.itp.svu.service.mapper;
 
 import co.edu.itp.svu.domain.ArchivoAdjunto;
+import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
+import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -10,6 +12,9 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring", uses = { SatisfactionSurveyMapper.class })
 public interface PqrsMapper extends EntityMapper<PqrsDTO, Pqrs> {
+    @Mapping(target = "pqrsList", ignore = true)
+    OficinaDTO toOfficeDto(Oficina office);
+
     @Mapping(target = "archivosAdjuntosDTO", source = "archivosAdjuntos")
     PqrsDTO toDto(Pqrs pqrs);
 

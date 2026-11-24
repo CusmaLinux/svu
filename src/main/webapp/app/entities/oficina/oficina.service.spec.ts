@@ -123,6 +123,7 @@ describe('Service Tests', () => {
         const expected = { ...returnedFromService };
         axiosStub.get.resolves([returnedFromService]);
         return service.retrieve().then(res => {
+          expect(axiosStub.get.lastCall.args[0]).toBe('api/oficinas/catalogo?');
           expect(res).toContainEqual(expected);
         });
       });

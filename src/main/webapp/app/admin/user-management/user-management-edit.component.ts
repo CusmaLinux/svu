@@ -127,7 +127,7 @@ export default defineComponent({
           userAccount.value = userResponse.data;
         }
       } catch (error: any) {
-        console.error('Failed to load initial data:', error);
+        console.error('Failed to load directory data');
         alertService.showHttpError(error.response);
       }
     });

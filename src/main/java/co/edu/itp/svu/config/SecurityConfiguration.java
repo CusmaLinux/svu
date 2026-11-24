@@ -81,7 +81,10 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(mvc.pattern("/api/account/**")).authenticated()
                         .requestMatchers(mvc.pattern("/api/public/pqrs/**")).permitAll()
-                        .requestMatchers(mvc.pattern("/api/oficina/**"))
+                        .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/oficinas/catalogo"))
+                        .hasAnyAuthority(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FUNCTIONARY, AuthoritiesConstants.FRONT_DESK_CS, AuthoritiesConstants.PQRSD_REPORTS)
+                        .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/oficinas/oficinas/{id}")).authenticated()
+                        .requestMatchers(mvc.pattern("/api/oficinas/**"), mvc.pattern("/api/users"))
                         .hasAnyAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/archivo-adjuntos/**")).permitAll()
                         // Report downloads must not fall through to the generic authenticated /api/** rule.
@@ -95,9 +98,11 @@ public class SecurityConfiguration {
                                 AuthoritiesConstants.FUNCTIONARY,
                                 AuthoritiesConstants.FRONT_DESK_CS)
                         .requestMatchers(mvc.pattern("/api/pqrs/**")).authenticated()
-                        .requestMatchers(mvc.pattern(HttpMethod.DELETE, "/api/notifications"))
-                        .hasAuthority(AuthoritiesConstants.ADMIN)
-                        .requestMatchers(mvc.pattern("/api/notifications/**")).authenticated()
+                        .requestMatchers(mvc.pattern(HttpMethod.PUT, "/api/notification/{id}/mark-as-read"),
+                            mvc.pattern(HttpMethod.PUT, "/api/notification/mark-all-as-read")).authenticated()
+                        .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/notification/**"),
+                            mvc.pattern(HttpMethod.DELETE, "/api/notification/{id}")).authenticated()
+                        .requestMatchers(mvc.pattern("/api/notification/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/admin/**"))
                         .hasAuthority(AuthoritiesConstants.ADMIN)
                         .requestMatchers(mvc.pattern("/api/**")).authenticated()

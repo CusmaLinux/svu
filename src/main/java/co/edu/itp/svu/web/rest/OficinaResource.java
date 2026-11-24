@@ -2,6 +2,8 @@ package co.edu.itp.svu.web.rest;
 
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.service.OficinaService;
+import co.edu.itp.svu.service.dto.OfficeCases;
+import co.edu.itp.svu.service.dto.OfficeOption;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
@@ -68,7 +70,6 @@ public class OficinaResource {
      */
     @PostMapping("")
     public ResponseEntity<OficinaDTO> createOficina(@Valid @RequestBody OficinaDTO oficinaDTO) throws URISyntaxException {
-        LOG.debug("REST request to save Oficina : {}", oficinaDTO);
         if (oficinaDTO.getId() != null) {
             throw new BadRequestAlertException("A new oficina cannot already have an ID", ENTITY_NAME, "idexists");
         }
@@ -96,7 +97,6 @@ public class OficinaResource {
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody OficinaDTO oficinaDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to update Oficina : {}, {}", id, oficinaDTO);
         if (oficinaDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -135,7 +135,6 @@ public class OficinaResource {
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody OficinaDTO oficinaDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Oficina partially : {}, {}", id, oficinaDTO);
         if (oficinaDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -168,12 +167,22 @@ public class OficinaResource {
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
+    @GetMapping("/catalogo")
+    public ResponseEntity<List<OfficeOption>> catalog(@ParameterObject Pageable pageable) {
+        if (pageable.getSort().stream().anyMatch(order -> !List.of("nombre", "id").contains(order.getProperty()))) {
+            return ResponseEntity.badRequest().build();
+        }
+        Page<OfficeOption> page = oficinaService.catalog(pageable);
+        return ResponseEntity.ok()
+            .headers(PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page))
+            .body(page.getContent());
+    }
+
     @GetMapping("/search")
     public ResponseEntity<List<OficinaDTO>> searchOffices(
         @RequestParam(required = false, defaultValue = "") String query,
         @ParameterObject Pageable pageable
     ) {
-        LOG.debug("REST request to search for a page of Office with query: {}", query);
         Page<OficinaDTO> page = oficinaService.search(query, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
@@ -215,8 +224,11 @@ public class OficinaResource {
     }
 
     @PutMapping("/oficinas/{id}")
-    public ResponseEntity<OficinaDTO> updateOficinaUser(@Valid @RequestBody OficinaDTO oficinaDTO) {
-        if (!oficinaRepository.existsById(oficinaDTO.getId())) {
+    public ResponseEntity<OficinaDTO> updateOficinaUser(@PathVariable String id, @Valid @RequestBody OficinaDTO oficinaDTO) {
+        if (!Objects.equals(id, oficinaDTO.getId())) {
+            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
+        }
+        if (!oficinaRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
         oficinaDTO = oficinaService.updateOficina(oficinaDTO);
@@ -226,9 +238,9 @@ public class OficinaResource {
     }
 
     @GetMapping("/oficinas/{id}")
-    public ResponseEntity<OficinaDTO> getOficinaPqrsList(@PathVariable("id") String id) {
+    public ResponseEntity<OfficeCases> getOficinaPqrsList(@PathVariable("id") String id) {
         LOG.debug("REST request to get Oficina : {}", id);
-        Optional<OficinaDTO> oficinaDTO = oficinaService.getOficina(id);
+        Optional<OfficeCases> oficinaDTO = oficinaService.getOficina(id);
         return ResponseUtil.wrapOrNotFound(oficinaDTO);
     }
 }

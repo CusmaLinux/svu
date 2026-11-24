@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import { NotificationType } from '@/constants';
 import useDataUtils from '@/shared/data/data-utils.service';
 import { useI18n } from 'vue-i18n';
-import { useDateFormat } from '@/shared/composables';
+import NotificationService from '@/entities/notification/notification.service';
 
 export default defineComponent({
   name: 'NotificationBell',
@@ -13,8 +13,7 @@ export default defineComponent({
     const notificationStore = useNotificationStore();
     const router = useRouter();
     const dataUtils = useDataUtils();
-    const { t: t$ } = useI18n();
-    const dateFormat = useDateFormat();
+    const inbox = new NotificationService();
 
     const notificationsToDisplay = computed<NotificationItem[]>(() =>
       notificationStore.persistentNotifications
@@ -27,13 +26,17 @@ export default defineComponent({
 
     const isNotificationEntityGenerated = computed(() => router.hasRoute('Notifications'));
 
-    const handleNotificationClick = (notification: NotificationItem) => {
+    const handleNotificationClick = async (notification: NotificationItem) => {
       if (notification.id && !notification.read) {
         notificationStore.markAsRead(notification.id);
       }
 
-      if (notification.pqrsId) {
-        router.push({ name: 'PqrsView', params: { pqrsId: notification.pqrsId }, replace: true });
+      if (!notification.id) return;
+      try {
+        const caseId = await inbox.findCaseId(notification.id);
+        router.push({ name: 'PqrsView', params: { pqrsId: caseId }, replace: true });
+      } catch {
+        router.push({ name: 'NotificacionView', params: { notificacionId: notification.id } });
       }
     };
 
@@ -48,36 +51,8 @@ export default defineComponent({
     };
 
     const truncateMessage = (notification: NotificationItem, length: number): string => {
-      const messageLang = getTranslationByNotificationType(notification);
-
-      return messageLang.length > length ? messageLang.substring(0, length) + '...' : messageLang;
-    };
-
-    const getTranslationByNotificationType = (notification: NotificationItem) => {
-      switch (notification.type) {
-        case 'PQRS_DUE_DATE_REMINDER':
-          return t$('sse-notification.due-date-message', {
-            pqrsTitle: notification.pqrsTitle,
-            pqrsId: notification.pqrsId,
-            pqrsDueDate: dateFormat.formatDateLong(notification.pqrsResponseDueDate),
-          });
-        case 'PQRS_STATE_UPDATE':
-          return t$('sse-notification.state-update-message', {
-            pqrsTitle: notification.pqrsTitle,
-            pqrsId: notification.pqrsId,
-          });
-        case 'PQRS_CREATED':
-          return t$('sse-notification.created-message', {
-            pqrsTitle: notification.pqrsTitle,
-            pqrsId: notification.pqrsId,
-          });
-        case 'PQRS_ASSIGNED':
-          return t$('sse-notification.assigned-message', {
-            pqrsTitle: notification.pqrsTitle,
-            pqrsId: notification.pqrsId,
-          });
-      }
-      return t$('sse-notification.error');
+      const message = notification.message || '';
+      return message.length > length ? message.substring(0, length) + '...' : message;
     };
 
     return {

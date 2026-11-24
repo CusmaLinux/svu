@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia';
 import { type INotification } from '@/shared/model/notification.model';
 import NotificationService from '@/entities/notification/notification.service';
-import useDataUtils from '@/shared/data/data-utils.service';
+import { useAccountStore } from './account-store';
 import { logger } from '@/shared/logger';
 
-const dataUtils = useDataUtils();
 const notificationService = new NotificationService();
 
 export interface NotificationItem {
@@ -13,10 +12,6 @@ export interface NotificationItem {
   creationDate?: Date | string;
   message?: string | undefined;
   read?: boolean | null | undefined;
-  userLogin?: string;
-  pqrsId?: string | undefined | null;
-  pqrsTitle?: string | undefined | null;
-  pqrsResponseDueDate?: Date | undefined | null;
   isSse?: boolean;
 }
 
@@ -40,7 +35,7 @@ export const useNotificationStore = defineStore('notification', {
     allDisplayNotifications(state): NotificationItem[] {
       const combined = [
         ...state.persistentNotifications,
-        ...state.sseNotifications.filter(sse => !state.persistentNotifications.find(p => p.pqrsId === sse.pqrsId && !p.isSse)),
+        ...state.sseNotifications.filter(sse => !state.persistentNotifications.find(p => p.id === sse.id && !p.isSse)),
       ];
       return combined.sort((a, b) => new Date(b.creationDate || 0).getTime() - new Date(a.creationDate || 0).getTime());
     },
@@ -62,6 +57,7 @@ export const useNotificationStore = defineStore('notification', {
 
     async fetchUserNotifications() {
       if (this.isLoading) return;
+      const identity = useAccountStore().account;
       this.isLoading = true;
       this.error = null;
       try {
@@ -72,38 +68,44 @@ export const useNotificationStore = defineStore('notification', {
           read: false,
         };
         const response = await notificationService.retrieve(paginationQuery);
+        if (identity !== useAccountStore().account) return;
         this.totalUnread = Number(response.headers['x-total-count']);
         const notifications: INotification[] = response.data;
         const mappedNotifications: (NotificationItem | null)[] = notifications.map((n: INotification) => normalizeInput(n, false));
         this.persistentNotifications = mappedNotifications.filter((item): item is NotificationItem => item !== null);
       } catch (err: any) {
+        if (identity !== useAccountStore().account) return;
         this.error = err.message || 'Failed to fetch notifications';
-        logger.error('Error fetching notifications', err);
+        logger.error('Error fetching notifications');
       } finally {
-        this.isLoading = false;
+        if (identity === useAccountStore().account) this.isLoading = false;
       }
     },
 
     async markAsRead(notificationId: number | string) {
+      const identity = useAccountStore().account;
       const notification = this.persistentNotifications.find(n => n.id === notificationId);
       if (notification && !notification.read) {
         try {
           await notificationService.markAsRead(notification.id);
+          if (identity !== useAccountStore().account) return;
           notification.read = true;
           this.totalUnread -= 1;
         } catch (err) {
-          logger.error(`Error marking notification ${notificationId} as read:`, err);
+          logger.error(`Error marking notification ${notificationId} as read:`);
         }
       }
     },
 
     async markAllPersistentAsRead() {
+      const identity = useAccountStore().account;
       try {
         await notificationService.markAllAsRead();
+        if (identity !== useAccountStore().account) return;
         this.persistentNotifications.forEach(n => (n.read = true));
         this.totalUnread = 0;
       } catch (err) {
-        logger.error('Error marking all notifications as read:', err);
+        logger.error('Error marking all notifications as read:');
       }
     },
   },
@@ -114,12 +116,9 @@ const normalizeInput = (notification: any, isSse: boolean): NotificationItem => 
     const sseData = notification as NotificationItem;
     return {
       id: sseData.id,
-      pqrsId: sseData.pqrsId,
       type: sseData.type,
       message: sseData.message,
-      pqrsTitle: sseData.pqrsTitle,
       creationDate: sseData.creationDate,
-      pqrsResponseDueDate: sseData.pqrsResponseDueDate,
       read: sseData.read,
       isSse,
     };
@@ -127,13 +126,10 @@ const normalizeInput = (notification: any, isSse: boolean): NotificationItem => 
     const notifyData = notification as INotification;
     return {
       id: notifyData.id,
-      pqrsId: dataUtils.extractIdFromMessage(notifyData.mensaje),
       type: notifyData.tipo,
       message: notifyData.mensaje,
-      pqrsTitle: dataUtils.extractPqrsTitle(notifyData.mensaje),
       creationDate: notifyData.fecha,
       read: notifyData.leido,
-      pqrsResponseDueDate: dataUtils.extractLastParameterBeforeDot(notifyData.mensaje),
       isSse,
     };
   }

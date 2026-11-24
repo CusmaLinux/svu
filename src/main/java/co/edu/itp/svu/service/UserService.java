@@ -54,13 +54,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<AdminUserDTO> search(String criteria, Pageable pageable) {
-        LOG.debug("Request to search for a page of users for query {}", criteria);
+        LOG.debug("Searching the user directory");
 
         return userRepository.search(criteria, pageable).map(AdminUserDTO::new);
     }
 
     public Optional<User> activateRegistration(String key) {
-        LOG.debug("Activating user for activation key {}", key);
+        LOG.debug("Processing account activation");
         return userRepository
             .findOneByActivationKey(key)
             .map(user -> {
@@ -69,13 +69,13 @@ public class UserService {
                 user.setActivationKey(null);
                 userRepository.save(user);
                 this.clearUserCaches(user);
-                LOG.debug("Activated user: {}", user);
+                LOG.debug("Activated user");
                 return user;
             });
     }
 
     public Optional<User> completePasswordReset(String newPassword, String key) {
-        LOG.debug("Reset user password for reset key {}", key);
+        LOG.debug("Processing password reset");
         return userRepository
             .findOneByResetKey(key)
             .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
@@ -140,7 +140,7 @@ public class UserService {
         newUser.setAuthorities(authorities);
         userRepository.save(newUser);
         this.clearUserCaches(newUser);
-        LOG.debug("Created Information for User: {}", newUser);
+        LOG.debug("Created Information for User");
         return newUser;
     }
 
@@ -184,7 +184,7 @@ public class UserService {
         }
         userRepository.save(user);
         this.clearUserCaches(user);
-        LOG.debug("Created Information for User: {}", user);
+        LOG.debug("Created Information for User");
         return user;
     }
 
@@ -225,7 +225,7 @@ public class UserService {
                     .forEach(managedAuthorities::add);
                 userRepository.save(user);
                 this.clearUserCaches(user);
-                LOG.debug("Changed Information for User: {}", user);
+                LOG.debug("Changed Information for User");
                 return user;
             })
             .map(AdminUserDTO::new);
@@ -237,7 +237,7 @@ public class UserService {
             .ifPresent(user -> {
                 userRepository.delete(user);
                 this.clearUserCaches(user);
-                LOG.debug("Deleted User: {}", user);
+                LOG.debug("Deleted User");
             });
     }
 
@@ -264,7 +264,7 @@ public class UserService {
                 user.setImageUrl(imageUrl);
                 userRepository.save(user);
                 this.clearUserCaches(user);
-                LOG.debug("Changed Information for User: {}", user);
+                LOG.debug("Changed Information for User");
             });
     }
 
@@ -280,7 +280,7 @@ public class UserService {
                 user.setPassword(encryptedPassword);
                 userRepository.save(user);
                 this.clearUserCaches(user);
-                LOG.debug("Changed password for User: {}", user);
+                LOG.debug("Changed password for User");
             });
     }
 
@@ -310,7 +310,7 @@ public class UserService {
         userRepository
             .findAllByActivatedIsFalseAndActivationKeyIsNotNullAndCreatedDateBefore(Instant.now().minus(3, ChronoUnit.DAYS))
             .forEach(user -> {
-                LOG.debug("Deleting not activated user {}", user.getLogin());
+                LOG.debug("Deleting not activated user");
                 userRepository.delete(user);
                 this.clearUserCaches(user);
             });

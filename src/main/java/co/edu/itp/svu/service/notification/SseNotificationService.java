@@ -3,8 +3,6 @@ package co.edu.itp.svu.service.notification;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -14,52 +12,34 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class SseNotificationService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SseNotificationService.class);
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final Long EMITTER_TIMEOUT = 30 * 60 * 1000L;
 
-    public SseEmitter createEmitter(String userLogin) {
+    public SseEmitter createEmitter(String recipientId) {
         SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT);
-        this.emitters.put(userLogin, emitter);
-
-        emitter.onCompletion(() -> {
-            LOG.info("SseEmitter completed for user: {}", userLogin);
-            this.emitters.remove(userLogin);
-        });
-
-        emitter.onTimeout(() -> {
-            LOG.info("SseEmitter timed out for user: {}", userLogin);
-            emitter.complete();
-        });
-
-        emitter.onError(e -> {
-            LOG.error("SseEmitter error for user: {}: {}", userLogin, e.getMessage());
-            emitter.completeWithError(e);
-        });
-
+        emitter.onCompletion(() -> emitters.remove(recipientId, emitter));
+        emitter.onTimeout(emitter::complete);
+        emitter.onError(error -> emitters.remove(recipientId, emitter));
+        SseEmitter previous = emitters.put(recipientId, emitter);
+        if (previous != null) previous.complete();
         try {
-            emitter.send(SseEmitter.event().name("connected").data("SSE connection established for " + userLogin));
-        } catch (IOException e) {
-            LOG.error("Error sending initial connection event to {}: {}", userLogin, e.getMessage());
+            emitter.send(SseEmitter.event().name("connected").data("connected"));
+        } catch (IOException | IllegalStateException e) {
+            emitters.remove(recipientId, emitter);
             emitter.completeWithError(e);
         }
-
-        LOG.info("SseEmitter created for user: {}", userLogin);
         return emitter;
     }
 
-    public void sendNotificationToUser(String userLogin, String eventName, Object data) {
-        SseEmitter emitter = this.emitters.get(userLogin);
+    public void sendNotificationToUser(String recipientId, String eventName, Object data) {
+        SseEmitter emitter = this.emitters.get(recipientId);
         if (emitter != null) {
             try {
-                LOG.debug("Sending SSE event '{}' to user {}: {}", eventName, userLogin, data);
                 emitter.send(SseEmitter.event().name(eventName).data(data));
-            } catch (IOException e) {
-                LOG.error("Error sending SSE event to user {}: {}. Removing emitter.", userLogin, e.getMessage());
+            } catch (IOException | IllegalStateException e) {
+                emitters.remove(recipientId, emitter);
                 emitter.completeWithError(e);
             }
-        } else {
-            LOG.warn("No active SseEmitter found for user: {}", userLogin);
         }
     }
 }

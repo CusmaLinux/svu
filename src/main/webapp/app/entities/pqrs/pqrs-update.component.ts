@@ -250,7 +250,7 @@ export default defineComponent({
       const paginationQuery = {
         page: 0,
         size: 200,
-        sort: [`nombre,acs`, 'id'],
+        sort: [`nombre,asc`, 'id'],
       };
       oficinaService()
         .retrieve(paginationQuery)

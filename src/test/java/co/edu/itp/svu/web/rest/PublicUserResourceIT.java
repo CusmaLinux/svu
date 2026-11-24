@@ -52,7 +52,7 @@ class PublicUserResourceIT {
             .map(cacheName -> this.cacheManager.getCache(cacheName))
             .filter(Objects::nonNull)
             .forEach(Cache::clear);
-        userRepository.deleteAll();
+        userRepository.delete(user);
     }
 
     @Test
@@ -62,7 +62,7 @@ class PublicUserResourceIT {
 
         // Get all the users
         restUserMockMvc
-            .perform(get("/api/users").accept(MediaType.APPLICATION_JSON))
+            .perform(get("/api/users").param("size", Long.toString(userRepository.count())).accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[?(@.id == '%s')].login", user.getId()).value(user.getLogin()))

@@ -57,13 +57,19 @@ public class LoggingAspect {
         return LoggerFactory.getLogger(joinPoint.getSignature().getDeclaringTypeName());
     }
 
+    // Directory and inbox methods may receive or return personal data, even in the development profile.
+    @Pointcut(
+        "within(co.edu.itp.svu.service.notification..*) || within(co.edu.itp.svu..*Notificacion*) || within(co.edu.itp.svu..*Notification*) || within(co.edu.itp.svu..*Oficina*) || within(co.edu.itp.svu..*Office*) || within(co.edu.itp.svu..*User*)"
+    )
+    public void directoryOrNotificationPointcut() {}
+
     /**
      * Advice that logs methods throwing exceptions.
      *
      * @param joinPoint join point for advice.
      * @param e exception.
      */
-    @AfterThrowing(pointcut = "applicationPackagePointcut() && springBeanPointcut()", throwing = "e")
+    @AfterThrowing(pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut()", throwing = "e")
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
         if (env.acceptsProfiles(Profiles.of(JHipsterConstants.SPRING_PROFILE_DEVELOPMENT))) {
             logger(joinPoint).error(
@@ -89,7 +95,7 @@ public class LoggingAspect {
      * @return result.
      * @throws Throwable throws {@link IllegalArgumentException}.
      */
-    @Around("applicationPackagePointcut() && springBeanPointcut()")
+    @Around("applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         Logger log = logger(joinPoint);
         if (log.isDebugEnabled()) {

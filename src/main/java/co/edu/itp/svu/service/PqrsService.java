@@ -12,8 +12,8 @@ import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.SatisfactionSurveyRepository;
-import co.edu.itp.svu.repository.UserRepository;
 import co.edu.itp.svu.security.AuthoritiesConstants;
+import co.edu.itp.svu.security.PqrsAuthorizationService;
 import co.edu.itp.svu.security.SecurityUtils;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.dto.CreateSatisfactionSurveyDTO;
@@ -49,7 +49,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -73,7 +72,7 @@ public class PqrsService {
 
     private final RespuestaRepository responseRepository;
 
-    private final UserRepository userRepository;
+    private final PqrsAuthorizationService authorization;
 
     private final PqrsNotificationService pqrsNotificationService;
 
@@ -111,7 +110,7 @@ public class PqrsService {
         PublicResponseMapper publicResponseMapper,
         SequenceGeneratorService sequenceGenerator,
         MailService mailService,
-        UserRepository userRepository,
+        PqrsAuthorizationService authorization,
         DeadlineCalculationService deadlineCalculationService,
         GeminiService geminiService,
         FileExtractorService fileExtractorService,
@@ -130,7 +129,7 @@ public class PqrsService {
         this.publicResponseMapper = publicResponseMapper;
         this.sequenceGenerator = sequenceGenerator;
         this.mailService = mailService;
-        this.userRepository = userRepository;
+        this.authorization = authorization;
         this.deadlineCalculationService = deadlineCalculationService;
         this.geminiService = geminiService;
         this.fileExtractorService = fileExtractorService;
@@ -165,7 +164,7 @@ public class PqrsService {
 
     public String suggestOffice(String pqrsId) {
         Pqrs pqrs = pqrsRepository.findById(pqrsId).orElseThrow(() -> new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound"));
-        checkCaseReadAccess(pqrs);
+        authorization.checkCaseReadAccess(pqrs);
 
         List<Oficina> offices = oficinaRepository.findAll();
 
@@ -188,7 +187,7 @@ public class PqrsService {
             .findById(pqrsDTO.getId())
             .map(existingPqrs -> {
                 // Partial updates can modify sensitive fields; only privileged staff may use this endpoint.
-                requireAdministrativeCaseAccess();
+                authorization.requireAdministrativeCaseAccess();
                 pqrsMapper.partialUpdate(existingPqrs, pqrsDTO);
                 return existingPqrs;
             })
@@ -196,101 +195,28 @@ public class PqrsService {
             .map(pqrsMapper::toDto);
     }
 
-    /**
-     * Get all the pqrs.
-     *
-     * @param pageable the pagination information.
-     * @return the list of entities.
-     */
-    private String requireOfficeForCurrentFunctionary() {
-        if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FRONT_DESK_CS)) {
-            return null;
-        }
-        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.FUNCTIONARY)) {
-            throw new AccessDeniedException("PQRSD access denied");
-        }
-        String login = SecurityUtils.getCurrentUserLogin()
-            .orElseThrow(() -> new AccessDeniedException("Missing login"));
-        User user = userRepository.findOneByLogin(login)
-            .orElseThrow(() -> new AccessDeniedException("Unknown user"));
-        return oficinaRepository.findByResponsable_Id(user.getId())
-            .map(Oficina::getId)
-            .filter(id -> id != null && !id.isBlank())
-            .orElseThrow(() -> new AccessDeniedException("No office assigned"));
-    }
-
-    private void checkCaseReadAccess(Pqrs pqrs) {
-        String officeId = requireOfficeForCurrentFunctionary();
-        if (officeId != null && (pqrs.getOficinaResponder() == null ||
-            !officeId.equals(pqrs.getOficinaResponder().getId()))) {
-            throw new AccessDeniedException("PQRSD belongs to another office");
-        }
-    }
-
-    private void requireAdministrativeCaseAccess() {
-        if (!SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.FRONT_DESK_CS)) {
-            throw new AccessDeniedException("Only administration or front desk can manage case assignment");
-        }
-    }
-
-    private void checkCaseWriteAccess(Pqrs existing, Pqrs proposed) {
-        String officeId = requireOfficeForCurrentFunctionary();
-        if (officeId == null) {
-            return;
-        }
-        if (existing.getOficinaResponder() == null || !officeId.equals(existing.getOficinaResponder().getId())) {
-            throw new AccessDeniedException("Cannot change another office's PQRSD");
-        }
-        if (proposed.getOficinaResponder() == null ||
-            !officeId.equals(proposed.getOficinaResponder().getId())) {
-            throw new AccessDeniedException("Functionary cannot reassign PQRSD");
-        }
-        if (!Objects.equals(existing.getDaysToReply(), proposed.getDaysToReply()) ||
-            !Objects.equals(existing.getFechaLimiteRespuesta(), proposed.getFechaLimiteRespuesta()) ||
-            !Objects.equals(existing.getFechaCreacion(), proposed.getFechaCreacion()) ||
-            !Objects.equals(existing.getFileNumber(), proposed.getFileNumber()) ||
-            !Objects.equals(existing.getAccessToken(), proposed.getAccessToken()) ||
-            !Objects.equals(existing.getRequesterEmail(), proposed.getRequesterEmail()) ||
-            !Objects.equals(existing.getType(), proposed.getType()) ||
-            !Objects.equals(existing.getTitulo(), proposed.getTitulo()) ||
-            !Objects.equals(existing.getArchivosAdjuntos(), proposed.getArchivosAdjuntos())) {
-            throw new AccessDeniedException("Functionary may not alter case identity, requester or deadlines");
-        }
-    }
-
     public Page<PqrsDTO> findAll(String state, String idOffice, LocalDate date, Pageable pageable) {
-        String authorizedOffice = requireOfficeForCurrentFunctionary();
-        if (authorizedOffice != null) {
-            if (idOffice != null && !idOffice.isBlank() && !authorizedOffice.equals(idOffice)) {
-                throw new AccessDeniedException("Cannot list another office");
-            }
-            idOffice = authorizedOffice;
+        Optional<String> office = authorization.requireOfficeFilter(idOffice);
+        boolean excludeState = "CERRADA".equals(state);
+        Page<Pqrs> page;
+        if (office.isPresent()) {
+            String officeId = office.orElseThrow();
+            page = excludeState
+                ? pqrsRepository.findByEstadoNotAndOficinaResponder_IdAndFechaCreacionLessThanEqual(state, officeId, date, pageable)
+                : pqrsRepository.findByEstadoAndOficinaResponder_IdAndFechaCreacionLessThanEqual(state, officeId, date, pageable);
+        } else {
+            page = excludeState
+                ? pqrsRepository.findAllByEstadoNotAndFechaCreacionLessThanEqual(state, date, pageable)
+                : pqrsRepository.findAllByEstadoAndFechaCreacionLessThanEqual(state, date, pageable);
         }
-        LOG.debug("Request to get all Pqrs");
-        String closedState = "CERRADA";
-        boolean isIdOfficeProvided = idOffice != null && !idOffice.trim().isEmpty();
-
-        if (closedState.equals(state) && !isIdOfficeProvided) {
-            return pqrsRepository.findAllByEstadoNotAndFechaCreacionLessThanEqual(state, date, pageable).map(pqrsMapper::toDto);
-        } else if (!closedState.equals(state) && !isIdOfficeProvided) {
-            return pqrsRepository.findAllByEstadoAndFechaCreacionLessThanEqual(state, date, pageable).map(pqrsMapper::toDto);
-        } else if (closedState.equals(state) && isIdOfficeProvided) {
-            return pqrsRepository
-                .findByEstadoNotAndOficinaResponder_IdAndFechaCreacionLessThanEqual(state, idOffice, date, pageable)
-                .map(pqrsMapper::toDto);
-        } else if (!closedState.equals(state) && isIdOfficeProvided) {
-            return pqrsRepository
-                .findByEstadoAndOficinaResponder_IdAndFechaCreacionLessThanEqual(state, idOffice, date, pageable)
-                .map(pqrsMapper::toDto);
-        }
-        return pqrsRepository.findAll(pageable).map(pqrsMapper::toDto);
+        return page.map(pqrsMapper::toDto);
     }
 
     @Transactional(readOnly = true)
     public Page<PqrsDTO> search(String criteria, Pageable pageable) {
         LOG.debug("Request to search for a page of Pqrs for query {}", criteria);
 
-        String officeId = requireOfficeForCurrentFunctionary();
+        Optional<String> officeId = authorization.requireOperationalOffice();
 
         return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
     }
@@ -303,7 +229,12 @@ public class PqrsService {
      */
     public Optional<PqrsDTO> findOne(String id) {
         LOG.debug("Request to get Pqrs : {}", id);
-        return pqrsRepository.findById(id).map(pqrsMapper::toDto);
+        return pqrsRepository
+            .findById(id)
+            .map(pqrs -> {
+                authorization.checkCaseReadAccess(pqrs);
+                return pqrsMapper.toDto(pqrs);
+            });
     }
 
     /**
@@ -312,7 +243,7 @@ public class PqrsService {
      * @param id the id of the entity.
      */
     public void delete(String id) {
-        requireAdministrativeCaseAccess();
+        authorization.requireAdministrativeCaseAccess();
         LOG.debug("Request to delete Pqrs : {}", id);
         pqrsRepository.deleteById(id);
     }
@@ -325,18 +256,7 @@ public class PqrsService {
      */
     public Page<PqrsDTO> findAllOficina(Pageable pageable) {
         LOG.debug("Request to get all Pqrs");
-        Page<Pqrs> pqrsPage = pqrsRepository.findAll(pageable);
-        return pqrsPage.map(pqrs -> {
-            PqrsDTO dto = pqrsMapper.toDto(pqrs);
-            if (dto.getOficinaResponder() != null && dto.getOficinaResponder().getId() != null) {
-                Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
-                oficinaOpt.ifPresent(oficina -> {
-                    OficinaDTO oficinaDTO = oficinaMapper.toDto(oficina);
-                    dto.setOficinaResponder(oficinaDTO);
-                });
-            }
-            return dto;
-        });
+        return pqrsRepository.search("", authorization.requireOperationalOffice(), pageable).map(this::mapPqrsToDtoWithOffice);
     }
 
     public Optional<PqrsDTO> findPqrsById(String id) {
@@ -344,7 +264,7 @@ public class PqrsService {
         return pqrsRepository
             .findById(id)
             .map(pqrs -> {
-                checkCaseReadAccess(pqrs);
+                authorization.checkCaseReadAccess(pqrs);
                 Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
                 pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
@@ -383,7 +303,7 @@ public class PqrsService {
     }
 
     public PqrsDTO create(PqrsDTO pqrsDTO) {
-        requireAdministrativeCaseAccess();
+        authorization.requireAdministrativeCaseAccess();
         LOG.debug("Request to create a Pqrs: {}", pqrsDTO);
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
         pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
@@ -408,13 +328,11 @@ public class PqrsService {
 
         pqrs = pqrsRepository.save(pqrs);
 
-        if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.FRONT_DESK_CS, AuthoritiesConstants.ADMIN)) {
-            pqrsNotificationService.sendPqrsNotification(
-                pqrs,
-                PqrsNotificationService.PqrsNotificationType.PQRS_CREATED,
-                AuthoritiesConstants.FRONT_DESK_CS
-            );
-        }
+        pqrsNotificationService.sendPqrsNotification(
+            pqrs,
+            PqrsNotificationService.PqrsNotificationType.PQRS_CREATED,
+            AuthoritiesConstants.FRONT_DESK_CS
+        );
 
         return mapPqrsToDtoWithOffice(pqrs);
     }
@@ -438,7 +356,7 @@ public class PqrsService {
         if (oldPqrs == null) {
             throw new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound");
         }
-        checkCaseWriteAccess(oldPqrs, pqrs);
+        authorization.checkCaseWriteAccess(oldPqrs, pqrs);
 
         if (SecurityUtils.isAuthenticated()) {
             if (PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado())) {
@@ -677,7 +595,7 @@ public class PqrsService {
      */
     @Transactional
     public Optional<PqrsDTO> updatePqrsOffice(String pqrsId, String officeName) {
-        requireAdministrativeCaseAccess();
+        authorization.requireAdministrativeCaseAccess();
         LOG.debug("Request to update office for Pqrs ID: {} to office: {}", pqrsId, officeName);
 
         return pqrsRepository

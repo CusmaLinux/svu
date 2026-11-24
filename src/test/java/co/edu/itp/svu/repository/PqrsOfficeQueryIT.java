@@ -6,6 +6,7 @@ import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.domain.Oficina;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.enumeration.PqrsType;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ class PqrsOfficeQueryIT {
             mongoTemplate.save(firstCase);
             mongoTemplate.save(secondCase);
 
-            var results = queryRepository.search(marker, first.getId(), PageRequest.of(0, 20));
+            var results = queryRepository.search(marker, Optional.of(first.getId()), PageRequest.of(0, 20));
             assertThat(results.getContent()).extracting(Pqrs::getId).containsExactly(firstCase.getId());
         } finally {
             if (firstCase.getId() != null) mongoTemplate.remove(firstCase);
@@ -62,7 +63,7 @@ class PqrsOfficeQueryIT {
         try {
             mongoTemplate.save(matching);
             mongoTemplate.save(other);
-            var results = queryRepository.search(marker + "[test]", null, PageRequest.of(0, 20));
+            var results = queryRepository.search(marker + "[test]", Optional.empty(), PageRequest.of(0, 20));
             assertThat(results.getContent()).extracting(Pqrs::getId).containsExactly(matching.getId());
         } finally {
             if (matching.getId() != null) mongoTemplate.remove(matching);

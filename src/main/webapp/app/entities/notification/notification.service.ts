@@ -85,6 +85,11 @@ export default class NotificationService {
     });
   }
 
+  public async findCaseId(id: number | string): Promise<string> {
+    const response = await axios.get<string>(`${baseApiUrl}/${id}/case`);
+    return response.data;
+  }
+
   public markAsRead(notificationId: string | number | undefined): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       axios

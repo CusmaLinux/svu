@@ -4,7 +4,6 @@ import static co.edu.itp.svu.domain.NotificacionAsserts.*;
 import static co.edu.itp.svu.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -13,26 +12,17 @@ import co.edu.itp.svu.domain.Notificacion;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.repository.UserRepository;
-import co.edu.itp.svu.service.NotificacionService;
-import co.edu.itp.svu.service.UserService;
-import co.edu.itp.svu.service.dto.AdminUserDTO;
 import co.edu.itp.svu.service.dto.NotificacionDTO;
 import co.edu.itp.svu.service.mapper.NotificacionMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,9 +31,8 @@ import org.springframework.test.web.servlet.MockMvc;
  * Integration tests for the {@link NotificacionResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(username = "inbox-admin-test", authorities = "ROLE_ADMIN")
 class NotificacionResourceIT {
 
     private static final String DEFAULT_TIPO = "AAAAAAAAAA";
@@ -71,16 +60,7 @@ class NotificacionResourceIT {
     private UserRepository userRepository;
 
     @Autowired
-    private UserService userService;
-
-    @Mock
-    private NotificacionRepository notificacionRepositoryMock;
-
-    @Autowired
     private NotificacionMapper notificacionMapper;
-
-    @Mock
-    private NotificacionService notificacionServiceMock;
 
     @Autowired
     private MockMvc restNotificacionMockMvc;
@@ -112,14 +92,11 @@ class NotificacionResourceIT {
     @BeforeEach
     public void initTest() {
         notificacion = createEntity();
-        if (userRepository.findOneByLogin("user").isEmpty()) {
-            AdminUserDTO user = new AdminUserDTO();
-            user.setLogin("user");
-            user.setPassword("password");
-            user.setActivated(true);
-            userService.createUser(user);
-        }
-        userRepository.findAll().stream().findFirst().ifPresent(notificacion::recipient);
+        User recipient = new User();
+        recipient.setLogin("inbox-admin-test");
+        recipient.setId("inbox-admin-test-id");
+        recipient.setPassword("x".repeat(60));
+        notificacion.setRecipient(userRepository.save(recipient));
     }
 
     @AfterEach
@@ -128,7 +105,7 @@ class NotificacionResourceIT {
             notificacionRepository.delete(insertedNotificacion);
             insertedNotificacion = null;
         }
-        userRepository.deleteAll();
+        userRepository.delete(notificacion.getRecipient());
     }
 
     @Test
@@ -220,23 +197,6 @@ class NotificacionResourceIT {
             .andExpect(jsonPath("$.[*].leido").value(hasItem(DEFAULT_LEIDO.booleanValue())));
     }
 
-    @SuppressWarnings({ "unchecked" })
-    void getAllNotificacionsWithEagerRelationshipsIsEnabled() throws Exception {
-        when(notificacionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restNotificacionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(notificacionServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllNotificacionsWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(notificacionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restNotificacionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(notificacionRepositoryMock, times(1)).findAll(any(Pageable.class));
-    }
-
     @Test
     void getNotificacion() throws Exception {
         // Initialize the database
@@ -300,7 +260,7 @@ class NotificacionResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(notificacionDTO))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isNotFound());
 
         // Validate the Notificacion in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -416,7 +376,7 @@ class NotificacionResourceIT {
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(notificacionDTO))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isNotFound());
 
         // Validate the Notificacion in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);

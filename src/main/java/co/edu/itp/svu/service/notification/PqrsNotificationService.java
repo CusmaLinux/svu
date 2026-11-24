@@ -6,10 +6,9 @@ import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.repository.UserRepository;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,194 +33,61 @@ public class PqrsNotificationService {
     }
 
     public enum PqrsNotificationType {
-        PQRS_CREATED("La PQRS '%s' (ID: %s) fue CREADA", "PQRS_CREATED") {
-            @Override
-            public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
-                return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
-            }
+        PQRS_CREATED("PQRS_CREATED", "Se ha radicado una PQRSD."),
+        PQRS_RESOLVED("PQRS_STATE_UPDATE", "Se ha resuelto una PQRSD."),
+        PQRS_ASSIGNED("PQRS_ASSIGNED", "Se ha asignado una PQRSD para revisión."),
+        PQRS_DUE_DATE_REMINDER("PQRS_DUE_DATE_REMINDER", "Hay una PQRSD próxima a vencer.");
 
-            @Override
-            public Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId) {
-                return Map.of(
-                    "id",
-                    UUID.randomUUID().toString(),
-                    "type",
-                    getEventKey(),
-                    "creationDate",
-                    LocalDate.now().toString(),
-                    "message",
-                    message,
-                    "read",
-                    false,
-                    "userLogin",
-                    recipient.getLogin(),
-                    "pqrsId",
-                    pqrs.getId(),
-                    "pqrsTitle",
-                    pqrs.getTitulo(),
-                    "isSse",
-                    true,
-                    "persistentNotificationId",
-                    persistentNotificationId
-                );
-            }
-        },
-        PQRS_RESOLVED("La PQRS '%s' (ID: %s) se ha actualizado a RESUELTA", "PQRS_STATE_UPDATE") {
-            @Override
-            public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
-                return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
-            }
+        private final String key;
+        private final String message;
 
-            @Override
-            public Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId) {
-                return Map.of(
-                    "id",
-                    UUID.randomUUID().toString(),
-                    "type",
-                    getEventKey(),
-                    "creationDate",
-                    LocalDate.now().toString(),
-                    "message",
-                    message,
-                    "read",
-                    false,
-                    "userLogin",
-                    recipient.getLogin(),
-                    "pqrsId",
-                    pqrs.getId(),
-                    "pqrsTitle",
-                    pqrs.getTitulo(),
-                    "isSse",
-                    true,
-                    "persistentNotificationId",
-                    persistentNotificationId
-                );
-            }
-        },
-        PQRS_ASSIGNED("La PQRS '%s' (ID: %s) fue ASIGNADA para revision", "PQRS_ASSIGNED") {
-            @Override
-            public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
-                return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId());
-            }
-
-            @Override
-            public Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId) {
-                return Map.of(
-                    "id",
-                    UUID.randomUUID().toString(),
-                    "type",
-                    getEventKey(),
-                    "creationDate",
-                    LocalDate.now().toString(),
-                    "message",
-                    message,
-                    "read",
-                    false,
-                    "userLogin",
-                    recipient.getLogin(),
-                    "pqrsId",
-                    pqrs.getId(),
-                    "pqrsTitle",
-                    pqrs.getTitulo(),
-                    "isSse",
-                    true,
-                    "persistentNotificationId",
-                    persistentNotificationId
-                );
-            }
-        },
-        PQRS_DUE_DATE_REMINDER("La PQRS '%s' (ID: %s) vence el %s.", "PQRS_DUE_DATE_REMINDER") {
-            @Override
-            public String getFormattedMessage(Pqrs pqrs, Object... additionalArgs) {
-                return String.format(this.messageTemplate, pqrs.getTitulo(), pqrs.getId(), pqrs.getFechaLimiteRespuesta().toString());
-            }
-
-            @Override
-            public Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("id", UUID.randomUUID().toString());
-                data.put("type", getEventKey());
-                data.put("creationDate", LocalDate.now().toString());
-                data.put("message", message);
-                data.put("read", false);
-                data.put("userLogin", recipient.getLogin());
-                data.put("pqrsId", pqrs.getId());
-                data.put("pqrsTitle", pqrs.getTitulo());
-                data.put("isSse", true);
-                data.put("persistentNotificationId", persistentNotificationId);
-
-                if (pqrs.getFechaLimiteRespuesta() != null) {
-                    data.put("pqrsResponseDueDate", pqrs.getFechaLimiteRespuesta());
-                }
-                return data;
-            }
-        };
-
-        protected final String messageTemplate;
-        protected final String eventKey;
-
-        PqrsNotificationType(String messageTemplate, String eventKey) {
-            this.messageTemplate = messageTemplate;
-            this.eventKey = eventKey;
+        PqrsNotificationType(String key, String message) {
+            this.key = key;
+            this.message = message;
         }
 
-        public String getEventKey() {
-            return eventKey;
+        public String message() {
+            return message;
         }
 
-        /**
-         * Gets the formatted message for this notification type.
-         *
-         * @param pqrs           The Pqrs entity.
-         * @param additionalArgs Optional additional arguments for formatting, if the
-         *                       template needs them beyond pqrs fields.
-         * @return The formatted message string.
-         */
-        public abstract String getFormattedMessage(Pqrs pqrs, Object... additionalArgs);
-
-        /**
-         * Builds the data map for an SSE notification.
-         *
-         * @param pqrs                     The Pqrs entity.
-         * @param recipient                The recipient user.
-         * @param message                  The pre-formatted message string.
-         * @param persistentNotificationId The ID of the saved persistent notification.
-         * @return A map containing data for the SSE event.
-         */
-        public abstract Map<String, Object> buildSseData(Pqrs pqrs, User recipient, String message, String persistentNotificationId);
+        public static Optional<PqrsNotificationType> fromKey(String key) {
+            return Arrays.stream(values()).filter(type -> type.key.equals(key)).findFirst();
+        }
     }
 
-    public void sendPqrsNotification(Pqrs pqrs, PqrsNotificationType type, User recipientUser, Object... messageArgs) {
+    public void sendPqrsNotification(Pqrs pqrs, PqrsNotificationType type, User recipientUser) {
         if (recipientUser == null) {
-            LOG.warn("Recipient user is null for PQRS ID: {}. Notification not sent.", pqrs.getId());
+            LOG.warn("Notification has no recipient");
             return;
         }
-
-        String message = type.getFormattedMessage(pqrs, messageArgs);
 
         Notificacion persistentNotification = new Notificacion();
         persistentNotification.setFecha(Instant.now());
         persistentNotification.setLeido(false);
-        persistentNotification.setMensaje(message);
+        persistentNotification.setMensaje(type.message + " (ID: " + pqrs.getId() + ")");
         persistentNotification.setRecipient(recipientUser);
-        persistentNotification.setTipo(type.getEventKey());
+        persistentNotification.setTipo(type.key);
         notificacionRepository.save(persistentNotification);
 
-        Map<String, Object> sseData = type.buildSseData(pqrs, recipientUser, message, persistentNotification.getId().toString());
-
-        sseNotificationService.sendNotificationToUser(recipientUser.getLogin(), type.getEventKey(), sseData);
+        Map<String, Object> event = Map.of(
+            "id",
+            persistentNotification.getId(),
+            "type",
+            type.key,
+            "message",
+            type.message,
+            "creationDate",
+            persistentNotification.getFecha().toString()
+        );
+        sseNotificationService.sendNotificationToUser(recipientUser.getId(), type.key, event);
     }
 
-    public void sendPqrsNotification(Pqrs pqrs, PqrsNotificationType type, String recipientAuthority, Object... messageArgs) {
+    public void sendPqrsNotification(Pqrs pqrs, PqrsNotificationType type, String recipientAuthority) {
         User recipient = userRepository.findByAuthoritiesName(recipientAuthority);
         if (recipient == null) {
-            LOG.warn(
-                "No user found with authority {} to send notification for PQRS ID: {}. Notification not sent.",
-                recipientAuthority,
-                pqrs.getId()
-            );
+            LOG.warn("Notification role has no recipient");
             return;
         }
-        sendPqrsNotification(pqrs, type, recipient, messageArgs);
+        sendPqrsNotification(pqrs, type, recipient);
     }
 }

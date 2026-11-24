@@ -40,13 +40,6 @@ public class PqrsScheduler {
         );
 
         for (Pqrs pqrs : upcomingPqrs) {
-            LOG.debug(
-                "Found upcoming PQRS: id={}, title={}, dueDate={}",
-                pqrs.getTitulo(),
-                pqrs.getTitulo(),
-                pqrs.getFechaLimiteRespuesta()
-            );
-
             if (pqrs.getOficinaResponder() != null) {
                 User responsibleUser = pqrs.getOficinaResponder().getResponsable();
 

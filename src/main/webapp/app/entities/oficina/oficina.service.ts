@@ -23,7 +23,7 @@ export default class OficinaService {
     const queryOpts = buildPaginationQueryOpts(paginationQuery);
     return new Promise<any>((resolve, reject) => {
       axios
-        .get(`${baseApiUrl}?${queryOpts}`)
+        .get(`${baseApiUrl}/catalogo?${queryOpts}`)
         .then(res => {
           resolve(res);
         })

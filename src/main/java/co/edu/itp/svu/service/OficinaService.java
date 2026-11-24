@@ -1,13 +1,14 @@
 package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.domain.Oficina;
-import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
+import co.edu.itp.svu.security.PqrsAuthorizationService;
+import co.edu.itp.svu.service.dto.OfficeCases;
+import co.edu.itp.svu.service.dto.OfficeOption;
 import co.edu.itp.svu.service.dto.OficinaDTO;
 import co.edu.itp.svu.service.mapper.OficinaMapper;
-import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +25,9 @@ public class OficinaService {
 
     private static final Logger LOG = LoggerFactory.getLogger(OficinaService.class);
 
-    private UserService userService;
+    private final PqrsAuthorizationService authorization;
+
+    private final UserService userService;
 
     private final OficinaRepository oficinaRepository;
 
@@ -36,18 +39,18 @@ public class OficinaService {
         OficinaRepository oficinaRepository,
         OficinaMapper oficinaMapper,
         UserService userService,
-        PqrsRepository pqrsRepository
+        PqrsRepository pqrsRepository,
+        PqrsAuthorizationService authorization
     ) {
         this.oficinaRepository = oficinaRepository;
         this.oficinaMapper = oficinaMapper;
+        this.authorization = authorization;
         this.userService = userService;
         this.pqrsRepository = pqrsRepository;
     }
 
     @Transactional(readOnly = true)
     public Page<OficinaDTO> search(String criteria, Pageable pageable) {
-        LOG.debug("Request to search for a page of offices for query {}", criteria);
-
         return oficinaRepository.search(criteria, pageable).map(oficinaMapper::toDto);
     }
 
@@ -58,7 +61,6 @@ public class OficinaService {
      * @return the persisted entity.
      */
     public OficinaDTO save(OficinaDTO oficinaDTO) {
-        LOG.debug("Request to save Oficina : {}", oficinaDTO);
         Oficina oficina = oficinaMapper.toEntity(oficinaDTO);
         oficina = oficinaRepository.save(oficina);
         return oficinaMapper.toDto(oficina);
@@ -71,7 +73,6 @@ public class OficinaService {
      * @return the persisted entity.
      */
     public OficinaDTO update(OficinaDTO oficinaDTO) {
-        LOG.debug("Request to update Oficina : {}", oficinaDTO);
         Oficina oficina = oficinaMapper.toEntity(oficinaDTO);
         oficina = oficinaRepository.save(oficina);
         return oficinaMapper.toDto(oficina);
@@ -84,8 +85,6 @@ public class OficinaService {
      * @return the persisted entity.
      */
     public Optional<OficinaDTO> partialUpdate(OficinaDTO oficinaDTO) {
-        LOG.debug("Request to partially update Oficina : {}", oficinaDTO);
-
         return oficinaRepository
             .findById(oficinaDTO.getId())
             .map(existingOficina -> {
@@ -131,8 +130,6 @@ public class OficinaService {
     ///////////////// modificaciones////////////////////////////////////////7
 
     public OficinaDTO createOficina(OficinaDTO oficinaDTO) {
-        LOG.debug("Request to save Oficina : {}", oficinaDTO);
-
         // Validación inicial del DTO
         if (oficinaDTO == null) {
             LOG.error("OficinaDTO no puede ser null");
@@ -154,7 +151,6 @@ public class OficinaService {
         Optional<User> responsable = userService.getUserWithAuthoritiesByLogin(usernameResponsable);
 
         if (!responsable.isPresent()) {
-            LOG.warn("El usuario responsable no existe: {}", usernameResponsable);
             throw new IllegalArgumentException("El usuario responsable no existe");
         }
 
@@ -170,17 +166,14 @@ public class OficinaService {
             oficina.setResponsable(responsable.orElseThrow()); // Asociar el User como responsable
             oficina = oficinaRepository.save(oficina);
         } catch (Exception e) {
-            LOG.error("Error al guardar la oficina: {}", e.getMessage());
             throw new RuntimeException("Error al guardar la oficina", e);
         }
 
-        LOG.info("Oficina creada con éxito: {}", oficina);
         return oficinaMapper.toDto(oficina);
     }
 
     // Actualizar una oficina existente un usuario responsable
     public OficinaDTO updateOficina(OficinaDTO oficinaDTO) {
-        LOG.debug("Request to update Oficina : {}", oficinaDTO);
         Oficina oficina = oficinaMapper.toEntity(oficinaDTO);
         Optional<Oficina> oficinaOptional = oficinaRepository.findById(oficinaDTO.getId());
         if (oficinaOptional.isPresent()) {
@@ -203,22 +196,15 @@ public class OficinaService {
         }
     }
 
-    // Obtener una Oficina con cada
-    public Optional<OficinaDTO> getOficina(String id) {
-        Optional<Oficina> oficinaOpt = oficinaRepository.findById(id);
+    public Page<OfficeOption> catalog(Pageable pageable) {
+        return oficinaRepository.findOptions(pageable);
+    }
 
-        if (oficinaOpt.isPresent()) {
-            Oficina oficina = oficinaOpt.orElseThrow(); // Obtener la oficina
-            List<Pqrs> allPqrs = pqrsRepository.findByOficinaResponder_Id(id); // Obtener todas las PQRS
-
-            // Filtrar y agregar PQRS que pertenecen a esta oficina
-            for (Pqrs pqrs : allPqrs) {
-                if (pqrs.getOficinaResponder().getId().equals(oficina.getId())) {
-                    oficina.addPqrs(pqrs);
-                }
-            }
-        }
-
-        return oficinaOpt.map(oficinaMapper::toDto);
+    public Optional<OfficeCases> getOficina(String id) {
+        if (id.isBlank()) return Optional.empty();
+        String officeId = authorization.requireOfficeFilter(id).orElseThrow();
+        return oficinaRepository
+            .findOptionById(officeId)
+            .map(office -> new OfficeCases(office.id(), office.nombre(), pqrsRepository.findReferencesByOficinaResponder_Id(office.id())));
     }
 }

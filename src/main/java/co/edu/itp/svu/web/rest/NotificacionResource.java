@@ -1,6 +1,5 @@
 package co.edu.itp.svu.web.rest;
 
-import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.service.NotificacionService;
 import co.edu.itp.svu.service.dto.NotificacionDTO;
 import co.edu.itp.svu.web.rest.errors.BadRequestAlertException;
@@ -40,11 +39,8 @@ public class NotificacionResource {
 
     private final NotificacionService notificationService;
 
-    private final NotificacionRepository notificacionRepository;
-
-    public NotificacionResource(NotificacionService notificationService, NotificacionRepository notificacionRepository) {
+    public NotificacionResource(NotificacionService notificationService) {
         this.notificationService = notificationService;
-        this.notificacionRepository = notificacionRepository;
     }
 
     /**
@@ -59,7 +55,6 @@ public class NotificacionResource {
     @PostMapping("")
     public ResponseEntity<NotificacionDTO> createNotificacion(@Valid @RequestBody NotificacionDTO notificacionDTO)
         throws URISyntaxException {
-        LOG.debug("REST request to save Notificacion : {}", notificacionDTO);
         if (notificacionDTO.getId() != null) {
             throw new BadRequestAlertException("A new notificacion cannot already have an ID", ENTITY_NAME, "idexists");
         }
@@ -87,7 +82,6 @@ public class NotificacionResource {
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody NotificacionDTO notificacionDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to update Notificacion : {}, {}", id, notificacionDTO);
         if (notificacionDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -95,14 +89,10 @@ public class NotificacionResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        if (!notificacionRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
-
-        notificacionDTO = notificationService.update(notificacionDTO);
-        return ResponseEntity.ok()
-            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, notificacionDTO.getId()))
-            .body(notificacionDTO);
+        return ResponseUtil.wrapOrNotFound(
+            notificationService.edit(id, notificacionDTO, false),
+            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, id)
+        );
     }
 
     /**
@@ -126,7 +116,6 @@ public class NotificacionResource {
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody NotificacionDTO notificacionDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Notificacion partially : {}, {}", id, notificacionDTO);
         if (notificacionDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
         }
@@ -134,11 +123,7 @@ public class NotificacionResource {
             throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
-        if (!notificacionRepository.existsById(id)) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
-        }
-
-        Optional<NotificacionDTO> result = notificationService.partialUpdate(notificacionDTO);
+        Optional<NotificacionDTO> result = notificationService.edit(id, notificacionDTO, true);
 
         return ResponseUtil.wrapOrNotFound(
             result,
@@ -185,6 +170,11 @@ public class NotificacionResource {
         return ResponseUtil.wrapOrNotFound(notificacionDTO);
     }
 
+    @GetMapping("/{id}/case")
+    public ResponseEntity<String> getNotificationCase(@PathVariable String id) {
+        return ResponseUtil.wrapOrNotFound(notificationService.findCaseId(id));
+    }
+
     /**
      * {@code DELETE  /notificacions/:id} : delete the "id" notificacion.
      *
@@ -194,7 +184,7 @@ public class NotificacionResource {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteNotificacion(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Notificacion : {}", id);
-        notificationService.delete(id);
+        if (!notificationService.delete(id)) return ResponseEntity.notFound().build();
         return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id)).build();
     }
 

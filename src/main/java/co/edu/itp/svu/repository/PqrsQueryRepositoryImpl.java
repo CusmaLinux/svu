@@ -1,10 +1,11 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Pqrs;
-import org.bson.types.ObjectId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +25,7 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
     }
 
     @Override
-    public Page<Pqrs> search(String queryString, String officeId, Pageable pageable) {
+    public Page<Pqrs> search(String queryString, Optional<String> officeId, Pageable pageable) {
         Query query = new Query().with(pageable);
         List<Criteria> allCriteria = new ArrayList<>();
 
@@ -34,9 +35,10 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
             allCriteria.add(new Criteria().orOperator(titleCriteria, fileNumberCriteria));
         }
 
-        if (StringUtils.hasText(officeId)) {
+        if (officeId.isPresent()) {
+            String id = officeId.orElseThrow();
             // oficinaResponder is stored as a MongoDB DBRef, not an embedded office document.
-            Object storedOfficeId = ObjectId.isValid(officeId) ? new ObjectId(officeId) : officeId;
+            Object storedOfficeId = ObjectId.isValid(id) ? new ObjectId(id) : id;
             allCriteria.add(Criteria.where("oficinaResponder.$id").is(storedOfficeId));
         }
 

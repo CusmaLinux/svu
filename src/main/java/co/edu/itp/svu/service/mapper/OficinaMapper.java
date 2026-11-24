@@ -11,14 +11,17 @@ import org.mapstruct.*;
 public interface OficinaMapper extends EntityMapper<OficinaDTO, Oficina> {
     @Override
     @Mapping(source = "responsable", target = "responsableDTO")
+    @Mapping(target = "pqrsList", ignore = true)
     OficinaDTO toDto(Oficina Oficina);
 
     @Override
+    @Mapping(target = "pqrsList", ignore = true)
     @Mapping(source = "responsableDTO", target = "responsable")
     Oficina toEntity(OficinaDTO OficinaDTO);
 
     @Override
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "pqrsList", ignore = true)
     @Mapping(source = "responsableDTO", target = "responsable")
     void partialUpdate(@MappingTarget Oficina Oficina, OficinaDTO OficinaDTO);
 }

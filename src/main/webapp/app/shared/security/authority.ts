@@ -3,6 +3,7 @@ export enum Authority {
   FUNCTIONARY = 'ROLE_FUNCTIONARY',
   FRONT_DESK_CS = 'ROLE_FRONT_DESK_CS',
   USER = 'ROLE_USER',
+  PQRSD_REPORTS = 'ROLE_PQRSD_REPORTS',
 }
 
 export enum AuthorityDisplay {

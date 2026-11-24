@@ -30,7 +30,12 @@ class SseNotificationService {
 
     const token = localStorage.getItem('jhi-authenticationToken') || sessionStorage.getItem('jhi-authenticationToken');
 
-    if (!accountStore.authenticated || !token || !accountStore.account?.login) {
+    if (
+      !accountStore.authenticated ||
+      !['admin', 'functionary', 'front_desk'].includes(accountStore.userRole) ||
+      !token ||
+      !accountStore.account?.login
+    ) {
       this.disconnect();
       return null;
     }
@@ -38,10 +43,10 @@ class SseNotificationService {
 
     if (this.ctrl && !this.ctrl.signal.aborted) {
       this.disconnect();
-      return userLogin;
     }
 
     this.ctrl = new AbortController();
+    const connection = this.ctrl;
     const notificationStore = useNotificationStore();
 
     fetchEventSource('/api/sse-notifications/subscribe', {
@@ -54,11 +59,12 @@ class SseNotificationService {
 
       onopen: async (response: any) => {
         if (response.ok && response.headers.get('content-type') === 'text/event-stream') {
-          logger.info('SSE connection opened successfully by fetchEventSource for user:', userLogin);
+          logger.info('SSE connection opened.');
           return;
         } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
           logger.error(`SSE connection failed (client error): ${response.status} ${response.statusText}`);
           notificationStore.error = `SSE Connection Failed: ${response.status}`;
+          connection.abort();
           throw new Error(`Client error ${response.status}`);
         } else {
           logger.warn(`SSE connection issue (will retry): ${response.status} ${response.statusText}`);
@@ -66,6 +72,7 @@ class SseNotificationService {
         }
       },
       onmessage: (event: EventSourceMessage) => {
+        if (connection.signal.aborted) return;
         const eventType: string = event.event;
         if (NotificationType[eventType as keyof typeof NotificationType] !== undefined) {
           try {
@@ -76,13 +83,13 @@ class SseNotificationService {
                 if (Notification.permission === 'granted') {
                   new Notification(event.event, {
                     icon: '/content/images/logo-itp.png',
-                    body: sseNotif.message || `PQRS '${sseNotif.pqrsTitle}'`,
+                    body: sseNotif.message || '',
                   });
                 }
               }
             }
-          } catch (e) {
-            logger.error('Error parsing or handling pqrsDueDateReminder event data:', e);
+          } catch {
+            logger.error('Error processing notification event');
           }
         }
       },
@@ -90,10 +97,10 @@ class SseNotificationService {
         logger.info('SSE connection closed by fetchEventSource.');
       },
       onerror: (err: any) => {
-        logger.error('SSE connection error (fetchEventSource):', err);
+        logger.error('SSE connection error');
         notificationStore.error = `SSE Error: ${err.message || 'Unknown error'}`;
 
-        if (this.ctrl?.signal.aborted) {
+        if (connection.signal.aborted) {
           logger.error('SSE error due to abort, stopping retries.');
           throw err;
         }
@@ -101,7 +108,7 @@ class SseNotificationService {
       openWhenHidden: true,
     }).catch(err => {
       if (err.name !== 'AbortError') {
-        logger.error('fetchEventSource fatal error, retries stopped:', err);
+        logger.error('SSE retries stopped');
         notificationStore.error = `SSE Fatal Error: ${err.message}`;
       }
     });

@@ -9,6 +9,10 @@ on:
       - 'pom.xml'
       - 'mvnw'
       - '.mvn/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.mjs'
+      - 'vitest.config.mts'
       - 'src/main/**'
       - 'src/test/**'
   workflow_dispatch:
@@ -43,12 +47,36 @@ jobs:
           chmod +x ./mvnw
           ./mvnw -version
 
-      - name: Compile application and tests
-        run: ./mvnw -B -ntp -DskipTests test-compile
-
-      - name: Run PQRSD block 1 integration tests with isolated MongoDB Testcontainers
+      - name: Verify PQRSD authorization and integration with isolated MongoDB Testcontainers
+        env:
+          REQUIRED_UNIT_SUITE: PqrsAuthorizationServiceTest
+          REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT
         run: |
-          ./mvnw -B -ntp -Dit.test=PqrsOfficeSecurityIT,PqrsOfficeQueryIT,ReportResourceSecurityIT -DfailIfNoTests=false verify
+          ./mvnw -B -ntp -Dskip.installnodenpm -Dskip.npm \
+            -DfailIfNoTests=true -Dfailsafe.failIfNoSpecifiedTests=true \
+            -Dit.test="$REQUIRED_INTEGRATION_SUITES" checkstyle:check verify
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          required = {
+              "surefire": [os.environ["REQUIRED_UNIT_SUITE"]],
+              "failsafe": os.environ["REQUIRED_INTEGRATION_SUITES"].split(","),
+          }
+          missing = []
+          for runner, suites in required.items():
+              for suite in suites:
+                  reports = Path(f"target/{runner}-reports").glob(f"TEST-*.{suite}.xml")
+                  if not any(
+                      int(report.get("tests", "0")) > int(report.get("skipped", "0"))
+                      for report in (ElementTree.parse(path).getroot() for path in reports)
+                  ):
+                      missing.append(suite)
+          if missing:
+              raise SystemExit("Required suites did not run: " + ", ".join(missing))
+          PY
 
       - name: Print integration test failures and root causes
         if: failure()
@@ -80,5 +108,44 @@ jobs:
           path: |
             target/surefire-reports/**
             target/failsafe-reports/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  frontend:
+    name: Node 20 / Office and notification tests
+    if: github.ref == 'refs/heads/feat/informes-gestion-pqrsd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.17.0'
+          cache: npm
+
+      - name: Install locked dependencies
+        id: npm_ci
+        run: npm ci
+
+      - name: Test offices
+        run: |
+          npm run vitest -- --run src/main/webapp/app/entities/oficina \
+            --reporter=default --reporter=junit --outputFile.junit=target/vitest/offices.xml
+
+      - name: Test notifications
+        if: ${{ !cancelled() && steps.npm_ci.outcome == 'success' }}
+        run: |
+          npm run vitest -- --run src/main/webapp/app/entities/notification \
+            --reporter=default --reporter=junit --outputFile.junit=target/vitest/notifications.xml
+
+      - name: Publish Vitest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pqrs-block1-vitest-results
+          path: target/vitest/*.xml
           if-no-files-found: warn
           retention-days: 7

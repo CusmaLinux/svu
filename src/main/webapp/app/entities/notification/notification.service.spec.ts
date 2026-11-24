@@ -37,6 +37,12 @@ describe('Service Tests', () => {
     });
 
     describe('Service methods', () => {
+      it('resolves the case through the authenticated notification endpoint', async () => {
+        axiosStub.get.resolves({ data: 'case-id' });
+        expect(await service.findCaseId('notice-id')).toBe('case-id');
+        expect(axiosStub.get.lastCall.args[0]).toBe('api/notification/notice-id/case');
+      });
+
       it('should find an element', async () => {
         const returnedFromService = { fecha: dayjs(currentDate).format(DATE_TIME_FORMAT), ...elemDefault };
         axiosStub.get.resolves({ data: returnedFromService });
