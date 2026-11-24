@@ -49,8 +49,8 @@ jobs:
 
       - name: Verify PQRSD authorization and integration with isolated MongoDB Testcontainers
         env:
-          REQUIRED_UNIT_SUITE: PqrsAuthorizationServiceTest
-          REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT,RespuestaResourceIT,ResponseSecurityIT
+          REQUIRED_UNIT_SUITES: PqrsAuthorizationServiceTest,AttachmentStorageTest
+          REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT,RespuestaResourceIT,ResponseSecurityIT,AttachmentOwnershipIT
         run: |
           ./mvnw -B -ntp -Dskip.installnodenpm -Dskip.npm \
             -DfailIfNoTests=true -Dfailsafe.failIfNoSpecifiedTests=true \
@@ -62,7 +62,7 @@ jobs:
           from xml.etree import ElementTree
 
           required = {
-              "surefire": [os.environ["REQUIRED_UNIT_SUITE"]],
+              "surefire": os.environ["REQUIRED_UNIT_SUITES"].split(","),
               "failsafe": os.environ["REQUIRED_INTEGRATION_SUITES"].split(","),
           }
           missing = []
