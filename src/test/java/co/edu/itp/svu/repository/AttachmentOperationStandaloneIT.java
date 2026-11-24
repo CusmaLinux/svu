@@ -50,6 +50,7 @@ class AttachmentOperationStandaloneIT {
 
     private static final List<BsonDocument> writeConcerns = new CopyOnWriteArrayList<>();
     private static AttachmentRequestIdentity identity;
+    private static final ThreadLocal<Runnable> beforeCas = new ThreadLocal<>();
 
     @BeforeAll
     static void startStandaloneMongo() {
@@ -65,6 +66,7 @@ class AttachmentOperationStandaloneIT {
                     new CommandListener() {
                         @Override
                         public void commandStarted(CommandStartedEvent event) {
+                            if ("findAndModify".equals(event.getCommandName()) && beforeCas.get() != null) beforeCas.get().run();
                             if (Set.of("findAndModify", "insert").contains(event.getCommandName())) {
                                 var concern = event.getCommand().getDocument("writeConcern", new BsonDocument());
                                 writeConcerns.add(BsonDocument.parse(concern.toJson()));
@@ -183,11 +185,15 @@ class AttachmentOperationStandaloneIT {
     }
 
     private <T> List<T> race(Supplier<T> left, Supplier<T> right) throws Exception {
-        ExecutorService workers = Executors.newFixedThreadPool(2);
-        CyclicBarrier start = new CyclicBarrier(2);
+        return race(List.of(left, right));
+    }
+
+    private <T> List<T> race(List<Supplier<T>> actions) throws Exception {
+        ExecutorService workers = Executors.newFixedThreadPool(actions.size());
+        CyclicBarrier start = new CyclicBarrier(actions.size());
         try {
             List<Future<T>> futures = new ArrayList<>();
-            for (var action : List.of(left, right)) {
+            for (var action : actions) {
                 futures.add(
                     workers.submit(() -> {
                         start.await(10, TimeUnit.SECONDS);
@@ -853,15 +859,8 @@ class AttachmentOperationStandaloneIT {
         assertStillPreparing(held.getId());
     }
 
-    @Test
-    void replacementGenerationWritesWhileOldDescriptorRemainsOpenAndOldEvidenceIsRejected(@TempDir Path root) throws Exception {
-        var held = acquire(repository.reserve(logicalBatch("parallel-generations", PHYSICAL_BYTES)));
-        var capability = writer(held);
-        var reserved = repository.reservePhysicalGeneration(lease(held), capability).orElseThrow();
-        var stale = repository.authorizePhysicalWrite(lease(reserved), capability).orElseThrow();
-        var opened = new CountDownLatch(1);
-        var resume = new CountDownLatch(1);
-        var blocking = new ByteArrayInputStream(PHYSICAL_BYTES) {
+    private static ByteArrayInputStream pauseSource(CountDownLatch opened, CountDownLatch resume) {
+        return new ByteArrayInputStream(PHYSICAL_BYTES) {
             @Override
             public int read(byte[] buffer, int offset, int length) {
                 opened.countDown();
@@ -874,6 +873,17 @@ class AttachmentOperationStandaloneIT {
                 return super.read(buffer, offset, length);
             }
         };
+    }
+
+    @Test
+    void replacementGenerationWritesWhileOldDescriptorRemainsOpenAndOldEvidenceIsRejected(@TempDir Path root) throws Exception {
+        var held = acquire(repository.reserve(logicalBatch("parallel-generations", PHYSICAL_BYTES)));
+        var capability = writer(held);
+        var reserved = repository.reservePhysicalGeneration(lease(held), capability).orElseThrow();
+        var stale = repository.authorizePhysicalWrite(lease(reserved), capability).orElseThrow();
+        var opened = new CountDownLatch(1);
+        var resume = new CountDownLatch(1);
+        var blocking = pauseSource(opened, resume);
         var storage = physicalStorage(root);
         var thread = Executors.newSingleThreadExecutor();
         try {
@@ -891,6 +901,9 @@ class AttachmentOperationStandaloneIT {
             assertThat(newKey).isNotEqualTo(oldKey);
             assertThat(pending.isDone()).isFalse();
             assertThat(Files.size(root.resolve(oldKey))).isZero();
+            var selector = new AttachmentOperationRepository(template, storage);
+            assertThat(selector.selectPhysicalGeneration(evidence, replacement)).isEqualTo(SELECTED);
+            Document selected = raw(held);
             resume.countDown();
             assertThatThrownBy(() -> pending.get(10, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
@@ -898,7 +911,23 @@ class AttachmentOperationStandaloneIT {
                 .hasRootCauseMessage("CLAIM_LOST");
             assertThat(Files.readAllBytes(root.resolve(oldKey))).containsExactly(PHYSICAL_BYTES);
             assertThat(Files.readAllBytes(root.resolve(newKey))).containsExactly(PHYSICAL_BYTES);
-            assertStillPreparing(held.getId());
+            assertThat(raw(held)).isEqualTo(selected);
+            assertThat(selected.getString("state")).isEqualTo("FILES_READY");
+            assertThat(selected.getLong("selected_physical_generation")).isEqualTo(context.lease().fencing());
+            var history = selected.getList("physical_generations", Document.class);
+            assertThat(history).extracting(batch -> batch.getString("state")).containsExactly("RESERVED", "VERIFIED");
+            assertThat(history.get(0).getList("entries", Document.class))
+                .singleElement()
+                .satisfies(entry -> {
+                    assertThat(entry.getString("storage_key")).isEqualTo(oldKey);
+                    assertThat(entry).doesNotContainKey("verified_at");
+                });
+            assertThat(history.get(1).getList("entries", Document.class))
+                .singleElement()
+                .satisfies(entry -> {
+                    assertThat(entry.getString("storage_key")).isEqualTo(newKey);
+                    assertThat(entry.getString("observed_sha256")).isEqualTo(evidence.files().get(0).sha256());
+                });
         } finally {
             resume.countDown();
             thread.shutdownNow();
@@ -1091,8 +1120,8 @@ class AttachmentOperationStandaloneIT {
         var storage = physicalStorage(root);
         var selector = new AttachmentOperationRepository(template, storage);
         var acquired = acquire(repository.reserve(logicalBatch("race-selection", PHYSICAL_BYTES)));
-        var abandoned = repository.reservePhysicalGeneration(lease(acquired), writer(acquired)).orElseThrow();
-        var previous = raw(abandoned).getList("physical_generations", Document.class).get(0);
+        var obsolete = prepareForSelection(storage, acquired, PHYSICAL_BYTES);
+        var previous = raw(acquired).getList("physical_generations", Document.class).get(0);
         expire(acquired.getId());
         var next = acquire(repository.findById(acquired.getId()).orElseThrow());
         var prepared = prepareForSelection(storage, next, PHYSICAL_BYTES);
@@ -1102,6 +1131,8 @@ class AttachmentOperationStandaloneIT {
             () -> other.selectPhysicalGeneration(prepared.evidence(), prepared.writer())
         );
         assertThat(results).containsExactlyInAnyOrder(SELECTED, ALREADY_SELECTED);
+        assertThat(selector.selectPhysicalGeneration(obsolete.evidence(), obsolete.writer())).isEqualTo(CONFLICT);
+        assertThat(Files.readAllBytes(root.resolve(obsolete.evidence().files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
         var selected = repository.findById(acquired.getId()).orElseThrow();
         var originalHistory = raw(selected).getList("physical_generations", Document.class);
         assertThat(originalHistory.get(0)).isEqualTo(previous);
@@ -1190,9 +1221,13 @@ class AttachmentOperationStandaloneIT {
             // Deliberately perturb the manifest after preparation to exercise the selector's independent budget check.
             manifests().updateOne(filter, new Document("$set", new Document("synthetic_padding", "x".repeat(paddedLength + extra))));
             var before = manifests().find(filter).first();
-            assertThat(selector.selectPhysicalGeneration(tested.evidence(), tested.writer())).isEqualTo(
-                extra == 0 ? SELECTED : RECONCILIATION_REQUIRED
+            var rival = new AttachmentOperationRepository(template, storage);
+            var results = race(
+                () -> selector.selectPhysicalGeneration(tested.evidence(), tested.writer()),
+                () -> rival.selectPhysicalGeneration(tested.evidence(), tested.writer())
             );
+            if (extra == 0) assertThat(results).containsExactlyInAnyOrder(SELECTED, ALREADY_SELECTED);
+            else assertThat(results).containsExactly(RECONCILIATION_REQUIRED, RECONCILIATION_REQUIRED);
             var after = manifests().find(filter).first();
             if (extra == 0) assertThat(repository.bsonSize(after)).isEqualTo(1_048_576);
             else assertThat(after).isEqualTo(before);
@@ -1238,6 +1273,132 @@ class AttachmentOperationStandaloneIT {
             logger.detachAppender(appender);
             logger.setLevel(oldLevel);
             appender.stop();
+        }
+    }
+
+    @Test
+    void contendingV2WorkersCarryTheWinningReservationThroughFilesReady(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var second = new AttachmentOperationRepository(template, storage);
+        var first = logicalBatch("contending-v2", PHYSICAL_BYTES, new byte[0]);
+        var retry = logicalBatch("contending-v2", PHYSICAL_BYTES, new byte[0]);
+        var reservations = race(() -> repository.reserve(first), () -> second.reserve(retry));
+        var reserved = reservations.get(0);
+        assertThat(reservations).extracting(AttachmentOperation::getId).containsOnly(reserved.getId());
+        var claims = race(
+            () -> repository.acquire(version(reserved), UUID.randomUUID(), Duration.ofMinutes(1)),
+            () -> second.acquire(version(reserved), UUID.randomUUID(), Duration.ofMinutes(1))
+        );
+        assertThat(claims.stream().flatMap(Optional::stream)).hasSize(1);
+        var acquired = claims.stream().flatMap(Optional::stream).findFirst().orElseThrow();
+        var left = writer(acquired);
+        var right = writer(acquired);
+        var batches = race(
+            () -> repository.reservePhysicalGeneration(lease(acquired), left),
+            () -> second.reservePhysicalGeneration(lease(acquired), right)
+        );
+        assertThat(batches.stream().flatMap(Optional::stream)).hasSize(1);
+        var winning = batches.get(0).isPresent() ? left : right;
+        var losing = batches.get(0).isPresent() ? right : left;
+        var batch = batches.stream().flatMap(Optional::stream).findFirst().orElseThrow();
+        assertThat(second.authorizePhysicalWrite(lease(batch), losing)).isEmpty();
+        var context = second.authorizePhysicalWrite(lease(batch), winning).orElseThrow();
+        var evidence = storage.prepare(
+            context,
+            Map.of(
+                context.files().get(0).logicalId(),
+                new ByteArrayInputStream(PHYSICAL_BYTES),
+                context.files().get(1).logicalId(),
+                new ByteArrayInputStream(new byte[0])
+            )
+        );
+        assertThat(second.selectPhysicalGeneration(evidence, winning)).isEqualTo(SELECTED);
+        assertThat(second.reserve(retry).getState()).isEqualTo(AttachmentOperationState.FILES_READY);
+        var verified = raw(reserved);
+        assertThat(verified.getLong("selected_physical_generation")).isEqualTo(1L);
+        assertThat(verified.getList("physical_generations", Document.class)).hasSize(1);
+        assertThat(manifests().countDocuments()).isOne();
+        assertThat(Files.readAllBytes(root.resolve(evidence.files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+        assertThat(Files.size(root.resolve(evidence.files().get(1).storageKey()))).isZero();
+    }
+
+    @Test
+    void concurrentConfirmationCasContendsOnTheSameRevisionWithoutRewritingFiles(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var selector = new AttachmentOperationRepository(template, storage);
+        var prepared = prepareForSelection(storage, "parallel-confirmation", PHYSICAL_BYTES);
+        assertThat(selector.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(SELECTED);
+        var filter = new Document("_id", prepared.evidence().lease().version().id());
+        var before = manifests().find(filter).first();
+        var path = root.resolve(prepared.evidence().files().get(0).storageKey());
+        // Pin a distinct mtime so a rewrite of identical bytes is observable as well.
+        var marker = Files.setLastModifiedTime(path, java.nio.file.attribute.FileTime.from(Instant.EPOCH)).toFile().lastModified();
+        var ready = new CyclicBarrier(3);
+        var arrivals = new java.util.concurrent.atomic.AtomicInteger();
+        Supplier<PhysicalSelection> confirm = () -> {
+            beforeCas.set(() -> {
+                arrivals.incrementAndGet();
+                try {
+                    ready.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(ex);
+                } catch (BrokenBarrierException | TimeoutException ex) {
+                    throw new AssertionError(ex);
+                }
+            });
+            try {
+                return new AttachmentOperationRepository(template, storage).selectPhysicalGeneration(
+                    prepared.evidence(),
+                    prepared.writer()
+                );
+            } finally {
+                beforeCas.remove();
+            }
+        };
+        assertThat(race(List.of(confirm, confirm, confirm))).containsExactlyInAnyOrder(ALREADY_SELECTED, UNCERTAIN, UNCERTAIN);
+        assertThat(arrivals.get()).isEqualTo(3);
+        var after = manifests().find(filter).first();
+        assertThat(after.getLong("revision")).isEqualTo(before.getLong("revision") + 1);
+        assertThat(after).isEqualTo(
+            new Document(before).append("revision", after.getLong("revision")).append("updated_at", after.getDate("updated_at"))
+        );
+        assertThat(Files.readAllBytes(path)).containsExactly(PHYSICAL_BYTES);
+        assertThat(path.toFile().lastModified()).isEqualTo(marker);
+        try (var names = Files.list(root)) {
+            assertThat(names).containsExactly(path);
+        }
+    }
+
+    @Test
+    void renewalDuringPhysicalPreparationInvalidatesTheOpenContext(@TempDir Path root) throws Exception {
+        var storage = physicalStorage(root);
+        var acquired = acquire(repository.reserve(logicalBatch("renew-during-write", PHYSICAL_BYTES)));
+        var writer = writer(acquired);
+        var batch = repository.reservePhysicalGeneration(lease(acquired), writer).orElseThrow();
+        var context = repository.authorizePhysicalWrite(lease(batch), writer).orElseThrow();
+        var opened = new CountDownLatch(1);
+        var resume = new CountDownLatch(1);
+        var worker = Executors.newSingleThreadExecutor();
+        try {
+            var pending = worker.submit(() ->
+                storage.prepare(context, Map.of(context.files().get(0).logicalId(), pauseSource(opened, resume)))
+            );
+            assertThat(opened.await(10, TimeUnit.SECONDS)).isTrue();
+            var renewed = repository.renew(context.lease(), Duration.ofMinutes(2)).orElseThrow();
+            assertThat(renewed.getRevision()).isEqualTo(context.lease().version().revision() + 1);
+            assertThat(renewed.getClaim().getFencingToken()).isEqualTo(context.lease().fencing());
+            resume.countDown();
+            assertThatThrownBy(() -> pending.get(10, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasRootCauseMessage("CLAIM_LOST");
+            assertStillPreparing(acquired.getId());
+            assertThat(raw(acquired).getLong("revision")).isEqualTo(renewed.getRevision());
+            assertThat(Files.readAllBytes(root.resolve(context.files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+        } finally {
+            resume.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
         }
     }
 }
