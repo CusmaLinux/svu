@@ -4,6 +4,8 @@ import static co.edu.itp.svu.domain.attachment.AttachmentOperationState.*;
 import static com.mongodb.client.model.Filters.*;
 
 import co.edu.itp.svu.domain.attachment.AttachmentOperation;
+import co.edu.itp.svu.domain.attachment.AttachmentOperation.LogicalFile;
+import co.edu.itp.svu.domain.attachment.AttachmentOperation.PhysicalGeneration;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationState;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
 import com.mongodb.MongoWriteException;
@@ -17,9 +19,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import org.bson.BsonBinaryWriter;
 import org.bson.BsonType;
 import org.bson.Document;
+import org.bson.codecs.EncoderContext;
 import org.bson.conversions.Bson;
+import org.bson.io.BasicOutputBuffer;
 import org.bson.types.ObjectId;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Sort;
@@ -34,6 +39,13 @@ public class AttachmentOperationRepository {
 
     public static final String COLLECTION = "attachment_operation";
 
+    static final int MAX_MANIFEST_BYTES = 1_048_576;
+    private static final int MAX_ATTEMPTS = 5;
+    private static final String GENERATIONS = "physical_generations";
+    private static final String SELECTED = "selected_physical_generation";
+    private static final String FORMAT = "format_version";
+    private static final String BSON_BUDGET = "PHYSICAL_MANIFEST_BUDGET";
+    private static final String ATTEMPTS_EXHAUSTED = "PHYSICAL_ATTEMPTS_EXHAUSTED";
     private static final int MAX_PAGE = 100;
     private static final String OWNER = "claim.owner_id";
     private static final String LEASE = "claim.lease_until";
@@ -81,15 +93,32 @@ public class AttachmentOperationRepository {
         }
     }
 
+    public static class UnsupportedManifestFormat extends IllegalStateException {
+
+        private UnsupportedManifestFormat() {
+            super("Unsupported attachment manifest format");
+        }
+    }
+
     /** No upsert. An ambiguous write is propagated; retry only with the same protected identity. */
     public AttachmentOperation reserve(AttachmentOperation candidate) {
         validateReservation(candidate);
         requireUniqueIndex();
+        // Search across formats, including retries whose new candidate would exceed the v2 budget.
+        var prior = existingReservation(candidate);
+        if (prior.isPresent()) return prior.orElseThrow();
         Document raw = new Document();
         mongo.getConverter().write(candidate, raw);
         Date serverTime = mongo.getDb().runCommand(new Document("hello", 1), ReadPreference.primary()).getDate("localTime");
         raw.put("created_at", serverTime);
         raw.put("updated_at", serverTime);
+        if (candidate.getFormatVersion() == 2) {
+            raw.put("files", candidate.getLogicalFiles().stream().map(AttachmentOperationRepository::logicalFile).toList());
+            raw.put(GENERATIONS, List.of());
+            if (bsonSize(completionEnvelope(raw)) > MAX_MANIFEST_BYTES) {
+                throw new IllegalArgumentException("Attachment manifest exceeds BSON budget");
+            }
+        }
         try {
             collection().insertOne(raw);
             return decode(raw);
@@ -99,37 +128,49 @@ public class AttachmentOperationRepository {
             if (!message.contains("index: " + IDEMPOTENCY_INDEX + " dup key:") && !message.contains("index: _id_ dup key:")) {
                 throw new DuplicateKeyException("Unrecognized unique constraint");
             }
-            // Both unique constraints can collide. Never disclose the record occupying an unrelated _id.
-            var byId = findById(candidate.getId());
-            var existing = findByIdentity(candidate.getActorScopeHash(), candidate.getOperationType(), candidate.getRequestKeyHash());
-            var prior = existing.orElseThrow(() -> new DuplicateKeyException("Manifest identifier collision"));
-            if (byId.isPresent() && !byId.orElseThrow().getId().equals(prior.getId())) throw new DuplicateKeyException(
-                "Manifest identifier collision"
-            );
-            boolean sameTarget =
-                candidate.getOperationType() == AttachmentOperationType.PUBLIC_CASE_CREATE ||
-                Objects.equals(candidate.getCaseId(), prior.getCaseId());
-            if (
-                prior.getFormatVersion() != 1 ||
-                !sameTarget ||
-                !candidate.getRequestDigest().equals(prior.getRequestDigest()) ||
-                !sameFileFingerprints(candidate.getFiles(), prior.getFiles())
-            ) throw new IdempotencyConflict();
-            return prior;
+            return existingReservation(candidate).orElseThrow(() -> new DuplicateKeyException("Manifest identifier collision"));
         }
     }
 
-    private static boolean sameFileFingerprints(
-        List<AttachmentOperation.FileEntry> requested,
-        List<AttachmentOperation.FileEntry> existing
-    ) {
-        if (existing == null || requested.size() != existing.size()) return false;
-        for (int i = 0; i < requested.size(); i++) {
-            var file = requested.get(i);
-            var prior = existing.get(i);
-            if (!Objects.equals(file.getSizeBytes(), prior.getSizeBytes()) || !file.getSha256().equals(prior.getSha256())) return false;
+    private Optional<AttachmentOperation> existingReservation(AttachmentOperation candidate) {
+        var existing = findByIdentity(candidate.getActorScopeHash(), candidate.getOperationType(), candidate.getRequestKeyHash());
+        if (existing.isEmpty()) return existing;
+        var prior = existing.orElseThrow();
+        if (
+            !candidate.getId().equals(prior.getId()) &&
+            collection().find(eq("_id", candidate.getId())).projection(new Document("_id", 1)).first() != null
+        ) {
+            throw new DuplicateKeyException("Manifest identifier collision");
         }
-        return true;
+        boolean sameTarget =
+            candidate.getOperationType() == AttachmentOperationType.PUBLIC_CASE_CREATE ||
+            Objects.equals(candidate.getCaseId(), prior.getCaseId());
+        if (
+            !sameTarget ||
+            !candidate.getRequestDigest().equals(prior.getRequestDigest()) ||
+            !fingerprints(candidate).equals(fingerprints(prior))
+        ) throw new IdempotencyConflict();
+        return existing;
+    }
+
+    private record Fingerprint(Long size, String sha256) {}
+
+    private static List<Fingerprint> fingerprints(AttachmentOperation operation) {
+        if (operation.getFormatVersion() == 2) {
+            return operation
+                .getLogicalFiles()
+                .stream()
+                .map(file -> new Fingerprint(file.expectedSizeBytes(), file.expectedSha256()))
+                .toList();
+        }
+        return operation.getFiles().stream().map(file -> new Fingerprint(file.getSizeBytes(), file.getSha256())).toList();
+    }
+
+    private static Document logicalFile(LogicalFile file) {
+        return new Document("logical_id", file.logicalId())
+            .append("metadata_id", file.metadataId())
+            .append("expected_size_bytes", file.expectedSizeBytes())
+            .append("expected_sha256", file.expectedSha256());
     }
 
     /** Collection/index provisioning is explicit. A missing unique index must never turn reserve into an ordinary insert. */
@@ -151,7 +192,7 @@ public class AttachmentOperationRepository {
     private static void validateReservation(AttachmentOperation op) {
         if (
             !canonicalUuid(op.getId()) ||
-            op.getFormatVersion() != 1 ||
+            (op.getFormatVersion() != 1 && op.getFormatVersion() != 2) ||
             op.getState() != PREPARING ||
             op.getRevision() != 0 ||
             op.getOperationType() == null ||
@@ -159,6 +200,8 @@ public class AttachmentOperationRepository {
             op.getEvidence() != null ||
             op.getLastFailure() != null ||
             op.getFiles() == null ||
+            op.getSelectedPhysicalGeneration() != null ||
+            op.getPhysicalGenerations() != null ||
             !digest(op.getActorScopeHash()) ||
             !digest(op.getRequestKeyHash()) ||
             !digest(op.getRequestDigest()) ||
@@ -171,6 +214,23 @@ public class AttachmentOperationRepository {
         }
         Set<ObjectId> ids = new HashSet<>();
         Set<String> keys = new HashSet<>();
+        if (op.getFormatVersion() == 2) {
+            if (!op.getFiles().isEmpty()) throw new IllegalArgumentException("Legacy file data in v2 reservation");
+            for (var file : op.getLogicalFiles()) {
+                if (
+                    !canonicalUuid(file.logicalId()) ||
+                    !keys.add(file.logicalId()) ||
+                    file.metadataId() == null ||
+                    !ids.add(file.metadataId()) ||
+                    file.expectedSizeBytes() < 0 ||
+                    !digest(file.expectedSha256())
+                ) {
+                    throw new IllegalArgumentException("Invalid logical file reservation");
+                }
+            }
+            return;
+        }
+        if (!op.getLogicalFiles().isEmpty()) throw new IllegalArgumentException("Logical file data in v1 reservation");
         for (var file : op.getFiles()) {
             if (
                 file.getMetadataId() == null ||
@@ -223,7 +283,26 @@ public class AttachmentOperationRepository {
     }
 
     private AttachmentOperation decode(Document value) {
-        return mongo.getConverter().read(AttachmentOperation.class, value);
+        if (Integer.valueOf(1).equals(value.get(FORMAT))) return mongo.getConverter().read(AttachmentOperation.class, value);
+        if (!Integer.valueOf(2).equals(value.get(FORMAT))) throw new UnsupportedManifestFormat();
+        Document common = new Document(value);
+        common.remove("files");
+        var operation = mongo.getConverter().read(AttachmentOperation.class, common);
+        operation.setLogicalFiles(
+            value
+                .getList("files", Document.class)
+                .stream()
+                .map(file ->
+                    new LogicalFile(
+                        file.getString("logical_id"),
+                        file.getObjectId("metadata_id"),
+                        file.getLong("expected_size_bytes"),
+                        file.getString("expected_sha256")
+                    )
+                )
+                .toList()
+        );
+        return operation;
     }
 
     private Optional<AttachmentOperation> first(Bson filter) {
@@ -231,30 +310,70 @@ public class AttachmentOperationRepository {
     }
 
     public List<AttachmentOperation> findPending(Instant before, int limit) {
-        return page(and(eq("format_version", 1), in("state", ACTIVE), lte("updated_at", Date.from(before))), "updated_at", limit);
+        return page(and(knownFormats(), in("state", ACTIVE), lte("updated_at", Date.from(before))), "updated_at", limit);
     }
 
     public List<AttachmentOperation> findExpiredClaims(int limit) {
-        return page(and(eq("format_version", 1), in("state", ACTIVE), expired()), LEASE, limit);
+        return page(and(knownFormats(), in("state", ACTIVE), expired()), LEASE, limit);
     }
 
     public List<AttachmentOperation> findForReconciliation(int limit) {
-        return page(eq("state", RECONCILIATION_REQUIRED.name()), "updated_at", limit);
+        return page(and(knownFormats(), eq("state", RECONCILIATION_REQUIRED.name())), "updated_at", limit);
+    }
+
+    /** Minimal diagnostic view. Unknown structures never enter the typed mapper or worker queues. */
+    public List<Document> findUnsupportedFormats(int limit) {
+        return collection()
+            .find(nor(knownFormats()))
+            .projection(new Document(FORMAT, 1))
+            .sort(Sorts.ascending("_id"))
+            .limit(checkedLimit(limit))
+            .into(new ArrayList<>());
     }
 
     private List<AttachmentOperation> page(Bson filter, String sortField, int limit) {
+        return collection()
+            .find(filter)
+            .sort(Sorts.ascending(sortField, "_id"))
+            .limit(checkedLimit(limit))
+            .map(this::decode)
+            .into(new ArrayList<>());
+    }
+
+    private static int checkedLimit(int limit) {
         if (limit < 1 || limit > MAX_PAGE) throw new IllegalArgumentException("Limit must be between 1 and 100");
-        return collection().find(filter).sort(Sorts.ascending(sortField, "_id")).limit(limit).map(this::decode).into(new ArrayList<>());
+        return limit;
     }
 
     /** A snapshot is only a CAS precondition. MongoDB checks it again during every write. */
-    public record Version(String id, AttachmentOperationState state, long revision) {
+    public record Version(String id, AttachmentOperationState state, long revision, int formatVersion) {
+        public Version(String id, AttachmentOperationState state, long revision) {
+            this(id, state, revision, 1);
+        }
         Bson filter() {
             if (revision < 0 || revision == Long.MAX_VALUE || !RECOVERABLE.contains(state)) throw new IllegalArgumentException(
                 "Manifest requires manual handling or is terminal"
             );
-            return and(eq("_id", id), eq("format_version", 1), eq("state", state.name()), eq("revision", revision));
+            return and(
+                eq("_id", id),
+                and(eq(FORMAT, checkedFormat(formatVersion)), formatIsInt()),
+                eq("state", state.name()),
+                eq("revision", revision)
+            );
         }
+    }
+
+    private static Bson knownFormats() {
+        return and(in(FORMAT, 1, 2), formatIsInt());
+    }
+
+    private static Bson formatIsInt() {
+        return expr(new Document("$eq", List.of(new Document("$type", "$" + FORMAT), "int")));
+    }
+
+    private static int checkedFormat(int format) {
+        if (format != 1 && format != 2) throw new UnsupportedManifestFormat();
+        return format;
     }
 
     public record Lease(Version version, UUID owner, long fencing) {
@@ -290,15 +409,24 @@ public class AttachmentOperationRepository {
         Document changes = new Document(OWNER, owner.toString())
             .append(LEASE, deadline(ttl))
             .append(FENCE, new Document("$add", List.of(priorFence, 1L)));
-        return change(and(version.filter(), or(firstClaim, laterClaim)), changes);
+        Bson filter = and(version.filter(), or(firstClaim, laterClaim));
+        if (version.formatVersion() == 2) {
+            filter = and(filter, lt("revision", Long.MAX_VALUE - 1), or(exists(FENCE, false), lt(FENCE, Long.MAX_VALUE - 1)));
+        }
+        return change(filter, changes);
     }
 
     public Optional<AttachmentOperation> renew(Lease lease, Duration ttl) {
-        return change(lease.filter(), new Document(LEASE, deadline(ttl)));
+        return change(ordinaryMutation(lease), new Document(LEASE, deadline(ttl)));
     }
 
     public Optional<AttachmentOperation> release(Lease lease) {
-        return change(lease.filter(), clearLease());
+        return change(ordinaryMutation(lease), clearLease());
+    }
+
+    private static Bson ordinaryMutation(Lease lease) {
+        var filter = lease.filter();
+        return lease.version().formatVersion() == 2 ? and(filter, lt("revision", Long.MAX_VALUE - 1)) : filter;
     }
 
     private static Document clearLease() {
@@ -309,6 +437,7 @@ public class AttachmentOperationRepository {
 
     /** Observations come from a trusted reader of the finished bytes, never from client-provided metadata. */
     public Optional<AttachmentOperation> filesReady(Lease lease, List<VerifiedFile> observed) {
+        if (lease.version().formatVersion() != 1) return Optional.empty();
         requireTransition(lease, FILES_READY);
         var current = first(lease.filter());
         if (current.isEmpty()) return Optional.empty();
@@ -333,6 +462,7 @@ public class AttachmentOperationRepository {
     }
 
     public Optional<AttachmentOperation> beginPersistence(Lease lease) {
+        if (lease.version().formatVersion() != 1) return Optional.empty();
         requireTransition(lease, PERSISTING);
         return change(lease.filter(), new Document("state", PERSISTING.name()));
     }
@@ -358,6 +488,146 @@ public class AttachmentOperationRepository {
     public Optional<AttachmentOperation> requireReconciliation(Lease lease) {
         requireTransition(lease, RECONCILIATION_REQUIRED);
         return change(lease.filter(), clearLease().append("state", RECONCILIATION_REQUIRED.name()));
+    }
+
+    /** Allocates one journaled batch. An uncertain write is resolved with the original capability. */
+    public Optional<AttachmentOperation> reservePhysicalGeneration(Lease lease, AttachmentWriterCapability writer) {
+        Bson filter = physicalLease(lease);
+        String proof = writer.proof(lease.version().id(), lease.fencing());
+        Document current = collection().find(filter).first();
+        if (current == null) return Optional.empty();
+
+        List<Document> history = new ArrayList<>(current.getList(GENERATIONS, Document.class));
+        if (history.stream().anyMatch(generation -> generation.getLong("generation") == lease.fencing())) {
+            return confirmPhysicalReservation(lease, writer);
+        }
+        if (history.size() >= MAX_ATTEMPTS) return reconcilePhysical(filter, ATTEMPTS_EXHAUSTED);
+        if (lease.version().revision() >= Long.MAX_VALUE - 2) return reconcilePhysical(filter, "PHYSICAL_REVISION_EXHAUSTED");
+
+        List<Document> files = current.getList("files", Document.class);
+        List<UUID> keys = writer.prepareKeys(files.size());
+        Set<String> occupied = new HashSet<>();
+        history.forEach(generation ->
+            generation.getList("entries", Document.class).forEach(entry -> occupied.add(entry.getString("storage_key")))
+        );
+        List<Document> entries = new ArrayList<>(files.size());
+        for (int i = 0; i < files.size(); i++) {
+            String key = keys.get(i).toString();
+            if (!occupied.add(key)) throw new IllegalStateException("Physical storage key collision");
+            entries.add(new Document("logical_id", files.get(i).getString("logical_id")).append("storage_key", key));
+        }
+
+        // Date(0) is a size placeholder. The Mongo expression writes its own clock into the new entry.
+        Document batch = new Document("generation", lease.fencing())
+            .append("reserved_at", new Date(0))
+            .append("writer_proof_hash", proof)
+            .append("state", "RESERVED")
+            .append("entries", entries);
+        history.add(batch);
+        Document candidate = new Document(current).append(GENERATIONS, history);
+        int completedBytes = bsonSize(completionEnvelope(candidate));
+        if (completedBytes > MAX_MANIFEST_BYTES) return reconcilePhysical(filter, BSON_BUDGET);
+
+        Bson guard = and(filter, ne(GENERATIONS + ".generation", lease.fencing()), sizeGuard(current, completedBytes));
+        batch.put("reserved_at", "$$NOW");
+        Document append = new Document("$concatArrays", List.of("$" + GENERATIONS, List.of(batch)));
+        return change(guard, new Document(GENERATIONS, append));
+    }
+
+    public Optional<PhysicalGeneration> findPhysicalGeneration(String id, long generation) {
+        return findById(id)
+            .filter(operation -> operation.getFormatVersion() == 2)
+            .flatMap(operation -> operation.getPhysicalGenerations().stream().filter(batch -> batch.generation() == generation).findFirst()
+            );
+    }
+
+    /** A primary read identifies a matching batch. A fresh journaled revision CAS establishes durability. */
+    public Optional<AttachmentOperation> confirmPhysicalReservation(Lease lease, AttachmentWriterCapability writer) {
+        Bson filter = and(physicalLease(lease), lt("revision", Long.MAX_VALUE - 1));
+        String proof = writer.proof(lease.version().id(), lease.fencing());
+        Document current = collection().find(filter).first();
+        if (current == null) return Optional.empty();
+        var persisted = current
+            .getList(GENERATIONS, Document.class)
+            .stream()
+            .filter(
+                batch ->
+                    batch.getLong("generation") == lease.fencing() &&
+                    proof.equals(batch.getString("writer_proof_hash")) &&
+                    "RESERVED".equals(batch.getString("state"))
+            )
+            .findFirst();
+        if (persisted.isEmpty()) return Optional.empty();
+        Document batch = persisted.orElseThrow();
+        var entries = batch.getList("entries", Document.class);
+        var files = current.getList("files", Document.class);
+        if (
+            !entries
+                .stream()
+                .map(entry -> entry.getString("logical_id"))
+                .toList()
+                .equals(files.stream().map(file -> file.getString("logical_id")).toList()) ||
+            !writer.matchesKeys(entries.stream().map(entry -> UUID.fromString(entry.getString("storage_key"))).toList())
+        ) {
+            return Optional.empty();
+        }
+        return change(and(filter, eq(GENERATIONS, batch)), new Document());
+    }
+
+    private static Bson physicalLease(Lease lease) {
+        if (lease.version().formatVersion() != 2 || lease.version().state() != PREPARING) {
+            throw new IllegalArgumentException("Physical reservations require v2 PREPARING");
+        }
+        return and(lease.filter(), exists(SELECTED, false));
+    }
+
+    private Optional<AttachmentOperation> reconcilePhysical(Bson filter, String reason) {
+        return change(filter, clearLease().append("state", RECONCILIATION_REQUIRED.name()).append("last_failure", reason));
+    }
+
+    private Bson sizeGuard(Document current, int completedBytes) {
+        int growth = completedBytes - bsonSize(current);
+        return expr(
+            new Document("$lte", List.of(new Document("$add", List.of(new Document("$bsonSize", "$$ROOT"), growth)), MAX_MANIFEST_BYTES))
+        );
+    }
+
+    /** Exact upper envelope for the already reserved history plus the fields needed to finish or reconcile. */
+    static Document completionEnvelope(Document candidate) {
+        Document envelope = new Document(candidate);
+        envelope.put("claim", new Document("owner_id", "0".repeat(36)).append("lease_until", new Date(0)).append("fencing_token", 0L));
+        envelope.put("state", RECONCILIATION_REQUIRED.name());
+        envelope.put("last_failure", "PHYSICAL_REVISION_EXHAUSTED");
+        envelope.put(SELECTED, 0L);
+        List<Document> history = new ArrayList<>(candidate.getList(GENERATIONS, Document.class));
+        if (!history.isEmpty()) {
+            int last = history.size() - 1;
+            Document batch = new Document(history.get(last));
+            batch.put("state", "VERIFIED");
+            batch.put(
+                "entries",
+                batch
+                    .getList("entries", Document.class)
+                    .stream()
+                    .map(entry ->
+                        new Document(entry)
+                            .append("observed_size_bytes", 0L)
+                            .append("observed_sha256", "0".repeat(64))
+                            .append("verified_at", new Date(0))
+                    )
+                    .toList()
+            );
+            history.set(last, batch);
+        }
+        envelope.put(GENERATIONS, history);
+        return envelope;
+    }
+
+    int bsonSize(Document value) {
+        try (var buffer = new BasicOutputBuffer(); var writer = new BsonBinaryWriter(buffer)) {
+            collection().getCodecRegistry().get(Document.class).encode(writer, value, EncoderContext.builder().build());
+            return buffer.getSize();
+        }
     }
 
     private static void requireTransition(Lease lease, AttachmentOperationState next) {

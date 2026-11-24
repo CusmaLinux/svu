@@ -158,7 +158,7 @@ class AttachmentOperationStandaloneIT {
     }
 
     private Version version(AttachmentOperation op) {
-        return new Version(op.getId(), op.getState(), op.getRevision());
+        return new Version(op.getId(), op.getState(), op.getRevision(), op.getFormatVersion());
     }
 
     private Lease lease(AttachmentOperation op) {
@@ -440,5 +440,292 @@ class AttachmentOperationStandaloneIT {
                 assertThat(wc.getBoolean("j").getValue()).isTrue();
                 assertThat(wc.getNumber("wtimeout").longValue()).isEqualTo(10_000L);
             });
+    }
+
+    private AttachmentOperation v2(String key, int count) {
+        var operation = operation("synthetic", key, "payload");
+        operation.setFormatVersion(2);
+        operation.setLogicalFiles(
+            java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> new AttachmentOperation.LogicalFile(UUID.randomUUID().toString(), new ObjectId(), i, "a".repeat(64)))
+                .toList()
+        );
+        return operation;
+    }
+
+    private AttachmentWriterCapability writer(AttachmentOperation op) {
+        return new AttachmentWriterCapability(UUID.fromString(op.getId()), op.getClaim().getFencingToken());
+    }
+
+    private com.mongodb.client.MongoCollection<Document> manifests() {
+        return template.getCollection(AttachmentOperationRepository.COLLECTION);
+    }
+
+    private Document raw(AttachmentOperation op) {
+        return manifests().find(new Document("_id", op.getId())).first();
+    }
+
+    @Test
+    void persistsV2BsonAndKeepsLogicalFilesStableAcrossGenerations() {
+        var held = acquire(repository.reserve(v2("bson", 2)));
+        var reserved = repository.reservePhysicalGeneration(lease(held), writer(held)).orElseThrow();
+        var raw = raw(reserved);
+        var logical = raw.getList("files", Document.class).get(0);
+        var batch = raw.getList("physical_generations", Document.class).get(0);
+        var entry = batch.getList("entries", Document.class).get(0);
+        assertThat(raw.get("format_version")).isInstanceOf(Integer.class).isEqualTo(2);
+        assertThat(raw.get("revision")).isInstanceOf(Long.class);
+        assertThat(logical.keySet()).containsExactly("logical_id", "metadata_id", "expected_size_bytes", "expected_sha256");
+        assertThat(logical.get("metadata_id")).isInstanceOf(ObjectId.class);
+        assertThat(logical.get("expected_size_bytes")).isInstanceOf(Long.class);
+        assertThat(batch.keySet()).containsExactly("generation", "reserved_at", "writer_proof_hash", "state", "entries");
+        assertThat(batch.get("generation")).isInstanceOf(Long.class);
+        assertThat(batch.get("reserved_at")).isInstanceOf(Date.class);
+        assertThat(batch.getString("writer_proof_hash")).matches("[0-9a-f]{64}");
+        assertThat(entry.keySet()).containsExactly("logical_id", "storage_key");
+        assertThat(reserved.getPhysicalGenerations())
+            .singleElement()
+            .satisfies(generation -> {
+                assertThat(generation.reservedAt()).isNotNull();
+                assertThat(generation.state()).isEqualTo(AttachmentOperation.GenerationState.RESERVED);
+                assertThat(generation.entries())
+                    .extracting(AttachmentOperation.PhysicalEntry::logicalId)
+                    .containsExactlyElementsOf(held.getLogicalFiles().stream().map(AttachmentOperation.LogicalFile::logicalId).toList());
+            });
+        assertThat(reserved.getSelectedPhysicalGeneration()).isNull();
+        var next = acquire(repository.release(lease(reserved)).orElseThrow());
+        var two = repository.reservePhysicalGeneration(lease(next), writer(next)).orElseThrow();
+        assertThat(two.getLogicalFiles()).isEqualTo(held.getLogicalFiles());
+        assertThat(
+            two
+                .getPhysicalGenerations()
+                .stream()
+                .flatMap(generation -> generation.entries().stream())
+                .map(AttachmentOperation.PhysicalEntry::storageKey)
+        )
+            .hasSize(4)
+            .doesNotHaveDuplicates();
+    }
+
+    @Test
+    void racesAcrossFormatsAndRetainsTheWinnerAndItsOriginalShape() throws Exception {
+        var legacy = operation("synthetic", "shared", "payload");
+        var modern = v2("shared", 0);
+        var results = race(() -> repository.reserve(legacy), () -> new AttachmentOperationRepository(template).reserve(modern));
+        var winner = results.get(0);
+        assertThat(results).extracting(AttachmentOperation::getId).containsOnly(winner.getId());
+        assertThat(repository.reserve(legacy).getFormatVersion()).isEqualTo(winner.getFormatVersion());
+        assertThat(repository.reserve(modern).getFormatVersion()).isEqualTo(winner.getFormatVersion());
+        assertThat(manifests().countDocuments()).isOne();
+        assertThatThrownBy(() -> repository.reserve(operation("synthetic", "shared", "changed"))).isInstanceOf(IdempotencyConflict.class);
+        assertThat(raw(winner).containsKey("physical_generations")).isEqualTo(winner.getFormatVersion() == 2);
+    }
+
+    @Test
+    void unknownFormatsBlockDuplicatesAndStayOutOfTypedQueues() {
+        var candidate = v2("unknown", 0);
+        var held = acquire(repository.reserve(candidate));
+        manifests()
+            .updateOne(
+                new Document("_id", held.getId()),
+                new Document(
+                    "$set",
+                    new Document("format_version", 2L).append("claim.lease_until", new Date(0)).append("files", "unknown shape")
+                )
+            );
+        assertThat(repository.findUnsupportedFormats(10)).containsExactly(new Document("_id", held.getId()).append("format_version", 2L));
+        assertThat(repository.findPending(Instant.now().plusSeconds(60), 10)).isEmpty();
+        assertThat(repository.findExpiredClaims(10)).isEmpty();
+        assertThatThrownBy(() -> repository.findById(held.getId())).isInstanceOf(UnsupportedManifestFormat.class);
+        assertThatThrownBy(() -> repository.reserve(candidate)).isInstanceOf(UnsupportedManifestFormat.class);
+        assertThat(repository.reservePhysicalGeneration(lease(held), writer(held))).isEmpty();
+        assertThat(manifests().countDocuments()).isOne();
+    }
+
+    @Test
+    void racesIndependentWritersAndConfirmsLostSuccessfulResponseWithOriginalCapability() throws Exception {
+        var held = acquire(repository.reserve(v2("race", 2)));
+        var first = writer(held);
+        var second = writer(held);
+        var other = new AttachmentOperationRepository(template);
+        var results = race(
+            () -> repository.reservePhysicalGeneration(lease(held), first),
+            () -> other.reservePhysicalGeneration(lease(held), second)
+        );
+        assertThat(results.stream().flatMap(Optional::stream)).hasSize(1);
+        // Read after intentionally discarding the winner's acknowledged response. No network fault is injected.
+        var observed = repository.findById(held.getId()).orElseThrow();
+        var winning = results.get(0).isPresent() ? first : second;
+        var losing = results.get(0).isPresent() ? second : first;
+        assertThat(repository.confirmPhysicalReservation(lease(observed), losing)).isEmpty();
+        assertThat(other.confirmPhysicalReservation(lease(observed), writer(observed))).isEmpty();
+        var confirmed = other.confirmPhysicalReservation(lease(observed), winning).orElseThrow();
+        assertThat(confirmed.getRevision()).isEqualTo(observed.getRevision() + 1);
+        assertThat(confirmed.getPhysicalGenerations()).isEqualTo(observed.getPhysicalGenerations());
+        assertThat(repository.findPhysicalGeneration(held.getId(), lease(held).fencing())).contains(
+            confirmed.getPhysicalGenerations().get(0)
+        );
+        var retried = repository.reservePhysicalGeneration(lease(confirmed), winning).orElseThrow();
+        assertThat(retried.getPhysicalGenerations()).isEqualTo(confirmed.getPhysicalGenerations());
+        assertThat(writeConcerns.get(writeConcerns.size() - 1).getBoolean("j").getValue()).isTrue();
+    }
+
+    @Test
+    void rejectsWrongOwnerStaleRevisionStaleFenceAndExpiredLease() {
+        var held = acquire(repository.reserve(v2("stale", 0)));
+        var original = lease(held);
+        var capability = writer(held);
+        assertThat(
+            repository.reservePhysicalGeneration(new Lease(version(held), UUID.randomUUID(), original.fencing()), capability)
+        ).isEmpty();
+        var renewed = repository.renew(original, Duration.ofMinutes(1)).orElseThrow();
+        assertThat(repository.reservePhysicalGeneration(original, capability)).isEmpty();
+        assertThat(renewed.getClaim().getFencingToken()).isEqualTo(original.fencing());
+        manifests().updateOne(new Document("_id", held.getId()), new Document("$set", new Document("claim.lease_until", new Date(0))));
+        assertThat(repository.reservePhysicalGeneration(lease(renewed), capability)).isEmpty();
+        var next = acquire(renewed);
+        assertThat(
+            repository.reservePhysicalGeneration(new Lease(version(next), lease(next).owner(), original.fencing()), capability)
+        ).isEmpty();
+        assertThat(next.getPhysicalGenerations()).isEmpty();
+        assertThat(repository.filesReady(lease(next), List.of())).isEmpty();
+    }
+
+    @Test
+    void sixthReservationReconcilesWithoutDiscardingEvidence() {
+        var held = acquire(repository.reserve(v2("five", 1)));
+        List<AttachmentOperation.PhysicalGeneration> saved = List.of();
+        for (int i = 1; i <= 5; i++) {
+            var reserved = repository.reservePhysicalGeneration(lease(held), writer(held)).orElseThrow();
+            saved = reserved.getPhysicalGenerations();
+            assertThat(saved).hasSize(i);
+            assertThat(reserved.getState()).isEqualTo(AttachmentOperationState.PREPARING);
+            held = acquire(repository.release(lease(reserved)).orElseThrow());
+        }
+        var manual = repository.reservePhysicalGeneration(lease(held), writer(held)).orElseThrow();
+        assertThat(manual.getState()).isEqualTo(AttachmentOperationState.RECONCILIATION_REQUIRED);
+        assertThat(manual.getPhysicalGenerations()).isEqualTo(saved);
+        assertThat(repository.findForReconciliation(10)).extracting(AttachmentOperation::getId).containsExactly(manual.getId());
+    }
+
+    private AttachmentOperation responseWithPaddedId(String key, int bytes) {
+        var candidate = v2(key, 1);
+        candidate.setOperationType(AttachmentOperationType.CITIZEN_RESPONSE_CREATE);
+        candidate.setResponseId(new ObjectId());
+        candidate.setCaseId("x".repeat(bytes));
+        return candidate;
+    }
+
+    @Test
+    void enforcesExactBsonBudgetAndLeavesRoomForReconciliation() {
+        var probe = acquire(repository.reserve(responseWithPaddedId("probe", 1)));
+        var reserved = repository.reservePhysicalGeneration(lease(probe), writer(probe)).orElseThrow();
+        int paddedSize =
+            AttachmentOperationRepository.MAX_MANIFEST_BYTES -
+            repository.bsonSize(AttachmentOperationRepository.completionEnvelope(raw(reserved))) +
+            1;
+        var boundary = acquire(repository.reserve(responseWithPaddedId("exact", paddedSize)));
+        var exact = repository.reservePhysicalGeneration(lease(boundary), writer(boundary)).orElseThrow();
+        assertThat(repository.bsonSize(AttachmentOperationRepository.completionEnvelope(raw(exact)))).isEqualTo(1_048_576);
+        var second = acquire(repository.release(lease(exact)).orElseThrow());
+        var manual = repository.reservePhysicalGeneration(lease(second), writer(second)).orElseThrow();
+        assertThat(manual.getState()).isEqualTo(AttachmentOperationState.RECONCILIATION_REQUIRED);
+        assertThat(manual.getPhysicalGenerations()).isEqualTo(exact.getPhysicalGenerations());
+        assertThat(repository.bsonSize(raw(manual))).isLessThanOrEqualTo(1_048_576);
+        var overflow = acquire(repository.reserve(responseWithPaddedId("overflow", paddedSize + 1)));
+        var rejected = repository.reservePhysicalGeneration(lease(overflow), writer(overflow)).orElseThrow();
+        assertThat(rejected.getState()).isEqualTo(AttachmentOperationState.RECONCILIATION_REQUIRED);
+        assertThat(rejected.getPhysicalGenerations()).isEmpty();
+        assertThat(rejected.getLastFailure()).isEqualTo("PHYSICAL_MANIFEST_BUDGET");
+    }
+
+    @Test
+    void renewedClaimsPreserveAlreadySelectedGenerationFixtures() {
+        for (var state : List.of(AttachmentOperationState.FILES_READY, AttachmentOperationState.PERSISTING)) {
+            var held = acquire(repository.reserve(v2(state.name(), 0)));
+            var reserved = repository.reservePhysicalGeneration(lease(held), writer(held)).orElseThrow();
+            // Synthetic BSON fixture for future states. No physical verification or selection API is called.
+            manifests()
+                .updateOne(
+                    new Document("_id", held.getId()),
+                    new Document(
+                        "$set",
+                        new Document("state", state.name())
+                            .append("physical_generations.0.state", "VERIFIED")
+                            .append("selected_physical_generation", 1L)
+                            .append("claim.lease_until", new Date(0))
+                    )
+                );
+            var next = acquire(repository.findById(reserved.getId()).orElseThrow());
+            assertThat(next.getClaim().getFencingToken()).isEqualTo(2L);
+            assertThat(next.getSelectedPhysicalGeneration()).isEqualTo(1L);
+            assertThat(next.getPhysicalGenerations()).hasSize(1);
+            assertThat(repository.beginPersistence(lease(next))).isEmpty();
+        }
+    }
+
+    @Test
+    void aPersistedProofCannotBeReplayedAsTheSecretAndLoggingRedactsPrivateBytes() throws Exception {
+        var held = acquire(repository.reserve(v2("redacted", 1)));
+        var winner = writer(held);
+        var secret = AttachmentWriterCapability.class.getDeclaredField("secret");
+        secret.setAccessible(true);
+        byte[] bytes = (byte[]) secret.get(winner);
+        String hex = HexFormat.of().formatHex(bytes);
+        String base64 = Base64.getEncoder().encodeToString(bytes);
+
+        var env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("dev");
+        var proxyFactory = new org.springframework.aop.aspectj.annotation.AspectJProxyFactory(repository);
+        proxyFactory.addAspect(new co.edu.itp.svu.aop.logging.LoggingAspect(env));
+        AttachmentOperationRepository proxy = proxyFactory.getProxy();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(AttachmentOperationRepository.class);
+        var level = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            var stored = proxy.reservePhysicalGeneration(lease(held), winner).orElseThrow();
+            var proof = stored.getPhysicalGenerations().get(0).writerProofHash();
+            var replay = writer(held);
+            replay.prepareKeys(1);
+            System.arraycopy(HexFormat.of().parseHex(proof), 0, secret.get(replay), 0, 32);
+            assertThat(proxy.confirmPhysicalReservation(lease(stored), replay)).isEmpty();
+            assertThatThrownBy(() ->
+                proxy.confirmPhysicalReservation(lease(stored), new AttachmentWriterCapability(UUID.randomUUID(), lease(stored).fencing()))
+            ).hasMessage("Writer capability belongs to another reservation");
+            assertThat(raw(stored).toJson()).doesNotContain(hex, base64, Arrays.toString(bytes));
+            assertThat(appender.list.stream().map(event -> event.getFormattedMessage()).toList())
+                .anySatisfy(message -> assertThat(message).contains("AttachmentWriterCapability[redacted]"))
+                .allSatisfy(message -> assertThat(message).doesNotContain(hex, base64, Arrays.toString(bytes)));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(level);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void v2CannotBypassSelectionThroughLegacyEntryPoints() {
+        var held = acquire(repository.reserve(v2("no-selection", 0)));
+        var reserved = repository.reservePhysicalGeneration(lease(held), writer(held)).orElseThrow();
+        assertThat(repository.filesReady(lease(reserved), List.of())).isEmpty();
+        assertThat(
+            repository.filesReady(
+                new Lease(
+                    new Version(reserved.getId(), reserved.getState(), reserved.getRevision()),
+                    lease(reserved).owner(),
+                    lease(reserved).fencing()
+                ),
+                List.of()
+            )
+        ).isEmpty();
+        assertThat(raw(reserved)).doesNotContainKey("selected_physical_generation");
+        // Invalid future-shaped record tests the persistence guard without selecting a physical batch.
+        manifests().updateOne(new Document("_id", reserved.getId()), new Document("$set", new Document("state", "FILES_READY")));
+        var invalid = repository.findById(reserved.getId()).orElseThrow();
+        assertThat(repository.beginPersistence(lease(invalid))).isEmpty();
+        assertThat(raw(invalid).getString("state")).isEqualTo("FILES_READY");
     }
 }

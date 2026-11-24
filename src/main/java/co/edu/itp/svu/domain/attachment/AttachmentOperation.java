@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -63,6 +64,64 @@ public class AttachmentOperation {
     private String publicationId;
 
     private List<FileEntry> files = new ArrayList<>();
+
+    // The repository dispatches by format before mapping the two incompatible BSON files arrays.
+    @Transient
+    private List<LogicalFile> logicalFiles = List.of();
+
+    @Field("physical_generations")
+    private List<PhysicalGeneration> physicalGenerations;
+
+    @Field("selected_physical_generation")
+    private Long selectedPhysicalGeneration;
+
+    public record LogicalFile(
+        @Field("logical_id") String logicalId,
+        @Field("metadata_id") ObjectId metadataId,
+        @Field("expected_size_bytes") long expectedSizeBytes,
+        @Field("expected_sha256") String expectedSha256
+    ) {}
+
+    public record PhysicalGeneration(
+        long generation,
+        @Field("reserved_at") Instant reservedAt,
+        @Field("writer_proof_hash") String writerProofHash,
+        GenerationState state,
+        List<PhysicalEntry> entries
+    ) {}
+
+    public enum GenerationState {
+        RESERVED,
+        VERIFIED,
+    }
+
+    public record PhysicalEntry(
+        @Field("logical_id") String logicalId,
+        @Field("storage_key") String storageKey,
+        @Field("observed_size_bytes") Long observedSizeBytes,
+        @Field("observed_sha256") String observedSha256,
+        @Field("verified_at") Instant verifiedAt
+    ) {}
+
+    public List<LogicalFile> getLogicalFiles() {
+        return logicalFiles;
+    }
+
+    public void setLogicalFiles(List<LogicalFile> value) {
+        logicalFiles = List.copyOf(value);
+    }
+
+    public List<PhysicalGeneration> getPhysicalGenerations() {
+        return physicalGenerations;
+    }
+
+    public void setPhysicalGenerations(List<PhysicalGeneration> value) {
+        physicalGenerations = List.copyOf(value);
+    }
+
+    public Long getSelectedPhysicalGeneration() {
+        return selectedPhysicalGeneration;
+    }
 
     private Claim claim;
 
