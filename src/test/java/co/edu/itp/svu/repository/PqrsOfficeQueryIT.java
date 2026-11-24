@@ -28,9 +28,12 @@ class PqrsOfficeQueryIT {
         Oficina first = new Oficina();
         first.setId(UUID.randomUUID().toString());
         first.setNombre(marker + "-first");
+        first.setNivel("1");
+
         Oficina second = new Oficina();
         second.setId(UUID.randomUUID().toString());
         second.setNombre(marker + "-second");
+        second.setNivel("1");
 
         Pqrs firstCase = new Pqrs().type(PqrsType.REQUEST).titulo(marker).estado("PENDIENTE").oficinaResponder(first);
         Pqrs secondCase = new Pqrs().type(PqrsType.REQUEST).titulo(marker).estado("PENDIENTE").oficinaResponder(second);
@@ -50,6 +53,7 @@ class PqrsOfficeQueryIT {
             mongoTemplate.remove(second);
         }
     }
+
     @Test
     void searchTreatsRegexMetacharactersAsLiteralText() {
         String marker = "literal-" + UUID.randomUUID();
@@ -65,5 +69,4 @@ class PqrsOfficeQueryIT {
             if (other.getId() != null) mongoTemplate.remove(other);
         }
     }
-
 }
