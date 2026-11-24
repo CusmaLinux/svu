@@ -21,6 +21,7 @@ public final class AttachmentWriterCapability {
     private final UUID operation;
     private final long generation;
     private List<UUID> keys;
+    private boolean writeAuthorized;
 
     public AttachmentWriterCapability(UUID operation, long generation) {
         if (generation < 1) throw new IllegalArgumentException("Invalid physical generation");
@@ -57,6 +58,15 @@ public final class AttachmentWriterCapability {
 
     synchronized boolean matchesKeys(List<UUID> persistedKeys) {
         return keys != null && keys.equals(persistedKeys);
+    }
+
+    synchronized boolean writeAuthorized() {
+        return writeAuthorized;
+    }
+
+    synchronized void authorizeWrite() {
+        if (writeAuthorized) throw new IllegalStateException("Writer authorization already consumed");
+        writeAuthorized = true;
     }
 
     @Override

@@ -2,15 +2,22 @@ package co.edu.itp.svu.repository;
 
 import static org.assertj.core.api.Assertions.*;
 
+import co.edu.itp.svu.config.ApplicationProperties;
 import co.edu.itp.svu.domain.attachment.*;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.*;
 import co.edu.itp.svu.service.storage.AttachmentRequestIdentity;
+import co.edu.itp.svu.service.storage.AttachmentStorage;
+import co.edu.itp.svu.service.storage.AttachmentStorage.Failure;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.event.CommandListener;
 import com.mongodb.event.CommandStartedEvent;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -20,6 +27,7 @@ import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
@@ -727,5 +735,238 @@ class AttachmentOperationStandaloneIT {
         var invalid = repository.findById(reserved.getId()).orElseThrow();
         assertThat(repository.beginPersistence(lease(invalid))).isEmpty();
         assertThat(raw(invalid).getString("state")).isEqualTo("FILES_READY");
+    }
+
+    private static final byte[] PHYSICAL_BYTES = { 7, 2, 4 };
+
+    private AttachmentStorage physicalStorage(Path root) {
+        var properties = new ApplicationProperties();
+        properties.getFile().setUploadDir(root.toString());
+        return new AttachmentStorage(properties, "50MB", "50MB");
+    }
+
+    private AttachmentOperation logicalBatch(String key, byte[]... files) throws Exception {
+        var op = v2(key, 0);
+        var logical = new ArrayList<AttachmentOperation.LogicalFile>();
+        var digest = MessageDigest.getInstance("SHA-256");
+        for (byte[] bytes : files) {
+            logical.add(
+                new AttachmentOperation.LogicalFile(
+                    UUID.randomUUID().toString(),
+                    new ObjectId(),
+                    bytes.length,
+                    HexFormat.of().formatHex(digest.digest(bytes))
+                )
+            );
+        }
+        op.setLogicalFiles(logical);
+        return op;
+    }
+
+    private void expire(String id) {
+        manifests().updateOne(new Document("_id", id), new Document("$set", new Document("claim.lease_until", new Date(0))));
+    }
+
+    private void assertStillPreparing(String id) {
+        var operation = repository.findById(id).orElseThrow();
+        assertThat(operation.getState()).isEqualTo(AttachmentOperationState.PREPARING);
+        assertThat(operation.getSelectedPhysicalGeneration()).isNull();
+        assertThat(operation.getPhysicalGenerations()).allSatisfy(batch -> {
+            assertThat(batch.state()).isEqualTo(AttachmentOperation.GenerationState.RESERVED);
+            assertThat(batch.entries()).allSatisfy(entry -> {
+                assertThat(entry.observedSizeBytes()).isNull();
+                assertThat(entry.observedSha256()).isNull();
+                assertThat(entry.verifiedAt()).isNull();
+            });
+        });
+    }
+
+    private Optional<AttachmentStorage.PreparedGeneration> prepareOnce(AttachmentStorage storage, PhysicalWriteContext context) {
+        try {
+            return Optional.of(
+                storage.prepare(context, Map.of(context.files().get(0).logicalId(), new ByteArrayInputStream(PHYSICAL_BYTES)))
+            );
+        } catch (AttachmentStorage.StorageException ex) {
+            assertThat(ex.failure()).isEqualTo(Failure.CONTEXT_CONSUMED);
+            return Optional.empty();
+        }
+    }
+
+    @Test
+    void journaledReservationAndWinningCapabilityAreRequiredBeforeOnePhysicalContext(@TempDir Path root) throws Exception {
+        var held = acquire(repository.reserve(logicalBatch("write-once", PHYSICAL_BYTES)));
+        var winning = writer(held);
+        assertThat(repository.authorizePhysicalWrite(lease(held), winning)).isEmpty();
+        try (var files = Files.list(root)) {
+            assertThat(files).isEmpty();
+        }
+        var reserved = repository.reservePhysicalGeneration(lease(held), winning).orElseThrow();
+        var other = new AttachmentOperationRepository(template);
+        assertThat(other.authorizePhysicalWrite(lease(reserved), writer(held))).isEmpty();
+        int previousCommands = writeConcerns.size();
+        var authorizations = race(
+            () -> repository.authorizePhysicalWrite(lease(reserved), winning),
+            () -> other.authorizePhysicalWrite(lease(reserved), winning)
+        );
+        assertThat(authorizations.stream().flatMap(Optional::stream)).hasSize(1);
+        var context = authorizations.stream().flatMap(Optional::stream).findFirst().orElseThrow();
+        assertThat(context.lease().version().revision()).isEqualTo(reserved.getRevision() + 1);
+        assertThat(writeConcerns.subList(previousCommands, writeConcerns.size()))
+            .singleElement()
+            .satisfies(concern -> {
+                assertThat(concern.getNumber("w").intValue()).isEqualTo(1);
+                assertThat(concern.getBoolean("j").getValue()).isTrue();
+                assertThat(concern.getNumber("wtimeout").longValue()).isEqualTo(10_000);
+            });
+        assertThat(context.toString()).isEqualTo("PhysicalWriteContext[redacted]");
+        assertThat(other.authorizePhysicalWrite(context.lease(), winning)).isEmpty();
+
+        var storage = physicalStorage(root);
+        var results = race(() -> prepareOnce(storage, context), () -> prepareOnce(storage, context));
+        assertThat(results.stream().flatMap(Optional::stream)).hasSize(1);
+        var evidence = results.stream().flatMap(Optional::stream).findFirst().orElseThrow();
+        assertThat(evidence.lease()).isEqualTo(context.lease());
+        assertThat(evidence.files()).hasSize(1);
+        assertThat(Files.readAllBytes(root.resolve(evidence.files().get(0).storageKey()))).containsExactly(PHYSICAL_BYTES);
+        assertStillPreparing(held.getId());
+
+        var legacy = acquire(repository.reserve(operation("legacy", "no-physical", "example")));
+        assertThatThrownBy(() -> repository.authorizePhysicalWrite(lease(legacy), writer(legacy))).isInstanceOf(
+            IllegalArgumentException.class
+        );
+    }
+
+    @Test
+    void expiredContextCannotOpenDestination(@TempDir Path root) throws Exception {
+        var held = acquire(repository.reserve(logicalBatch("expired-before-write", PHYSICAL_BYTES)));
+        var capability = writer(held);
+        var reserved = repository.reservePhysicalGeneration(lease(held), capability).orElseThrow();
+        var context = repository.authorizePhysicalWrite(lease(reserved), capability).orElseThrow();
+        expire(held.getId());
+        assertThatThrownBy(() ->
+            physicalStorage(root).prepare(context, Map.of(context.files().get(0).logicalId(), new ByteArrayInputStream(PHYSICAL_BYTES)))
+        ).isInstanceOfSatisfying(AttachmentStorage.StorageException.class, ex -> assertThat(ex.failure()).isEqualTo(Failure.CLAIM_LOST));
+        try (var entries = Files.list(root)) {
+            assertThat(entries).isEmpty();
+        }
+        assertStillPreparing(held.getId());
+    }
+
+    @Test
+    void replacementGenerationWritesWhileOldDescriptorRemainsOpenAndOldEvidenceIsRejected(@TempDir Path root) throws Exception {
+        var held = acquire(repository.reserve(logicalBatch("parallel-generations", PHYSICAL_BYTES)));
+        var capability = writer(held);
+        var reserved = repository.reservePhysicalGeneration(lease(held), capability).orElseThrow();
+        var stale = repository.authorizePhysicalWrite(lease(reserved), capability).orElseThrow();
+        var opened = new CountDownLatch(1);
+        var resume = new CountDownLatch(1);
+        var blocking = new ByteArrayInputStream(PHYSICAL_BYTES) {
+            @Override
+            public int read(byte[] buffer, int offset, int length) {
+                opened.countDown();
+                try {
+                    if (!resume.await(15, TimeUnit.SECONDS)) throw new AssertionError("Writer was not released");
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(ex);
+                }
+                return super.read(buffer, offset, length);
+            }
+        };
+        var storage = physicalStorage(root);
+        var thread = Executors.newSingleThreadExecutor();
+        try {
+            var pending = thread.submit(() -> storage.prepare(stale, Map.of(stale.files().get(0).logicalId(), blocking)));
+            assertThat(opened.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(pending.isDone()).isFalse();
+            expire(held.getId());
+            var takeover = acquire(repository.findById(held.getId()).orElseThrow());
+            var replacement = writer(takeover);
+            var next = repository.reservePhysicalGeneration(lease(takeover), replacement).orElseThrow();
+            var context = repository.authorizePhysicalWrite(lease(next), replacement).orElseThrow();
+            var evidence = storage.prepare(context, Map.of(context.files().get(0).logicalId(), new ByteArrayInputStream(PHYSICAL_BYTES)));
+            String oldKey = stale.files().get(0).storageKey();
+            String newKey = evidence.files().get(0).storageKey();
+            assertThat(newKey).isNotEqualTo(oldKey);
+            assertThat(pending.isDone()).isFalse();
+            assertThat(Files.size(root.resolve(oldKey))).isZero();
+            resume.countDown();
+            assertThatThrownBy(() -> pending.get(10, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(AttachmentStorage.StorageException.class)
+                .hasRootCauseMessage("CLAIM_LOST");
+            assertThat(Files.readAllBytes(root.resolve(oldKey))).containsExactly(PHYSICAL_BYTES);
+            assertThat(Files.readAllBytes(root.resolve(newKey))).containsExactly(PHYSICAL_BYTES);
+            assertStillPreparing(held.getId());
+        } finally {
+            resume.countDown();
+            thread.shutdownNow();
+        }
+    }
+
+    @Test
+    void collisionAcrossOperationsDoesNotAdoptExistingIdenticalBytes(@TempDir Path root) throws Exception {
+        var first = acquire(repository.reserve(logicalBatch("collision-first", PHYSICAL_BYTES)));
+        var firstCap = writer(first);
+        var firstReserved = repository.reservePhysicalGeneration(lease(first), firstCap).orElseThrow();
+        var firstContext = repository.authorizePhysicalWrite(lease(firstReserved), firstCap).orElseThrow();
+        var storage = physicalStorage(root);
+        var prior = prepareOnce(storage, firstContext).orElseThrow();
+
+        var second = acquire(repository.reserve(logicalBatch("collision-second", PHYSICAL_BYTES)));
+        var secondCap = writer(second);
+        // Force a UUID collision for the test. Both manifests still reserve and confirm through MongoDB.
+        var keys = AttachmentWriterCapability.class.getDeclaredField("keys");
+        keys.setAccessible(true);
+        UUID collision = UUID.fromString(prior.files().get(0).storageKey());
+        keys.set(secondCap, List.of(collision));
+        var secondReserved = repository.reservePhysicalGeneration(lease(second), secondCap).orElseThrow();
+        var secondContext = repository.authorizePhysicalWrite(lease(secondReserved), secondCap).orElseThrow();
+        assertThatThrownBy(() ->
+            storage.prepare(secondContext, Map.of(secondContext.files().get(0).logicalId(), new ByteArrayInputStream(PHYSICAL_BYTES)))
+        ).isInstanceOfSatisfying(AttachmentStorage.StorageException.class, ex -> assertThat(ex.failure()).isEqualTo(Failure.COLLISION));
+        assertThat(Files.readAllBytes(root.resolve(collision.toString()))).containsExactly(PHYSICAL_BYTES);
+        assertStillPreparing(first.getId());
+        assertStillPreparing(second.getId());
+    }
+
+    @Test
+    void idempotencyAcrossVersionsRequiresIdenticalOrderedFileFingerprints() throws Exception {
+        var v2 = logicalBatch("cross-format-files", new byte[] { 1 }, new byte[] { 2 });
+        var v1 = operation("synthetic", "cross-format-files", "payload");
+        v1.setFiles(
+            v2
+                .getLogicalFiles()
+                .stream()
+                .map(logical -> {
+                    var entry = new AttachmentOperation.FileEntry();
+                    entry.setMetadataId(new ObjectId());
+                    entry.setStorageKey(UUID.randomUUID().toString());
+                    entry.setSizeBytes(logical.expectedSizeBytes());
+                    entry.setSha256(logical.expectedSha256());
+                    entry.setState("RESERVED");
+                    return entry;
+                })
+                .toList()
+        );
+        var stored = repository.reserve(v1);
+        assertThat(repository.reserve(v2).getId()).isEqualTo(stored.getId());
+        var files = v2.getLogicalFiles();
+        v2.setLogicalFiles(List.of(files.get(1), files.get(0)));
+        assertThatThrownBy(() -> repository.reserve(v2)).isInstanceOf(IdempotencyConflict.class);
+        var original = files.get(0);
+        v2.setLogicalFiles(
+            List.of(
+                new AttachmentOperation.LogicalFile(
+                    original.logicalId(),
+                    original.metadataId(),
+                    original.expectedSizeBytes(),
+                    "0".repeat(64)
+                ),
+                files.get(1)
+            )
+        );
+        assertThatThrownBy(() -> repository.reserve(v2)).isInstanceOf(IdempotencyConflict.class);
+        assertThat(manifests().countDocuments()).isOne();
     }
 }

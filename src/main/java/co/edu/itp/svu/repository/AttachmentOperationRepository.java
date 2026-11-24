@@ -8,6 +8,7 @@ import co.edu.itp.svu.domain.attachment.AttachmentOperation.LogicalFile;
 import co.edu.itp.svu.domain.attachment.AttachmentOperation.PhysicalGeneration;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationState;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
+import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
@@ -19,6 +20,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import org.bson.BsonBinaryWriter;
 import org.bson.BsonType;
 import org.bson.Document;
@@ -572,6 +575,95 @@ public class AttachmentOperationRepository {
             return Optional.empty();
         }
         return change(and(filter, eq(GENERATIONS, batch)), new Document());
+    }
+
+    /** Issues one process-local context only after a successful journaled confirmation. */
+    public Optional<PhysicalWriteContext> authorizePhysicalWrite(Lease lease, AttachmentWriterCapability writer) {
+        synchronized (writer) {
+            if (writer.writeAuthorized()) return Optional.empty();
+            Optional<AttachmentOperation> confirmed;
+            try {
+                confirmed = confirmPhysicalReservation(lease, writer);
+            } catch (MongoException ex) {
+                throw new IllegalStateException("Physical writer authorization unavailable");
+            }
+            if (confirmed.isEmpty()) return Optional.empty();
+            AttachmentOperation operation = confirmed.orElseThrow();
+            var batch = operation
+                .getPhysicalGenerations()
+                .stream()
+                .filter(generation -> generation.generation() == lease.fencing())
+                .findFirst()
+                .orElseThrow();
+            List<ReservedFile> files = new ArrayList<>();
+            for (int i = 0; i < operation.getLogicalFiles().size(); i++) {
+                var logical = operation.getLogicalFiles().get(i);
+                files.add(
+                    new ReservedFile(
+                        logical.logicalId(),
+                        batch.entries().get(i).storageKey(),
+                        logical.expectedSizeBytes(),
+                        logical.expectedSha256()
+                    )
+                );
+            }
+            var currentLease = new Lease(
+                new Version(operation.getId(), PREPARING, operation.getRevision(), 2),
+                lease.owner(),
+                lease.fencing()
+            );
+            var filter = physicalLease(currentLease);
+            writer.authorizeWrite();
+            return Optional.of(
+                new PhysicalWriteContext(
+                    currentLease,
+                    files,
+                    () -> collection().find(filter).projection(new Document("_id", 1)).first() != null
+                )
+            );
+        }
+    }
+
+    public record ReservedFile(String logicalId, String storageKey, long expectedSize, String expectedSha256) {}
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreType
+    public static final class PhysicalWriteContext {
+
+        private final Lease lease;
+        private final List<ReservedFile> files;
+        private final BooleanSupplier current;
+        private final AtomicBoolean started = new AtomicBoolean();
+
+        private PhysicalWriteContext(Lease lease, List<ReservedFile> files, BooleanSupplier current) {
+            this.lease = lease;
+            this.files = List.copyOf(files);
+            this.current = current;
+        }
+
+        public boolean start() {
+            return started.compareAndSet(false, true);
+        }
+
+        public Lease lease() {
+            return lease;
+        }
+
+        public List<ReservedFile> files() {
+            return files;
+        }
+
+        public boolean current() {
+            try {
+                return current.getAsBoolean();
+            } catch (MongoException ex) {
+                throw new IllegalStateException("Physical writer claim check unavailable");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "PhysicalWriteContext[redacted]";
+        }
     }
 
     private static Bson physicalLease(Lease lease) {
