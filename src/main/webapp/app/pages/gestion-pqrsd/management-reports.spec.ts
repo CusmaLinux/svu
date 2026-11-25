@@ -11,6 +11,8 @@ vi.mock('vue-echarts', () => ({ default: { name: 'TestChart', props: ['option'],
 const root = 'api/reports/gestion-pqrsd';
 const configUrl = root + '/configuration';
 const previewUrl = root + '/preview';
+const exportUrl = root + '/export/xlsx';
+const xlsxType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const catalogUrl = 'api/oficinas/catalogo';
 const reply = (data: unknown, headers = {}) => ({ data, headers }) as AxiosResponse;
 const failure = (status: number, data = {}) => Object.assign(new AxiosError('synthetic error'), { response: { status, data } });
@@ -277,6 +279,137 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(view.text()).toContain('La sesión finalizó.');
     expect(view.find('form').exists()).toBe(false);
     expect(view.text()).not.toContain('Preparando vista previa');
+  });
+
+  const downloadButton = () => view.findAll('button').find(button => button.text() === 'Descargar Excel')!;
+  const blobResponse = () => reply(new Blob(['xlsx']), { 'content-type': xlsxType });
+
+  it('habilita el XLSX tras la vista previa, evita duplicados y libera el Blob', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const url = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:synthetic');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    try {
+      await open();
+      expect((downloadButton().element as HTMLButtonElement).disabled).toBe(true);
+      await dates();
+      await submit();
+      await flushPromises();
+      expect((downloadButton().element as HTMLButtonElement).disabled).toBe(false);
+      let done!: (res: AxiosResponse) => void;
+      get.mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            done = resolve;
+          }),
+      );
+      await downloadButton().trigger('click');
+      expect((downloadButton().element as HTMLButtonElement).disabled).toBe(true);
+      await downloadButton().trigger('click');
+      expect(get.mock.calls.filter(([path]) => path === exportUrl)).toHaveLength(1);
+      expect(get.mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({
+          responseType: 'blob',
+          params: { start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL' },
+        }),
+      );
+      done(blobResponse());
+      await flushPromises();
+      await vi.waitFor(() => expect(revoke).toHaveBeenCalledWith('blob:synthetic'));
+      expect(url).toHaveBeenCalledTimes(1);
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(document.querySelector('a[download]')).toBeNull();
+      expect(view.find('article').exists()).toBe(true);
+    } finally {
+      click.mockRestore();
+      url.mockRestore();
+      revoke.mockRestore();
+    }
+  });
+
+  it.each(['filtros', 'sesión'])('descarta una descarga obsoleta al cambiar %s', async change => {
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    let done!: (res: AxiosResponse) => void;
+    get.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          done = resolve;
+        }),
+    );
+    await downloadButton().trigger('click');
+    const signal = get.mock.calls.at(-1)?.[1]?.signal;
+    if (change === 'sesión') useStore().logout();
+    else await dates('2024-02-01');
+    expect(signal?.aborted).toBe(true);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    try {
+      done(blobResponse());
+      await flushPromises();
+      expect(click).not.toHaveBeenCalled();
+      expect(view.find('article').exists()).toBe(false);
+      if (change === 'filtros') expect((downloadButton().element as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      click.mockRestore();
+    }
+  });
+
+  it.each([
+    [400, 'La dependencia no existe'],
+    [401, 'La sesión finalizó'],
+    [403, 'Ya no tienes permiso'],
+    [503, 'temporalmente indisponible'],
+  ])('maneja HTTP %s al descargar', async (status, message) => {
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    const problem = new Blob([JSON.stringify({ message: 'error.unknownOrAmbiguousOffice', detail: 'dato interno' })], {
+      type: 'application/problem+json',
+    });
+    get.mockRejectedValueOnce(failure(status, problem));
+    await downloadButton().trigger('click');
+    await flushPromises();
+    expect(view.text()).toContain(message);
+    expect(view.text()).not.toContain('dato interno');
+    expect(view.find('article').exists()).toBe(status !== 401 && status !== 403);
+  });
+
+  it('exige la vista previa de oficina y rechaza una respuesta JSON con HTTP 200', async () => {
+    get.mockImplementation(path =>
+      Promise.resolve(
+        path === configUrl
+          ? reply(testConfiguration)
+          : path === catalogUrl
+            ? reply([{ id: 'synthetic-a', nombre: 'Atención al Usuario' }], { 'x-total-count': '1' })
+            : reply(testReport),
+      ),
+    );
+    await open();
+    await dates();
+    await view.get('#report-scope').setValue('OFFICE');
+    await flushPromises();
+    await view.get('#report-office').setValue('synthetic-a');
+    await submit();
+    await flushPromises();
+    get.mockResolvedValueOnce(reply(new Blob(['{}']), { 'content-type': 'application/json' }));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    try {
+      await downloadButton().trigger('click');
+      await flushPromises();
+      expect(get.mock.calls.at(-1)?.[1]?.params).toEqual({
+        start: '2024-01-01',
+        end: '2024-03-20',
+        scope: 'OFFICE',
+        officeId: 'synthetic-a',
+      });
+      expect(click).not.toHaveBeenCalled();
+      expect(view.text()).toContain('No fue posible comunicarse con el servicio');
+      expect(view.find('article').exists()).toBe(true);
+    } finally {
+      click.mockRestore();
+    }
   });
 
   it.each(['logout', 'revocation'])('elimina resultados cuando cambia el acceso (%s)', async action => {

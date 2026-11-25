@@ -14,6 +14,9 @@ const {
   preview,
   previewState,
   previewError,
+  downloading,
+  downloadError,
+  downloadExcel,
   validationError,
   accessError,
   clearFilters,
@@ -116,6 +119,14 @@ const {
           Reintentar vista previa
         </button>
       </div>
+      <div class="mt-3 d-flex flex-wrap align-items-baseline" style="gap: 0.75rem">
+        <button type="button" class="btn btn-outline-secondary" :disabled="!preview || downloading" @click="downloadExcel">
+          Descargar Excel
+        </button>
+        <small class="text-muted">El Excel actualiza las cifras con los filtros de la vista previa. Los datos pueden haber cambiado.</small>
+      </div>
+      <p v-if="downloading" class="mt-2" role="status">Generando el archivo Excel…</p>
+      <p v-if="downloadError" class="alert alert-warning mt-2" role="alert">{{ downloadError }}</p>
       <statistics-report v-if="preview" class="mt-4" :report="preview" />
     </template>
   </main>

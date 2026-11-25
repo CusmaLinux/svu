@@ -71,11 +71,20 @@ export function useStatisticsPreview() {
   const previewState = ref<RequestState>('idle');
   const previewError = shallowRef<RequestError>();
   const validationError = ref('');
+  const downloading = ref(false);
+  const downloadError = ref('');
+  let appliedFilter: PreviewFilter | undefined;
+  let downloadRequest: AbortController | undefined;
   let configurationRequest: AbortController | undefined;
   let catalogRequest: AbortController | undefined;
   let previewRequest: AbortController | undefined;
 
   function clearPreview() {
+    downloadRequest?.abort();
+    downloadRequest = undefined;
+    downloading.value = false;
+    downloadError.value = '';
+    appliedFilter = undefined;
     previewRequest?.abort();
     previewRequest = undefined;
     preview.value = undefined;
@@ -183,6 +192,7 @@ export function useStatisticsPreview() {
     try {
       const data = await statisticsService.preview(filter, request.signal);
       if (previewRequest !== request || !allowed.value) return;
+      appliedFilter = filter;
       preview.value = data;
       previewState.value = 'idle';
     } catch (error) {
@@ -191,6 +201,45 @@ export function useStatisticsPreview() {
       previewError.value = httpError(error);
     } finally {
       if (previewRequest === request) previewRequest = undefined;
+    }
+  }
+
+  async function downloadExcel() {
+    if (!appliedFilter || !preview.value || !allowed.value || accessError.value || downloadRequest) return;
+    const request = new AbortController();
+    downloadRequest = request;
+    downloading.value = true;
+    downloadError.value = '';
+    try {
+      const { blob, filename } = await statisticsService.exportXlsx(appliedFilter, request.signal);
+      if (downloadRequest !== request || !allowed.value) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      try {
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.append(anchor);
+        anchor.click();
+      } finally {
+        anchor.remove();
+        // Give the browser a turn to consume the navigation before releasing the Blob.
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+    } catch (error) {
+      if (downloadRequest !== request || handleAccessError(error)) return;
+      if (isAxiosError(error) && error.response?.status === 400 && error.response.data instanceof Blob) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // Fall back to the generic filter error for malformed problem details.
+        }
+      }
+      if (downloadRequest === request) downloadError.value = httpError(error).message;
+    } finally {
+      if (downloadRequest === request) {
+        downloadRequest = undefined;
+        downloading.value = false;
+      }
     }
   }
 
@@ -227,6 +276,9 @@ export function useStatisticsPreview() {
     preview,
     previewState,
     previewError,
+    downloading,
+    downloadError,
+    downloadExcel,
     validationError,
     accessError,
     clearFilters,

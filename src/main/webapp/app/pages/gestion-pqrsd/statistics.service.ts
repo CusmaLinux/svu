@@ -3,6 +3,7 @@ import type { PqrsStatistics, PreviewFilter, StatisticsConfiguration } from './s
 
 const base = 'api/reports/gestion-pqrsd';
 const pageSize = 100;
+const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export type OfficeOption = { id: string; nombre: string };
 
 // The shared interceptor can resolve without a response after handling an expired session.
@@ -17,6 +18,17 @@ export const statisticsService = {
   },
   async preview(filter: PreviewFilter, signal: AbortSignal) {
     return responseOrExpired(await axios.get<PqrsStatistics>(base + '/preview', { params: filter, signal })).data;
+  },
+  async exportXlsx(filter: PreviewFilter, signal: AbortSignal) {
+    const response = responseOrExpired(await axios.get<Blob>(base + '/export/xlsx', { params: filter, signal, responseType: 'blob' }));
+    const contentType = String(response.headers?.['content-type'] ?? '')
+      .split(';')[0]
+      .trim();
+    if (contentType !== xlsx || !(response.data instanceof Blob) || response.data.size === 0) {
+      throw new Error('Invalid spreadsheet response');
+    }
+    const scope = filter.scope === 'OFFICE' ? 'Dependencia' : 'Institucional';
+    return { blob: response.data, filename: `Informe_PQRSD_${scope}_${filter.start}_${filter.end}.xlsx` };
   },
   async offices(signal: AbortSignal) {
     const offices = new Map<string, OfficeOption>();

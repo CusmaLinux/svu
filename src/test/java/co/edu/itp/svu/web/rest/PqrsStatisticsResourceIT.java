@@ -13,12 +13,16 @@ import co.edu.itp.svu.IntegrationTest;
 import co.edu.itp.svu.service.dto.PqrsStatisticsFilter;
 import co.edu.itp.svu.service.dto.PqrsStatisticsFilter.Scope;
 import co.edu.itp.svu.service.report.PqrsStatisticsService;
+import co.edu.itp.svu.service.report.PqrsStatisticsWorkbook;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.DBRef;
 import com.mongodb.MongoException;
 import com.mongodb.event.CommandListener;
 import com.mongodb.event.CommandStartedEvent;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -26,9 +30,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import org.apache.commons.compress.archivers.zip.ZipFile;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.openxml4j.util.ZipFileZipEntrySource;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +68,9 @@ class PqrsStatisticsResourceIT {
     private static final String OTHER = "statistics-test-office";
     private static final List<ObjectId> ROOT_IDS = List.of(new ObjectId(), new ObjectId(), new ObjectId());
     private static final AtomicInteger AGGREGATIONS = new AtomicInteger();
+
+    @TempDir
+    Path directory;
 
     @Autowired
     private MockMvc mvc;
@@ -125,6 +137,7 @@ class PqrsStatisticsResourceIT {
     @Test
     void deniesAnonymousRequestsBeforeAggregation() throws Exception {
         mvc.perform(valid()).andExpect(status().isUnauthorized());
+        mvc.perform(export(START, END, "INSTITUTIONAL", null)).andExpect(status().isUnauthorized());
         mvc.perform(get(BASE + "/configuration")).andExpect(status().isUnauthorized());
         assertThat(AGGREGATIONS.get()).isZero();
     }
@@ -134,6 +147,7 @@ class PqrsStatisticsResourceIT {
     void deniesProfilesWithoutStatisticalAccess(String role) throws Exception {
         var identity = user("synthetic").authorities(new SimpleGrantedAuthority(role));
         mvc.perform(valid().with(identity)).andExpect(status().isForbidden());
+        mvc.perform(export(START, END, "INSTITUTIONAL", null).with(identity)).andExpect(status().isForbidden());
         mvc.perform(get(BASE + "/configuration").with(identity)).andExpect(status().isForbidden());
         assertThat(AGGREGATIONS.get()).isZero();
     }
@@ -275,7 +289,9 @@ class PqrsStatisticsResourceIT {
         when(failingStatistics.calculate(any()))
             .thenThrow(new QueryTimeoutException("synthetic internal query"))
             .thenThrow(new MongoException("synthetic internal server"));
-        var standaloneMvc = MockMvcBuilders.standaloneSetup(new PqrsStatisticsResource(failingStatistics)).build();
+        var standaloneMvc = MockMvcBuilders.standaloneSetup(
+            new PqrsStatisticsResource(failingStatistics, new PqrsStatisticsWorkbook())
+        ).build();
         for (String detail : List.of("The statistics query exceeded its time limit", "Statistics are temporarily unavailable")) {
             var response = standaloneMvc
                 .perform(valid())
@@ -286,6 +302,90 @@ class PqrsStatisticsResourceIT {
                 .getResponse();
             assertThat(response.getContentAsString()).doesNotContain("synthetic internal", "stackTrace");
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { ADMIN, PQRSD_REPORTS })
+    void exportsAuthorizedXlsxWithTheSameOfficeCountsAndNoCaseData(String role) throws Exception {
+        var identity = user("synthetic").authorities(new SimpleGrantedAuthority(role));
+        var preview = mvc
+            .perform(preview(START, END, "OFFICE", OFFICE.toHexString()).with(identity))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse();
+        var expected = json.readTree(preview.getContentAsByteArray());
+        var xlsx = mvc
+            .perform(export(START, END, "OFFICE", OFFICE.toHexString()).with(identity))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(
+                header().string("Content-Disposition", "attachment; filename=\"Informe_PQRSD_Dependencia_" + START + "_" + END + ".xlsx\"")
+            )
+            .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .andReturn()
+            .getResponse();
+        Path file = Files.write(directory.resolve("report.xlsx"), xlsx.getContentAsByteArray());
+        try (var workbook = new XSSFWorkbook(OPCPackage.open(new ZipFileZipEntrySource(new ZipFile(file.toFile()))))) {
+            assertThat(workbook.getSheetAt(1).getRow(4).getCell(1).getNumericCellValue()).isEqualTo(
+                expected.at("/months/0/received").asInt()
+            );
+            assertThat(workbook.getSheetAt(1).getRow(6).getCell(1).getNumericCellValue()).isEqualTo(expected.get("received").asInt());
+            assertThat(workbook.getSheetAt(4).getRow(4).getCell(1).getNumericCellValue()).isEqualTo(2);
+            assertThat(workbook.getSheetAt(4).getRow(5).getCell(0).getStringCellValue()).isEqualTo("Total del periodo");
+            for (var tab : workbook) for (var row : tab) for (var cell : row) {
+                assertThat(cell.toString()).doesNotContain("synthetic-private", ROOT_IDS.get(0).toHexString());
+            }
+        }
+        assertThat(AGGREGATIONS.get()).isEqualTo(2);
+    }
+
+    @Test
+    @WithMockUser(authorities = { PQRSD_REPORTS, FUNCTIONARY })
+    void rejectsInvalidExportFiltersBeforeAggregation() throws Exception {
+        mongo.getCollection("oficina").insertOne(new Document("_id", OFFICE.toHexString()));
+        mvc
+            .perform(export(START, END, "OFFICE", OFFICE.toHexString()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.unknownOrAmbiguousOffice"));
+        mvc.perform(export(START, END, "OFFICE", "missing")).andExpect(status().isBadRequest());
+        mvc.perform(export(START, END, "OFFICE", null)).andExpect(status().isBadRequest());
+        mvc.perform(export(START, END, "INSTITUTIONAL", null).param("start", START)).andExpect(status().isBadRequest());
+        mvc.perform(export("2000-01-01", END, "INSTITUTIONAL", null)).andExpect(status().isBadRequest());
+        assertThat(AGGREGATIONS.get()).isZero();
+    }
+
+    @Test
+    void reportsQueryAndWorkbookErrorsWithoutSendingAnAttachment() throws Exception {
+        var stats = mock(PqrsStatisticsService.class);
+        var book = mock(PqrsStatisticsWorkbook.class);
+        var standalone = MockMvcBuilders.standaloneSetup(new PqrsStatisticsResource(stats, book)).build();
+        when(stats.calculate(any())).thenThrow(new QueryTimeoutException("private query detail"));
+        standalone
+            .perform(export(START, END, "INSTITUTIONAL", null))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(header().doesNotExist("Content-Disposition"))
+            .andExpect(jsonPath("$.detail").value("The statistics query exceeded its time limit"));
+        var filter = new PqrsStatisticsFilter(LocalDate.parse(START), LocalDate.parse(END), Scope.INSTITUTIONAL, null);
+        org.mockito.Mockito.reset(stats);
+        when(stats.calculate(any())).thenReturn(
+            new co.edu.itp.svu.service.dto.PqrsStatistics(
+                filter,
+                null,
+                null,
+                0,
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                List.of(),
+                java.util.Map.of()
+            )
+        );
+        when(book.generate(any())).thenThrow(new IOException("private file detail"));
+        standalone
+            .perform(export(START, END, "INSTITUTIONAL", null))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(header().doesNotExist("Content-Disposition"))
+            .andExpect(jsonPath("$.detail").value("The Excel report could not be generated"));
     }
 
     static Stream<Arguments> invalidFilters() {
@@ -315,7 +415,15 @@ class PqrsStatisticsResourceIT {
     }
 
     private static MockHttpServletRequestBuilder preview(String start, String end, String scope, String officeId) {
-        var request = get(BASE + "/preview");
+        return filtered("/preview", start, end, scope, officeId);
+    }
+
+    private static MockHttpServletRequestBuilder export(String start, String end, String scope, String officeId) {
+        return filtered("/export/xlsx", start, end, scope, officeId);
+    }
+
+    private static MockHttpServletRequestBuilder filtered(String path, String start, String end, String scope, String officeId) {
+        var request = get(BASE + path);
         if (start != null) request.param("start", start);
         if (end != null) request.param("end", end);
         if (scope != null) request.param("scope", scope);
