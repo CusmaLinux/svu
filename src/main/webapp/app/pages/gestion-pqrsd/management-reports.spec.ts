@@ -6,7 +6,7 @@ import { Authority } from '@/shared/security/authority';
 import ManagementReports from './management-reports.vue';
 import { testConfiguration, testReport } from './statistics.fixture';
 
-vi.mock('vue-echarts', () => ({ default: { props: ['option'], template: '<div data-test="chart"></div>' } }));
+vi.mock('vue-echarts', () => ({ default: { name: 'TestChart', props: ['option'], template: '<div data-test="chart"></div>' } }));
 
 const root = 'api/reports/gestion-pqrsd';
 const configUrl = root + '/configuration';
@@ -20,7 +20,7 @@ describe('Vista previa de gestión PQRSD', () => {
   let view: VueWrapper;
 
   async function open() {
-    view = mount(ManagementReports);
+    view = mount(ManagementReports, { attachTo: document.body });
     await flushPromises();
   }
 
@@ -55,19 +55,32 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(view.findAll('[data-test="chart"]')).toHaveLength(6);
     expect(view.findAll('article > section')).toHaveLength(7);
     expect(view.get('.metric.primary').text()).toContain('13');
-    expect(view.findAll('.metric').at(-1)?.text()).toBe('Rechazadas actualmente0');
+    expect(view.get('[data-state="REJECTED"] strong').text()).toBe('0');
+    expect(view.get('[data-state="REJECTED"]').classes()).toContain('zero');
+    expect(view.get('[data-state="UNKNOWN"] strong').text()).toBe('1');
+    expect(view.findAll('nav[aria-label="Secciones del informe"] a')).toHaveLength(7);
+    expect(view.findAll('tfoot').map(row => row.text())).toContain('Total del periodo13');
+    expect(view.get('th.numeric').exists()).toBe(true);
+    expect(view.text()).toContain('Enero 2024');
+    expect(view.text()).toContain('Marzo 2024 *');
+    expect(view.text()).toContain('Ver tabla de datos');
+    const charts = view.findAllComponents({ name: 'TestChart' }).map(chart => chart.props('option'));
+    expect(charts[0].series[0].label.show).toBe(true);
+    expect(charts[1].series[0].data).toEqual([null, -50, null]);
+    expect(charts[2].series[0].label.formatter({ dataIndex: 0 })).toBe('6 · 46,2 %');
+    expect(charts[4].series.at(-1).data).toEqual([6, 3, 4]);
+    expect(charts[5].yAxis.axisLabel.overflow).toBe('break');
     for (const text of [
       'Demanda',
       '46,2 %',
-      'Sin asignación',
+      'Sin dependencia asignada',
       'Referencia no verificable',
       'Mes parcial',
-      'No calculable · base cero',
-      'Cobertura parcial',
-      'instantánea transaccional',
-      'Fuente no disponible',
-      'Definición institucional pendiente',
-      'Fuente parcial',
+      'Variación no calculable · base cero',
+      'Información parcialmente disponible',
+      'la información puede variar',
+      'Información no disponible',
+      'Indicador pendiente de definición institucional',
     ]) {
       expect(view.text()).toContain(text);
     }
@@ -126,7 +139,9 @@ describe('Vista previa de gestión PQRSD', () => {
     await submit();
     await flushPromises();
     expect(view.text()).toContain('No se registraron solicitudes');
-    expect(view.text()).toContain('Dato no disponible');
+    expect(view.text()).toContain('Información no disponible');
+    expect(view.get('[data-state="PENDING"]').classes()).toContain('unavailable');
+    expect(view.find('[data-state="UNKNOWN"]').exists()).toBe(false);
     expect(view.text()).toContain('No calculable');
   });
 
@@ -181,6 +196,7 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(view.text()).toContain(message);
     expect(view.find('article').exists()).toBe(false);
     expect(view.text().includes('Reintentar vista previa')).toBe(status === 503);
+    if (status === 401 || status === 403) expect(view.find('form').exists()).toBe(false);
     if (status === 503) {
       await view
         .findAll('button')
@@ -190,6 +206,77 @@ describe('Vista previa de gestión PQRSD', () => {
       expect(view.find('article').exists()).toBe(true);
       expect(previews()).toHaveLength(2);
     }
+  });
+
+  it('permite enfocar las siete secciones desde el índice', async () => {
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    for (const link of view.findAll('nav a')) {
+      const heading = view.get(link.attributes('href')).element as HTMLElement;
+      const focus = vi.spyOn(heading, 'focus');
+      await link.trigger('click');
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    }
+  });
+
+  it.each([
+    ['error.invalidDate', 'ambas fechas'],
+    ['error.invalidPeriod', 'La fecha inicial debe ser anterior'],
+    ['error.futurePeriod', 'La fecha final no puede'],
+    ['error.periodTooLong', 'supera el máximo'],
+    ['error.invalidScope', 'Selecciona Institucional'],
+    ['error.officeRequired', 'Selecciona una dependencia'],
+    ['error.unknownOrAmbiguousOffice', 'no existe o su identificador es ambiguo'],
+    ['__proto__', 'Revisa los filtros solicitados'],
+  ])('traduce el problema HTTP 400 %s sin mostrar el detalle interno', async (code, message) => {
+    get.mockResolvedValueOnce(reply(testConfiguration)).mockRejectedValueOnce(failure(400, { message: code, detail: 'detalle interno' }));
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    expect(view.text()).toContain(message);
+    expect(view.text()).not.toContain('detalle interno');
+  });
+
+  it('ofrece un reintento seguro tras un fallo de comunicación', async () => {
+    get.mockResolvedValueOnce(reply(testConfiguration)).mockRejectedValueOnce(new AxiosError('detalle interno'));
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    expect(view.text()).toContain('No fue posible comunicarse con el servicio');
+    expect(view.text()).not.toContain('detalle interno');
+    expect(view.text()).toContain('Reintentar vista previa');
+  });
+
+  it('suelta la carga cuando el interceptor consume el 401 y cierra la sesión', async () => {
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    expect(view.find('article').exists()).toBe(true);
+    get.mockImplementationOnce(async () => {
+      useStore().logout();
+      return undefined;
+    });
+    await submit();
+    await flushPromises();
+    expect(view.find('article').exists()).toBe(false);
+    expect(view.find('form').exists()).toBe(false);
+    expect(view.text()).not.toContain('Preparando vista previa');
+  });
+
+  it('interpreta una respuesta consumida como sesión expirada aunque el estado local siga activo', async () => {
+    get.mockResolvedValueOnce(reply(testConfiguration)).mockResolvedValueOnce(undefined);
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+    expect(view.text()).toContain('La sesión finalizó.');
+    expect(view.find('form').exists()).toBe(false);
+    expect(view.text()).not.toContain('Preparando vista previa');
   });
 
   it.each(['logout', 'revocation'])('elimina resultados cuando cambia el acceso (%s)', async action => {

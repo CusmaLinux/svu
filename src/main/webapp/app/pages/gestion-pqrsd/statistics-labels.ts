@@ -12,10 +12,10 @@ const labels: Record<string, string> = {
   RESOLVED: 'Resueltas',
   CLOSED: 'Cerradas',
   REJECTED: 'Rechazadas',
-  UNASSIGNED: 'Sin asignación',
+  UNASSIGNED: 'Sin dependencia asignada',
   UNVERIFIABLE: 'Referencia no verificable',
   OBSERVED: 'Datos observados',
-  PARTIAL: 'Cobertura parcial',
+  PARTIAL: 'Información parcialmente disponible',
   TYPE_HISTORICALLY_AMBIGUOUS: 'Hay solicitudes antiguas cuya tipología es ambigua.',
   TYPE_MISSING: 'Hay solicitudes sin tipología registrada.',
   TYPE_UNKNOWN: 'Hay solicitudes con una tipología no reconocida.',
@@ -24,12 +24,12 @@ const labels: Record<string, string> = {
   OFFICE_UNVERIFIABLE: 'Hay referencias a dependencias que no pudieron verificarse.',
   PROVISIONAL_PERIOD: 'El periodo incluye el día en curso y tiene un corte provisional.',
   ONLY_DATED_ROOTS: 'El cálculo incluye solicitudes con fecha de recepción válida.',
-  OFFICE_AND_STATE_AT_OBSERVATION: 'Los estados y dependencias corresponden al momento de observación.',
+  OFFICE_AND_STATE_AT_OBSERVATION: 'Los estados y dependencias corresponden a la fecha y hora de consulta.',
   HISTORICAL_COMPLETENESS_UNMEASURED: 'La integridad histórica del registro está pendiente de medición.',
-  OBSERVATION_NOT_TRANSACTIONAL: 'El cálculo no constituye una instantánea transaccional.',
-  PARTIAL_SOURCE: 'Fuente parcial',
-  SOURCE_UNAVAILABLE: 'Fuente no disponible',
-  DEFINITION_PENDING: 'Definición institucional pendiente',
+  OBSERVATION_NOT_TRANSACTIONAL: 'Si se actualizan solicitudes durante la consulta, la información puede variar.',
+  PARTIAL_SOURCE: 'Información parcialmente disponible',
+  SOURCE_UNAVAILABLE: 'Información no disponible',
+  DEFINITION_PENDING: 'Indicador pendiente de definición institucional',
   'IND-08': 'Solicitudes respondidas',
   'IND-09': 'Pendientes al corte',
   'IND-10': 'Solicitudes vencidas',
@@ -51,5 +51,16 @@ export function label(code: string) {
 const countFormatter = new Intl.NumberFormat('es-CO');
 const percentFormatter = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 
-export const quantity = (value: number | null | undefined) => (value == null ? 'Dato no disponible' : countFormatter.format(value));
+export const quantity = (value: number | null | undefined) => (value == null ? 'Información no disponible' : countFormatter.format(value));
 export const percentage = (value: number) => percentFormatter.format(value) + ' %';
+
+const monthFormatter = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+export function monthName(month: string) {
+  const name = monthFormatter.format(new Date(month + '-01T00:00:00Z')).replace(' de ', ' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+export function civilDate(value: string) {
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+}

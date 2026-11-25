@@ -9,17 +9,25 @@ import type { ChartOptions } from './statistics.model';
 
 use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
-defineProps<{ title: string; options: ChartOptions | null; columns: string[]; rows: string[][] }>();
+defineProps<{
+  title: string;
+  options: ChartOptions | null;
+  columns: string[];
+  rows: string[][];
+  numeric?: number[];
+  total?: string[];
+  height?: number;
+}>();
 </script>
 
 <template>
   <div class="chart-panel">
     <h3>{{ title }}</h3>
-    <v-chart v-if="options" class="chart" :option="options" autoresize aria-hidden="true" />
+    <v-chart v-if="options" class="chart" :style="{ height: (height ?? 300) + 'px' }" :option="options" autoresize aria-hidden="true" />
     <p v-else class="text-muted">No hay valores para graficar.</p>
     <details>
-      <summary>Datos de la gráfica</summary>
-      <statistics-table :caption="title" :columns="columns" :rows="rows" />
+      <summary>Ver tabla de datos</summary>
+      <statistics-table :caption="title" :columns="columns" :rows="rows" :numeric="numeric" :total="total" />
     </details>
   </div>
 </template>
@@ -36,9 +44,6 @@ h3 {
   font-size: 1rem;
   font-weight: 650;
   margin-bottom: 0.5rem;
-}
-.chart {
-  height: 285px;
 }
 summary {
   color: #165c62;

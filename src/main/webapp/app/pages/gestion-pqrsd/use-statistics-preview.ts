@@ -10,6 +10,13 @@ type RequestError = { message: string; retryable: boolean };
 
 const filterErrors: Record<string, string> = {
   'error.unknownOrAmbiguousOffice': 'La dependencia no existe o su identificador es ambiguo. Selecciona otra dependencia.',
+  'error.invalidDate': 'Revisa que ambas fechas sean válidas.',
+  'error.invalidPeriod': 'Revisa el periodo. La fecha inicial debe ser anterior o igual a la fecha final.',
+  'error.invalidScope': 'Selecciona Institucional o Por dependencia.',
+  'error.officeRequired': 'Selecciona una dependencia del catálogo.',
+  'error.invalidOffice': 'La dependencia seleccionada tiene un identificador inválido.',
+  'error.unexpectedOffice': 'El alcance institucional abarca todas las dependencias.',
+  'error.repeatedParameter': 'Hay filtros repetidos. Limpia el formulario e inténtalo de nuevo.',
   'error.futurePeriod': 'La fecha final no puede estar en el futuro.',
   'error.periodTooLong': 'El periodo supera el máximo permitido. Revisa las fechas.',
 };
@@ -17,8 +24,14 @@ const filterErrors: Record<string, string> = {
 function httpError(error: unknown): RequestError {
   if (isAxiosError(error)) {
     switch (error.response?.status) {
-      case 400:
-        return { message: filterErrors[error.response.data?.message] ?? 'Revisa los filtros solicitados.', retryable: false };
+      case 400: {
+        const code = error.response.data?.message;
+        const message =
+          typeof code === 'string' && Object.prototype.hasOwnProperty.call(filterErrors, code)
+            ? filterErrors[code]
+            : 'Revisa los filtros solicitados.';
+        return { message, retryable: false };
+      }
       case 401:
         return { message: 'La sesión finalizó. Ingresa de nuevo para consultar el informe.', retryable: false };
       case 403:
@@ -27,7 +40,7 @@ function httpError(error: unknown): RequestError {
         return { message: 'El servicio de informes está temporalmente indisponible.', retryable: true };
     }
   }
-  return { message: 'No fue posible completar la consulta.', retryable: true };
+  return { message: 'No fue posible comunicarse con el servicio de informes. Inténtalo de nuevo.', retryable: true };
 }
 
 function civilDay(value: string) {
