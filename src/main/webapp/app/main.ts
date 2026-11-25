@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 
 import App from './app.vue';
 import router from './router';
+import { checkRouteAuthorities } from './router/authority-guard';
 import { initFortAwesome, initI18N } from './shared/config/config';
 import { initBootstrapVue } from './shared/config/config-bootstrap-vue';
 import JhiItemCountComponent from './shared/jhi-item-count.vue';
@@ -113,23 +114,9 @@ const app = createApp({
       await changeLanguage(lang);
     });
 
-    router.beforeResolve(async (to, from, next) => {
-      // Make sure login modal is closed
+    router.beforeResolve(to => {
       loginService.hideLogin();
-
-      if (!store.authenticated) {
-        await accountService.update();
-      }
-      if (to.meta?.authorities && to.meta.authorities.length > 0) {
-        const value = await accountService.hasAnyAuthorityAndCheckAuth(to.meta.authorities);
-        if (!value) {
-          if (from.path !== '/forbidden') {
-            next({ path: '/forbidden' });
-            return;
-          }
-        }
-      }
-      next();
+      return checkRouteAuthorities(to, accountService);
     });
 
     setupAxiosInterceptors(

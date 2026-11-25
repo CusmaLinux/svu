@@ -13,7 +13,8 @@
         "respuesta": "Respuesta",
         "archivoAdjunto": "Archivo Adjunto",
         "notifications": "Notifications",
-        "informePqrs": "Informe Pqrs"
+        "informePqrs": "Informe Pqrs",
+        "pqrsManagementReports": "PQRSD Management Reports"
       },
       "account": {
         "main": "Account",

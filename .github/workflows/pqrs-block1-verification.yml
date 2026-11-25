@@ -11,8 +11,9 @@ on:
       - '.mvn/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'vite.config.mjs'
+      - 'vite.config.mts'
       - 'vitest.config.mts'
+      - 'vitest.workspace.ts'
       - 'src/main/**'
       - 'src/test/**'
   workflow_dispatch:
@@ -112,7 +113,7 @@ jobs:
           retention-days: 7
 
   frontend:
-    name: Node 20 / Office and notification tests
+    name: Node 20 / Offices, notifications and management reports
     if: github.ref == 'refs/heads/feat/informes-gestion-pqrsd'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -140,6 +141,12 @@ jobs:
         run: |
           npm run vitest -- --run src/main/webapp/app/entities/notification \
             --reporter=default --reporter=junit --outputFile.junit=target/vitest/notifications.xml
+
+      - name: Test PQRSD management reports
+        if: ${{ !cancelled() && steps.npm_ci.outcome == 'success' }}
+        run: |
+          npm run vitest -- --run src/main/webapp/app/pages/gestion-pqrsd src/main/webapp/app/entities/informe-pqrs \
+            --reporter=default --reporter=junit --outputFile.junit=target/vitest/management-reports.xml
 
       - name: Publish Vitest reports
         if: always()

@@ -1,3 +1,4 @@
+import { statisticsAuthorities } from '@/shared/security/statistics-access';
 import { Authority } from '@/shared/security/authority';
 /* tslint:disable */
 // prettier-ignore
@@ -163,6 +164,12 @@ export default {
       name: 'InformePqrsView',
       component: InformePqrsDetails,
       meta: { authorities: [Authority.ADMIN] },
+    },
+    {
+      path: 'informes-gestion-pqrsd',
+      name: 'PqrsManagementReports',
+      component: () => import('@/pages/gestion-pqrsd/management-reports.vue'),
+      meta: { authorities: statisticsAuthorities },
     },
     // jhipster-needle-add-entity-to-router - JHipster will add entities to the router here
   ],

@@ -20,6 +20,10 @@
       <font-awesome-icon icon="asterisk" />
       <span v-text="t$('global.menu.entities.informePqrs')"></span>
     </b-dropdown-item>
+    <b-dropdown-item v-if="showManagementReports" :to="{ name: 'PqrsManagementReports' }">
+      <font-awesome-icon icon="th-list" />
+      <span v-text="t$('global.menu.entities.pqrsManagementReports')"></span>
+    </b-dropdown-item>
     <b-dropdown-item to="/notificaciones">
       <font-awesome-icon icon="asterisk" />
       <span v-text="t$('global.menu.entities.notifications')"></span>
