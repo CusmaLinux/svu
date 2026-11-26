@@ -538,7 +538,7 @@ class PqrsStatisticsResourceIT {
         };
         request.setContentType("application/json");
         byte[] exact =
-            (BODY + " ".repeat(PqrsStatisticsNarrativeResource.MAX_BODY - BODY.length())).getBytes(
+            (BODY + " ".repeat(PqrsStatisticsNarrativeRequest.MAX_BODY - BODY.length())).getBytes(
                     java.nio.charset.StandardCharsets.US_ASCII
                 );
         request.setContent(exact);

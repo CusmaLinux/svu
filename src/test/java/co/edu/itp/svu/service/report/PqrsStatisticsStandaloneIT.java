@@ -8,6 +8,7 @@ import co.edu.itp.svu.security.PqrsAuthorizationService;
 import co.edu.itp.svu.service.dto.PqrsStatistics;
 import co.edu.itp.svu.service.dto.PqrsStatisticsFilter;
 import co.edu.itp.svu.service.dto.PqrsStatisticsFilter.Scope;
+import co.edu.itp.svu.service.report.PqrsStatisticsDocument.*;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -296,6 +297,176 @@ class PqrsStatisticsStandaloneIT {
             verify(repository, times(3)).institutional(any());
         } finally {
             pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void preparesDocumentOnlyFromTheCheckedResultAndPreservesTablesAndGaps() throws Exception {
+        login("analyst");
+        var repository = spy(new PqrsStatisticsRepository(template));
+        var checking = ORIGINAL.plusSeconds(20);
+        var from = new PqrsStatisticsFilter(START, LocalDate.of(2024, 2, 29), Scope.INSTITUTIONAL, null);
+        var preview = node(repository, ORIGINAL).preview(from);
+        var text = PqrsStatisticsNarrativeText.validate(
+            com.fasterxml.jackson.databind.node.JsonNodeFactory.instance
+                .objectNode()
+                .put("requestsAnalysis", "<p>SYNTHETIC-LITERAL</p>\n\nAnálisis")
+        );
+        var service = new PqrsStatisticsDocumentService(node(repository, checking), Clock.fixed(checking, ZoneOffset.UTC));
+        var document = service.prepare(new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), from, text));
+        var sections = document.sections();
+        assertThat(sections).extracting(PqrsStatisticsDocument.Section::number).containsExactly(1, 2, 3, 4, 5, 6, 7);
+        assertThat(sections).extracting(s -> s.narrative().size()).containsExactly(3, 1, 1, 1, 1, 1, 2);
+        assertThat(sections.get(1).narrative().get(0).value()).isEqualTo("<p>SYNTHETIC-LITERAL</p>\n\nAnálisis");
+        assertThat(sections.get(6).narrative().get(0).displayText()).isEqualTo("Sin texto redactado.");
+        var metadata = document.metadata();
+        assertThat(metadata.status()).isEqualTo(Status.PRELIMINARY);
+        assertThat(metadata.period()).isEqualTo(preview.statistics().period());
+        assertThat(metadata.checkedAt()).isEqualTo(checking);
+        assertThat(metadata.generatedAt()).isEqualTo(checking);
+        assertThat(metadata.warnings())
+            .extracting(Notice::code)
+            .containsExactlyInAnyOrderElementsOf(preview.statistics().coverage().warnings());
+        var tables = sections.stream().flatMap(s -> s.tables().stream()).toList();
+        assertThat(tables)
+            .extracting(Table::id)
+            .containsExactly(
+                TableId.SUMMARY,
+                TableId.EVOLUTION,
+                TableId.TYPOLOGIES,
+                TableId.STATES,
+                TableId.MONTHLY_TYPES,
+                TableId.VARIATIONS,
+                TableId.OFFICES,
+                TableId.MONTHLY_OFFICES,
+                TableId.INDICATORS,
+                TableId.METHODOLOGY
+            );
+        var evolution = tables.get(1);
+        assertThat(evolution.totals().cells().get(1)).isEqualTo(new Quantity(preview.statistics().received()));
+        assertThat(evolution.rows().get(2).cells().get(0)).isEqualTo(new PqrsStatisticsDocument.Month(YearMonth.of(2024, 2), true));
+        var data = preview.statistics().types();
+        assertThat(tables.get(2).rows()).hasSize(data.size());
+        for (int i = 0; i < data.size(); i++) {
+            assertThat(tables.get(2).rows().get(i).cells()).containsSubsequence(
+                new Quantity(data.get(i).count()),
+                new Quantity(data.get(i).denominator()),
+                new Percentage(data.get(i).percent())
+            );
+        }
+        var rows = tables.get(5).rows();
+        assertThat(rows.get(1).cells().get(3)).isEqualTo(new Percentage(new java.math.BigDecimal("-100.0")));
+        assertThat(rows.get(2).cells().get(3)).isEqualTo(Missing.PARTIAL_MONTH);
+        assertThat(sections.get(5).indicators())
+            .filteredOn(i -> i.code().equals("IND-14"))
+            .extracting(Indicator::availability)
+            .containsExactly(Availability.DEFINITION_PENDING);
+        var chart = sections.get(1).charts().stream().filter(c -> c.kind() == ChartKind.LINE).findFirst().orElseThrow();
+        assertThat(chart.series().get(0).points().get(2).value()).isNull();
+        assertThat(PqrsStatisticsChartImage.png(chart)).hasSizeGreaterThan(1000);
+        assertThat(tables.get(6).rows().stream().map(r -> (Category) r.cells().get(0)).filter(c -> "ASSIGNED".equals(c.code())))
+            .extracting(Category::idType)
+            .containsExactlyInAnyOrder("objectId", "string");
+        var json = new com.fasterxml.jackson.databind.ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+            .writeValueAsString(document);
+        assertThat(json).doesNotContain("PRIVATE_SENTINEL", preview.receipt(), "synthetic-analyst", "access_token", "archivosAdjuntos");
+        assertThat(document.toString()).doesNotContain("SYNTHETIC-LITERAL");
+        verify(repository, times(2)).institutional(any());
+    }
+
+    @Test
+    void forwardsInvalidOrExpiredReceiptsBeforeAggregationAndKeepsEmptyOfficeIdentity() {
+        login("analyst");
+        var repository = spy(new PqrsStatisticsRepository(template));
+        var office = new PqrsStatisticsFilter(START.plusYears(-2), START.plusYears(-2), Scope.OFFICE, A.toHexString());
+        var preview = node(repository, ORIGINAL).preview(office);
+        var empty = PqrsStatisticsNarrativeText.validate(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode());
+        var service = new PqrsStatisticsDocumentService(node(repository, ORIGINAL), Clock.fixed(ORIGINAL, ZoneOffset.UTC));
+        var ready = service.prepare(new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), office, empty));
+        assertThat(ready.metadata().office()).isEqualTo(preview.resolvedOffice());
+        assertThat(ready.sections().get(0).tables().get(0).rows().get(0).cells().get(1)).isEqualTo(new Quantity(0));
+        assertThat(ready.sections().get(4).tables().get(0).rows()).isEmpty();
+        assertThatThrownBy(() -> service.prepare(new PqrsStatisticsDocumentService.ExportRequest("INVALID", office, empty))).hasMessage(
+            "previewNotFound"
+        );
+        var expired = new PqrsStatisticsDocumentService(
+            node(repository, preview.expiresAt()),
+            Clock.fixed(preview.expiresAt(), ZoneOffset.UTC)
+        );
+        assertThatThrownBy(() -> expired.prepare(new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), office, empty))
+        ).hasMessage("previewExpired");
+        verify(repository, times(2)).officeWithIdentity(any(), eq(A.toHexString()));
+        verify(repository, never()).institutional(any());
+    }
+
+    @Test
+    void preservesAllOfficesInTablesAndBoundsOnlyTheGraphs() {
+        login("analyst");
+        for (int i = 0; i < 18; i++) {
+            String identity = String.format(Locale.ROOT, "synthetic-%02d", i);
+            template.getCollection("oficina").insertOne(new Document("_id", identity).append("nombre", "Homónima"));
+            insert("2024-01-10T05:00:00Z", "COMPLAINT", "PENDING", new DBRef("oficina", identity));
+        }
+        var repository = new PqrsStatisticsRepository(template);
+        var reporting = node(repository, ORIGINAL);
+        var filter = new PqrsStatisticsFilter(START, LocalDate.of(2024, 2, 29), Scope.INSTITUTIONAL, null);
+        var preview = reporting.preview(filter);
+        var empty = PqrsStatisticsNarrativeText.validate(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode());
+        var result = new PqrsStatisticsDocumentService(reporting, Clock.fixed(ORIGINAL, ZoneOffset.UTC)).prepare(
+            new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), filter, empty)
+        );
+        var offices = result.sections().get(4);
+        assertThat(offices.tables().get(0).rows()).hasSize(preview.statistics().currentOffices().size());
+        assertThat(offices.tables().get(1).rows()).hasSize(
+            preview.statistics().months().stream().mapToInt(m -> m.currentOffices().size()).sum()
+        );
+        assertThat(offices.charts().get(0).categories()).hasSize(16);
+        assertThat(offices.charts().get(1).series()).hasSize(8);
+        assertThat(offices.charts()).allSatisfy(chart ->
+            assertThat(chart.notes()).anyMatch(note -> note.contains("La tabla conserva todas"))
+        );
+        assertThat(offices.charts().get(1).series()).anyMatch(series -> series.points().stream().anyMatch(point -> point.value() == null));
+    }
+
+    @Test
+    void devLoggingDoesNotCaptureRequestDocumentOrNarrativeFailure() {
+        login("analyst");
+        var repository = new PqrsStatisticsRepository(template);
+        var reporting = node(repository, ORIGINAL);
+        var filter = new PqrsStatisticsFilter(START, START, Scope.INSTITUTIONAL, null);
+        var preview = reporting.preview(filter);
+        var narrative = PqrsStatisticsNarrativeText.validate(
+            com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode().put("objective", "SYNTHETIC-NARRATIVE-CENTINEL")
+        );
+        var service = new PqrsStatisticsDocumentService(reporting, Clock.fixed(ORIGINAL, ZoneOffset.UTC));
+        var env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("dev");
+        var proxies = new org.springframework.aop.aspectj.annotation.AspectJProxyFactory(service);
+        proxies.addAspect(new co.edu.itp.svu.aop.logging.LoggingAspect(env));
+        PqrsStatisticsDocumentService proxy = proxies.getProxy();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(PqrsStatisticsDocumentService.class);
+        var level = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        logger.addAppender(appender);
+        try {
+            logger.debug("capture enabled");
+            var request = new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), filter, narrative);
+            var document = proxy.prepare(request);
+            assertThat(document.toString()).doesNotContain("SYNTHETIC-NARRATIVE-CENTINEL", preview.receipt());
+            assertThat(request.toString()).doesNotContain("SYNTHETIC-NARRATIVE-CENTINEL", preview.receipt());
+            assertThatThrownBy(() -> proxy.prepare(new PqrsStatisticsDocumentService.ExportRequest("SYNTHETIC-INVALID", filter, narrative)))
+                .hasMessage("previewNotFound")
+                .hasNoCause();
+            assertThat(appender.list)
+                .extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .containsExactly("capture enabled");
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(level);
+            appender.stop();
         }
     }
 }

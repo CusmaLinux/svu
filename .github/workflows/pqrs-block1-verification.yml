@@ -50,10 +50,10 @@ jobs:
 
       - name: Verify PQRSD authorization and integration with isolated MongoDB Testcontainers
         env:
-          REQUIRED_UNIT_SUITES: PqrsAuthorizationServiceTest,AttachmentStorageTest,AttachmentManifestTest,AttachmentWriterCapabilityTest,AttachmentPhysicalPreparationTest,PqrsStatisticsServiceTest,PqrsStatisticsWorkbookTest,PqrsStatisticsReceiptTest
+          REQUIRED_UNIT_SUITES: PqrsAuthorizationServiceTest,AttachmentStorageTest,AttachmentManifestTest,AttachmentWriterCapabilityTest,AttachmentPhysicalPreparationTest,PqrsStatisticsServiceTest,PqrsStatisticsWorkbookTest,PqrsStatisticsReceiptTest,PqrsStatisticsDocumentTest,PqrsStatisticsNarrativeRequestTest
           REQUIRED_INTEGRATION_SUITES: PqrsOfficeQueryIT,PqrsOfficeSecurityIT,ReportResourceSecurityIT,OfficeInboxSecurityIT,OficinaResourceIT,PublicUserResourceIT,NotificacionResourceIT,RespuestaResourceIT,ResponseSecurityIT,AttachmentOwnershipIT,AttachmentOperationStandaloneIT,PqrsStatisticsStandaloneIT,PqrsStatisticsResourceIT,InformePqrsResourceIT
         run: |
-          ./mvnw -B -ntp -Dskip.installnodenpm -Dskip.npm \
+          ./mvnw -B -ntp -Djava.awt.headless=true -Dskip.installnodenpm -Dskip.npm \
             -DfailIfNoTests=true -Dfailsafe.failIfNoSpecifiedTests=true \
             -Dit.test="$REQUIRED_INTEGRATION_SUITES" checkstyle:check verify
 
