@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
+import ReportNarrativeSection from './report-narrative-section.vue';
 import StatisticsReport from './statistics-report.vue';
 import { useStatisticsPreview } from './use-statistics-preview';
 
@@ -12,6 +15,9 @@ const {
   catalogError,
   catalogLoaded,
   preview,
+  narrative,
+  narrativeDirty,
+  editNarrative,
   previewState,
   previewError,
   downloading,
@@ -20,10 +26,89 @@ const {
   validationError,
   accessError,
   clearFilters,
+  clearPreview,
   generate,
   loadConfiguration,
   loadOffices,
 } = useStatisticsPreview();
+
+const reading = ref(false);
+const discardDialog = ref<HTMLDialogElement>();
+let discardDecision: { accept: () => void; cancel: () => void } | undefined;
+
+function confirmDiscard(): boolean | Promise<boolean> {
+  if (!narrativeDirty.value) return true;
+  if (discardDecision || !discardDialog.value) return false;
+  discardDialog.value.showModal();
+  return new Promise(resolve => {
+    discardDecision = { accept: () => resolve(true), cancel: () => resolve(false) };
+  });
+}
+
+function finishDiscard(confirmed: boolean) {
+  const decision = discardDecision;
+  discardDecision = undefined;
+  if (discardDialog.value?.open) discardDialog.value.close();
+  if (confirmed) decision?.accept();
+  else decision?.cancel();
+}
+
+function afterDiscard(action: () => void) {
+  const draftId = narrative.value?.previewId;
+  const decision = confirmDiscard();
+  if (decision === true) action();
+  else if (decision !== false) {
+    void decision.then(confirmed => {
+      if (confirmed && narrative.value?.previewId === draftId) action();
+    });
+  }
+}
+
+function editFilter<Key extends keyof typeof form>(key: Key, event: Event) {
+  const input = event.target as HTMLInputElement | HTMLSelectElement;
+  const value = input.value as (typeof form)[Key];
+  if (value === form[key]) return;
+  if (!narrativeDirty.value) {
+    form[key] = value;
+    return;
+  }
+  // A native control has already changed when it emits the event.
+  input.value = form[key];
+  afterDiscard(() => {
+    form[key] = value;
+  });
+}
+
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!narrativeDirty.value) return;
+  event.preventDefault();
+  event.returnValue = true;
+}
+
+watch(
+  narrativeDirty,
+  (dirty, _, cleanup) => {
+    if (!dirty) return;
+    window.addEventListener('beforeunload', beforeUnload);
+    cleanup(() => window.removeEventListener('beforeunload', beforeUnload));
+  },
+  { flush: 'sync' },
+);
+watch(
+  narrative,
+  () => {
+    reading.value = false;
+    // Access loss makes any pending discard decision irrelevant.
+    finishDiscard(true);
+  },
+  { flush: 'sync' },
+);
+onBeforeRouteLeave(() => confirmDiscard());
+onMounted(() => window.addEventListener('pagehide', clearPreview));
+onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', clearPreview);
+  finishDiscard(false);
+});
 </script>
 
 <template>
@@ -41,7 +126,7 @@ const {
     </div>
 
     <template v-else-if="configuration">
-      <form class="filter-card" aria-labelledby="filters-title" novalidate @submit.prevent="generate">
+      <form class="filter-card" aria-labelledby="filters-title" novalidate @submit.prevent="afterDiscard(generate)">
         <h2 id="filters-title">Filtros del informe</h2>
         <p id="period-help" class="text-muted">
           Hasta {{ configuration.maxPeriodDays }} días, incluidas ambas fechas · {{ configuration.zone }}
@@ -51,7 +136,8 @@ const {
             <label for="report-start">Fecha inicial</label
             ><input
               id="report-start"
-              v-model="form.start"
+              :value="form.start"
+              @input="editFilter('start', $event)"
               type="date"
               class="form-control"
               required
@@ -64,7 +150,8 @@ const {
             <label for="report-end">Fecha final</label
             ><input
               id="report-end"
-              v-model="form.end"
+              :value="form.end"
+              @input="editFilter('end', $event)"
               type="date"
               class="form-control"
               required
@@ -75,7 +162,7 @@ const {
           </div>
           <div>
             <label for="report-scope">Alcance</label>
-            <select id="report-scope" v-model="form.scope" class="form-control" required>
+            <select id="report-scope" :value="form.scope" class="form-control" required @change="editFilter('scope', $event)">
               <option value="" disabled>Selecciona un alcance</option>
               <option v-for="scope in configuration.scopes" :key="scope" :value="scope">
                 {{ scope === 'INSTITUTIONAL' ? 'Institucional' : 'Por dependencia' }}
@@ -84,7 +171,14 @@ const {
           </div>
           <div v-if="form.scope === 'OFFICE'">
             <label for="report-office">Dependencia</label>
-            <select id="report-office" v-model="form.officeId" class="form-control" required :disabled="!catalogLoaded || !offices.length">
+            <select
+              id="report-office"
+              :value="form.officeId"
+              class="form-control"
+              required
+              :disabled="!catalogLoaded || !offices.length"
+              @change="editFilter('officeId', $event)"
+            >
               <option value="" disabled>Selecciona una dependencia</option>
               <option v-for="office in offices" :key="office.id" :value="office.id">{{ office.nombre }}</option>
             </select>
@@ -107,7 +201,7 @@ const {
           >
             Generar vista previa
           </button>
-          <button type="button" class="btn btn-outline-secondary" @click="clearFilters">Limpiar filtros</button>
+          <button type="button" class="btn btn-outline-secondary" @click="afterDiscard(clearFilters)">Limpiar filtros</button>
         </div>
         <p v-if="validationError" class="text-danger mb-0 mt-3" role="alert">{{ validationError }}</p>
       </form>
@@ -123,12 +217,44 @@ const {
         <button type="button" class="btn btn-outline-secondary" :disabled="!preview || downloading" @click="downloadExcel">
           Descargar Excel
         </button>
-        <small class="text-muted">El Excel actualiza las cifras con los filtros de la vista previa. Los datos pueden haber cambiado.</small>
+        <small class="text-muted">
+          El Excel contiene estadísticas y se genera con los filtros de la vista previa. Los datos pueden haber cambiado.
+        </small>
       </div>
       <p v-if="downloading" class="mt-2" role="status">Generando el archivo Excel…</p>
       <p v-if="downloadError" class="alert alert-warning mt-2" role="alert">{{ downloadError }}</p>
-      <statistics-report v-if="preview" class="mt-4" :report="preview" />
+      <template v-if="preview && narrative">
+        <div class="filter-card mt-4">
+          <h2>Informe preliminar</h2>
+          <p>
+            Las cifras se calculan automáticamente. El texto narrativo se conserva en esta vista hasta que la abandones. Evita incluir datos
+            personales o información confidencial.
+          </p>
+          <button type="button" class="btn btn-outline-secondary" @click="reading = !reading">
+            {{ reading ? 'Editar narrativa' : 'Ver informe integrado' }}
+          </button>
+        </div>
+        <statistics-report :key="narrative.previewId" class="mt-4" :report="preview">
+          <template #narrative="{ section }">
+            <report-narrative-section :section="section" :fields="narrative.fields" :reading="reading" @edit="editNarrative" />
+          </template>
+        </statistics-report>
+      </template>
     </template>
+    <dialog
+      ref="discardDialog"
+      class="discard-dialog"
+      aria-labelledby="discard-title"
+      aria-describedby="discard-description"
+      @cancel.prevent="finishDiscard(false)"
+    >
+      <h2 id="discard-title">¿Descartar el texto narrativo?</h2>
+      <p id="discard-description">Si continúas, se perderá el texto asociado a esta vista previa.</p>
+      <div class="actions">
+        <button type="button" class="btn btn-outline-secondary" autofocus @click="finishDiscard(false)">Conservar texto</button>
+        <button type="button" class="btn btn-danger" @click="finishDiscard(true)">Descartar texto</button>
+      </div>
+    </dialog>
   </main>
 </template>
 
@@ -190,5 +316,15 @@ label {
 .report-submit:hover:not(:disabled) {
   background: #0c504a;
   color: #fff;
+}
+.discard-dialog {
+  max-width: min(30rem, calc(100% - 2rem));
+  padding: 1.4rem;
+  border: 1px solid #dbe6e8;
+  border-radius: 0.8rem;
+  color: #223841;
+}
+.discard-dialog::backdrop {
+  background: rgb(23 55 66 / 55%);
 }
 </style>

@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router';
 import axios, { AxiosError, type AxiosResponse } from 'axios';
 import { useStore } from '@/store';
 import { Authority } from '@/shared/security/authority';
 import ManagementReports from './management-reports.vue';
+import { narrativeLimit, narrativeSections } from './report-narrative';
 import { testConfiguration, testReport } from './statistics.fixture';
 
 vi.mock('vue-echarts', () => ({ default: { name: 'TestChart', props: ['option'], template: '<div data-test="chart"></div>' } }));
@@ -20,9 +22,18 @@ const failure = (status: number, data = {}) => Object.assign(new AxiosError('syn
 describe('Vista previa de gestión PQRSD', () => {
   const get = vi.spyOn(axios, 'get');
   let view: VueWrapper;
+  let router: Router;
 
   async function open() {
-    view = mount(ManagementReports, { attachTo: document.body });
+    router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/informes-gestion-pqrsd', component: ManagementReports },
+        { path: '/', component: { template: '<p>Inicio</p>' } },
+      ],
+    });
+    await router.push('/informes-gestion-pqrsd');
+    view = mount(RouterView, { attachTo: document.body, global: { plugins: [router] } });
     await flushPromises();
   }
 
@@ -33,6 +44,16 @@ describe('Vista previa de gestión PQRSD', () => {
 
   const submit = () => view.get('form').trigger('submit');
   const previews = () => get.mock.calls.filter(([url]) => url === previewUrl);
+  const button = (label: string) => view.findAll('button').find(control => control.text() === label)!;
+  const introduction = () => view.get<HTMLTextAreaElement>('#narrative-introduction');
+  const dialogIsOpen = () => view.get<HTMLDialogElement>('dialog').element.open;
+
+  async function openPreview() {
+    await open();
+    await dates();
+    await submit();
+    await flushPromises();
+  }
 
   beforeEach(() => {
     useStore().setAuthentication({ login: 'synthetic', authorities: [Authority.PQRSD_REPORTS] });
@@ -295,6 +316,7 @@ describe('Vista previa de gestión PQRSD', () => {
       await submit();
       await flushPromises();
       expect((downloadButton().element as HTMLButtonElement).disabled).toBe(false);
+      await introduction().setValue('Texto narrativo excluido del XLSX');
       let done!: (res: AxiosResponse) => void;
       get.mockImplementationOnce(
         () =>
@@ -319,6 +341,7 @@ describe('Vista previa de gestión PQRSD', () => {
       expect(click).toHaveBeenCalledTimes(1);
       expect(document.querySelector('a[download]')).toBeNull();
       expect(view.find('article').exists()).toBe(true);
+      expect(introduction().element.value).toBe('Texto narrativo excluido del XLSX');
     } finally {
       click.mockRestore();
       url.mockRestore();
@@ -365,6 +388,7 @@ describe('Vista previa de gestión PQRSD', () => {
     await dates();
     await submit();
     await flushPromises();
+    await introduction().setValue('Texto narrativo sintético');
     const problem = new Blob([JSON.stringify({ message: 'error.unknownOrAmbiguousOffice', detail: 'dato interno' })], {
       type: 'application/problem+json',
     });
@@ -374,6 +398,8 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(view.text()).toContain(message);
     expect(view.text()).not.toContain('dato interno');
     expect(view.find('article').exists()).toBe(status !== 401 && status !== 403);
+    expect(view.find('#narrative-introduction').exists()).toBe(status !== 401 && status !== 403);
+    expect(dialogIsOpen()).toBe(false);
   });
 
   it('exige la vista previa de oficina y rechaza una respuesta JSON con HTTP 200', async () => {
@@ -424,5 +450,171 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(view.find('article').exists()).toBe(false);
     expect(view.find('form').exists()).toBe(false);
     expect(view.text()).toContain('cuenta autorizada');
+  });
+
+  it('ofrece diez campos vacíos en las siete secciones sólo después de obtener estadísticas', async () => {
+    await open();
+    expect(view.find('textarea').exists()).toBe(false);
+    await dates();
+    await submit();
+    await flushPromises();
+    const fields = Object.values(narrativeSections).flat();
+    expect(fields).toHaveLength(10);
+    expect(view.findAll('article textarea')).toHaveLength(10);
+    expect(view.findAll('article > section').every(section => section.find('textarea').exists())).toBe(true);
+    for (const field of fields) {
+      const input = view.get<HTMLTextAreaElement>('#narrative-' + field.id);
+      expect(input.element.value).toBe('');
+      expect(view.get('label[for="narrative-' + field.id + '"]').text()).toBe(field.label);
+      await input.setValue('Texto de ' + field.label);
+    }
+    await button('Ver informe integrado').trigger('click');
+    expect(view.find('article textarea').exists()).toBe(false);
+    for (const field of fields) {
+      expect(view.get('[data-narrative="' + field.id + '"]').text()).toBe('Texto de ' + field.label);
+    }
+    expect(view.get('.metric.primary strong').text()).toBe('13');
+    expect(view.get('article').findAll('[contenteditable], input')).toHaveLength(0);
+    expect(view.findAll('[data-test="chart"]')).toHaveLength(6);
+    expect(testReport.received).toBe(13);
+    expect(previews()).toHaveLength(1);
+  });
+
+  it('mantiene párrafos y muestra marcado ingresado como texto literal', async () => {
+    await openPreview();
+    const text = 'Primer párrafo.\n\nSegundo párrafo.\n<strong>texto</strong><script>example()</script>';
+    await introduction().setValue(text);
+    await button('Ver informe integrado').trigger('click');
+    const paragraph = view.get('[data-narrative="introduction"]');
+    expect(paragraph.element.textContent).toBe(text);
+    expect(paragraph.find('strong, script').exists()).toBe(false);
+    await button('Editar narrativa').trigger('click');
+    expect(introduction().element.value).toBe(text);
+  });
+
+  it('aplica el máximo por campo y actualiza el contador, incluso con entrada superior al límite', async () => {
+    await openPreview();
+    expect(introduction().attributes('maxlength')).toBe(String(narrativeLimit));
+    await introduction().setValue('a'.repeat(narrativeLimit + 1));
+    expect(introduction().element.value).toHaveLength(narrativeLimit);
+    expect(view.get('#narrative-count-introduction').text()).toBe(narrativeLimit + ' / ' + narrativeLimit + ' caracteres');
+  });
+
+  it.each(['fecha', 'alcance', 'limpieza', 'regeneración'])('protege el borrador ante %s', async action => {
+    await openPreview();
+    await introduction().setValue('Texto que puede descartarse');
+    const originalDate = testReport.filter.start;
+    const change = () => {
+      if (action === 'fecha') return view.get('#report-start').setValue('2024-02-01');
+      if (action === 'alcance') return view.get('#report-scope').setValue('OFFICE');
+      if (action === 'limpieza') return button('Limpiar filtros').trigger('click');
+      return submit();
+    };
+    if (action === 'alcance') {
+      get.mockImplementation(path => Promise.resolve(reply(path === catalogUrl ? [] : testReport, { 'x-total-count': '0' })));
+    }
+    await change();
+    expect(dialogIsOpen()).toBe(true);
+    await button('Conservar texto').trigger('click');
+    expect(dialogIsOpen()).toBe(false);
+    expect(view.get<HTMLInputElement>('#report-start').element.value).toBe(originalDate);
+    expect(view.get<HTMLSelectElement>('#report-scope').element.value).toBe('INSTITUTIONAL');
+    expect(introduction().element.value).toBe('Texto que puede descartarse');
+    expect(view.get('.metric.primary strong').text()).toBe('13');
+    expect(previews()).toHaveLength(1);
+    await change();
+    await button('Descartar texto').trigger('click');
+    await flushPromises();
+    if (action === 'regeneración') {
+      expect(previews()).toHaveLength(2);
+      expect(introduction().element.value).toBe('');
+    } else {
+      expect(view.find('article').exists()).toBe(false);
+      expect(view.find('#narrative-introduction').exists()).toBe(false);
+      if (action === 'alcance') expect(view.get<HTMLSelectElement>('#report-scope').element.value).toBe('OFFICE');
+      else expect(view.get<HTMLInputElement>('#report-start').element.value).toBe(action === 'fecha' ? '2024-02-01' : '');
+    }
+  });
+
+  it('permite cancelar la salida por ruta y elimina la narrativa al volver tras confirmar', async () => {
+    await openPreview();
+    await introduction().setValue('Texto temporal');
+    let navigation = router.push('/');
+    await flushPromises();
+    expect(dialogIsOpen()).toBe(true);
+    await button('Conservar texto').trigger('click');
+    await navigation;
+    expect(router.currentRoute.value.path).toBe('/informes-gestion-pqrsd');
+    expect(introduction().element.value).toBe('Texto temporal');
+    navigation = router.push('/');
+    await flushPromises();
+    await button('Descartar texto').trigger('click');
+    await navigation;
+    expect(router.currentRoute.value.path).toBe('/');
+    await router.push('/informes-gestion-pqrsd');
+    await flushPromises();
+    await dates();
+    await submit();
+    await flushPromises();
+    expect(introduction().element.value).toBe('');
+  });
+
+  it.each(['logout', 'cambio de usuario', 'permisos'])('retira texto y diálogo de inmediato ante %s', async action => {
+    await openPreview();
+    await introduction().setValue('Texto de la sesión anterior');
+    await submit();
+    expect(dialogIsOpen()).toBe(true);
+    if (action === 'logout') useStore().logout();
+    else if (action === 'permisos') useStore().account.authorities = [Authority.USER];
+    else useStore().setAuthentication({ login: 'other-synthetic', authorities: [Authority.ADMIN] });
+    expect(dialogIsOpen()).toBe(false);
+    await flushPromises();
+    expect(view.find('article').exists()).toBe(false);
+    expect(previews()).toHaveLength(1);
+    if (action === 'cambio de usuario') {
+      await dates();
+      await submit();
+      await flushPromises();
+      expect(introduction().element.value).toBe('');
+    }
+  });
+
+  it.each([401, 403])('cierra un descarte pendiente al recibir HTTP %s de una descarga en curso', async status => {
+    await openPreview();
+    await introduction().setValue('Texto de acceso restringido');
+    let rejectDownload!: (error: AxiosError) => void;
+    get.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectDownload = reject;
+        }),
+    );
+    await downloadButton().trigger('click');
+    await submit();
+    expect(dialogIsOpen()).toBe(true);
+    rejectDownload(failure(status));
+    await flushPromises();
+    expect(dialogIsOpen()).toBe(false);
+    expect(view.find('article').exists()).toBe(false);
+    expect(previews()).toHaveLength(1);
+  });
+
+  it('mantiene el texto fuera del almacenamiento y protege una recarga mientras hay cambios', async () => {
+    await openPreview();
+    const storage = vi.spyOn(Storage.prototype, 'setItem');
+    try {
+      await introduction().setValue('Texto que sólo vive en memoria');
+      await button('Ver informe integrado').trigger('click');
+      expect(storage).not.toHaveBeenCalled();
+      expect(get.mock.calls.map(([url]) => url)).toEqual([configUrl, previewUrl]);
+      const reload = new Event('beforeunload', { cancelable: true });
+      expect(window.dispatchEvent(reload)).toBe(false);
+      window.dispatchEvent(new Event('pagehide'));
+      await flushPromises();
+      expect(view.find('article').exists()).toBe(false);
+      expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true);
+    } finally {
+      storage.mockRestore();
+    }
   });
 });

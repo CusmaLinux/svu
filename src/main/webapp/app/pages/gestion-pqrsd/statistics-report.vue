@@ -3,9 +3,11 @@ import { computed } from 'vue';
 import StatisticsChart from './statistics-chart.vue';
 import StatisticsTable from './statistics-table.vue';
 import { civilDate, label, monthName, percentage, quantity } from './statistics-labels';
+import type { NarrativeSlot } from './report-narrative';
 import type { ChartOptions, MonthlyStatistics, OfficeCount, PqrsStatistics } from './statistics.model';
 
 const props = defineProps<{ report: PqrsStatistics }>();
+defineSlots<{ narrative: NarrativeSlot }>();
 const teal = '#16746d';
 const colors: Record<string, string> = {
   REQUEST: teal,
@@ -106,7 +108,7 @@ const deferredSections = [
     note: 'Para medir la oportunidad se necesita identificar la respuesta final y el plazo aplicable. Los pendientes al corte requieren un historial de estados. Las encuestas tienen cobertura parcial y algunos indicadores de satisfacción siguen pendientes de definición.',
     codes: ['IND-08', 'IND-09', 'IND-10', 'IND-11', 'IND-12', 'IND-13', 'IND-14', 'IND-15'],
   },
-];
+] as const;
 
 function observed(value: string) {
   return new Intl.DateTimeFormat('es-CO', { timeZone: props.report.period.zone, dateStyle: 'medium', timeStyle: 'medium' }).format(
@@ -281,6 +283,7 @@ const monthlyTypeChart = computed<ChartOptions>(() => ({
         Este informe consolida las PQRSD recibidas en el periodo y alcance indicados. El marco normativo está pendiente de validación
         institucional.
       </p>
+      <slot name="narrative" :section="1" />
     </section>
 
     <section aria-labelledby="distribution">
@@ -359,6 +362,7 @@ const monthlyTypeChart = computed<ChartOptions>(() => ({
           "
         />
       </div>
+      <slot name="narrative" :section="2" />
     </section>
 
     <template v-for="deferred in deferredSections" :key="deferred.id">
@@ -382,6 +386,7 @@ const monthlyTypeChart = computed<ChartOptions>(() => ({
           :numeric="[2]"
           :total="['Total del periodo', '', quantity(report.received)]"
         />
+        <slot name="narrative" :section="5" />
       </section>
       <section :aria-labelledby="'section-' + deferred.id">
         <h3 :id="'section-' + deferred.id" tabindex="-1">{{ deferred.id }}. {{ deferred.title }}</h3>
@@ -396,11 +401,13 @@ const monthlyTypeChart = computed<ChartOptions>(() => ({
             ])
           "
         />
+        <slot name="narrative" :section="deferred.id" />
       </section>
     </template>
     <section aria-labelledby="conclusions">
       <h3 id="conclusions" tabindex="-1">7. Conclusiones y recomendaciones</h3>
-      <p class="mb-0">Pendientes de elaboración y revisión por Atención al Usuario.</p>
+      <p class="mb-0">Contenido sujeto a revisión por Atención al Usuario.</p>
+      <slot name="narrative" :section="7" />
     </section>
   </article>
 </template>

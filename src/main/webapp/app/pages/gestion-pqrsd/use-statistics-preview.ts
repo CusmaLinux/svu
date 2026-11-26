@@ -4,6 +4,7 @@ import { useStore } from '@/store';
 import { hasStatisticsAccess } from '@/shared/security/statistics-access';
 import type { PqrsStatistics, PreviewFilter, Scope, StatisticsConfiguration } from './statistics.model';
 import { type OfficeOption, statisticsService } from './statistics.service';
+import type { NarrativeDraft, NarrativeField } from './report-narrative';
 
 type RequestState = 'idle' | 'loading' | 'error';
 type RequestError = { message: string; retryable: boolean };
@@ -68,12 +69,14 @@ export function useStatisticsPreview() {
   const catalogError = ref('');
   const catalogLoaded = ref(false);
   const preview = shallowRef<PqrsStatistics>();
+  const narrative = ref<NarrativeDraft>();
+  const narrativeDirty = computed(() => Object.values(narrative.value?.fields ?? {}).some(text => text.length > 0));
   const previewState = ref<RequestState>('idle');
   const previewError = shallowRef<RequestError>();
   const validationError = ref('');
   const downloading = ref(false);
   const downloadError = ref('');
-  let appliedFilter: PreviewFilter | undefined;
+  let previewId = 0;
   let downloadRequest: AbortController | undefined;
   let configurationRequest: AbortController | undefined;
   let catalogRequest: AbortController | undefined;
@@ -84,10 +87,10 @@ export function useStatisticsPreview() {
     downloadRequest = undefined;
     downloading.value = false;
     downloadError.value = '';
-    appliedFilter = undefined;
     previewRequest?.abort();
     previewRequest = undefined;
     preview.value = undefined;
+    narrative.value = undefined;
     previewState.value = 'idle';
     previewError.value = undefined;
     validationError.value = '';
@@ -192,8 +195,8 @@ export function useStatisticsPreview() {
     try {
       const data = await statisticsService.preview(filter, request.signal);
       if (previewRequest !== request || !allowed.value) return;
-      appliedFilter = filter;
       preview.value = data;
+      narrative.value = { previewId: ++previewId, filter: Object.freeze(filter), fields: {} };
       previewState.value = 'idle';
     } catch (error) {
       if (previewRequest !== request || handleAccessError(error)) return;
@@ -205,13 +208,14 @@ export function useStatisticsPreview() {
   }
 
   async function downloadExcel() {
-    if (!appliedFilter || !preview.value || !allowed.value || accessError.value || downloadRequest) return;
+    const filter = narrative.value?.filter;
+    if (!filter || !preview.value || !allowed.value || accessError.value || downloadRequest) return;
     const request = new AbortController();
     downloadRequest = request;
     downloading.value = true;
     downloadError.value = '';
     try {
-      const { blob, filename } = await statisticsService.exportXlsx(appliedFilter, request.signal);
+      const { blob, filename } = await statisticsService.exportXlsx(filter, request.signal);
       if (downloadRequest !== request || !allowed.value) return;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -241,6 +245,10 @@ export function useStatisticsPreview() {
         downloading.value = false;
       }
     }
+  }
+
+  function editNarrative(field: NarrativeField, text: string) {
+    if (narrative.value && allowed.value && !accessError.value) narrative.value.fields[field] = text;
   }
 
   watch(form, clearPreview, { flush: 'sync' });
@@ -274,6 +282,9 @@ export function useStatisticsPreview() {
     catalogError,
     catalogLoaded,
     preview,
+    narrative,
+    narrativeDirty,
+    editNarrative,
     previewState,
     previewError,
     downloading,
@@ -282,6 +293,7 @@ export function useStatisticsPreview() {
     validationError,
     accessError,
     clearFilters,
+    clearPreview,
     generate,
     loadConfiguration,
     loadOffices,
