@@ -1,6 +1,7 @@
 package co.edu.itp.svu.service.report;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import co.edu.itp.svu.repository.PqrsStatisticsRepository;
 import co.edu.itp.svu.security.PqrsAuthorizationService;
@@ -12,6 +13,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.*;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.*;
@@ -19,6 +21,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -173,5 +176,126 @@ class PqrsStatisticsStandaloneIT {
         assertThatIllegalArgumentException().isThrownBy(() -> report(Scope.OFFICE, "missing"));
         template.getCollection("oficina").insertOne(new Document("_id", A.toHexString()));
         assertThatIllegalArgumentException().isThrownBy(() -> report(Scope.OFFICE, A.toHexString()));
+    }
+
+    private static final Instant ORIGINAL = Instant.parse("2024-03-01T04:59:59.999Z");
+    private final String syntheticKey = PqrsStatisticsReceiptTest.syntheticKey();
+    private final PqrsAuthorizationService policy = new PqrsAuthorizationService(null, null);
+
+    private PqrsStatisticsNarrativeService node(PqrsStatisticsRepository repository, Instant now) {
+        return new PqrsStatisticsNarrativeService(
+            new PqrsStatisticsService(repository, policy),
+            policy,
+            PqrsStatisticsReceiptTest.ring("test", "test:" + syntheticKey),
+            Clock.fixed(now, ZoneOffset.UTC)
+        );
+    }
+
+    private static void login(String subject) {
+        SecurityContextHolder.getContext()
+            .setAuthentication(
+                new JwtAuthenticationToken(
+                    PqrsStatisticsReceiptTest.jwt(subject, "synthetic-" + subject, ORIGINAL.plusSeconds(3600)),
+                    List.of(new SimpleGrantedAuthority("ROLE_PQRSD_REPORTS"))
+                )
+            );
+    }
+
+    @Test
+    void repeatsOriginalWindowAcrossBogotaMidnightWithoutRefreshingStatisticsAfterCheck() {
+        login("analyst");
+        var repository = spy(new PqrsStatisticsRepository(template));
+        var issuer = node(repository, ORIGINAL);
+        var checker = node(repository, ORIGINAL.plusSeconds(300));
+        var filter = new PqrsStatisticsFilter(START, LocalDate.of(2024, 2, 29), Scope.INSTITUTIONAL, null);
+        var preview = issuer.preview(filter);
+        var before = preview.statistics();
+        assertThat(before.period().effectiveCutoff()).isEqualTo(ORIGINAL);
+        assertThat(before.months().get(0).previousCount()).isEqualTo(1L);
+        assertThat(before.months().get(2).complete()).isFalse();
+        // Exactly at the original exclusive cutoff, still in February in Bogotá.
+        insert(ORIGINAL.toString(), "CLAIM", "PENDING", OFFICE_A);
+        var checked = checker.check(filter, preview.receipt());
+        verify(repository, times(2)).institutional(any());
+        assertThat(checked.statistics()).isEqualTo(before);
+        assertThat(checked.checkedAt()).isEqualTo(ORIGINAL.plusSeconds(300));
+        insert(ORIGINAL.minusMillis(1).toString(), "CLAIM", "PENDING", OFFICE_A);
+        assertThat(checked.statistics()).isEqualTo(before);
+        assertThatThrownBy(() -> checked.statistics().months().get(0).types().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> checker.check(filter, preview.receipt())).hasMessage("statisticsChanged");
+        verify(repository, times(3)).institutional(any());
+    }
+
+    @Test
+    void keepsTypedOfficeEvenWhenEmptyAndDetectsRenamesAndAmbiguity() {
+        login("analyst");
+        var node = node(new PqrsStatisticsRepository(template), ORIGINAL);
+        var start = LocalDate.of(2022, 1, 1);
+        var filter = new PqrsStatisticsFilter(start, start, Scope.OFFICE, A.toHexString());
+        var view = node.preview(filter);
+        assertThat(view.statistics().received()).isZero();
+        assertThat(view.resolvedOffice()).isEqualTo(new PqrsStatisticsRepository.ResolvedOffice("objectId", A.toHexString(), "Oficina"));
+        var other = node.preview(new PqrsStatisticsFilter(start, start, Scope.OFFICE, "B"));
+        assertThat(other.resolvedOffice()).isEqualTo(new PqrsStatisticsRepository.ResolvedOffice("string", "B", "Oficina"));
+        assertThat(node.check(filter, view.receipt()).statistics()).isEqualTo(view.statistics());
+        template.getCollection("oficina").updateOne(new Document("_id", A), new Document("$set", new Document("nombre", "Renombrada")));
+        assertThatThrownBy(() -> node.check(filter, view.receipt())).hasMessage("statisticsChanged");
+        template.getCollection("oficina").insertOne(new Document("_id", A.toHexString()));
+        assertThatThrownBy(() -> node.check(filter, view.receipt())).hasMessage("Unknown or ambiguous office");
+        assertThatThrownBy(() -> node.preview(new PqrsStatisticsFilter(start, start, Scope.OFFICE, "absent"))).hasMessage(
+            "Unknown or ambiguous office"
+        );
+    }
+
+    @Test
+    void detectsIndividualChangesWithStableTotalInClosedPeriod() {
+        login("analyst");
+        var node = node(new PqrsStatisticsRepository(template), ORIGINAL);
+        var filter = new PqrsStatisticsFilter(START, LocalDate.of(2024, 1, 31), Scope.INSTITUTIONAL, null);
+        var match = new Document("type", "DEMAND");
+        for (var change : List.of(
+            new Document("oficinaResponder", OFFICE_B),
+            new Document("estado", "CERRADA"),
+            new Document("type", "CLAIM")
+        )) {
+            var view = node.preview(filter);
+            template.getCollection("pqrs").updateOne(match, new Document("$set", change));
+            assertThatThrownBy(() -> node.check(filter, view.receipt())).hasMessage("statisticsChanged");
+            assertThat(node.preview(filter).statistics().received()).isEqualTo(view.statistics().received());
+        }
+    }
+
+    @Test
+    void concurrentChecksAcrossInstancesIsolateCredentialsAndReadOnceEach() throws Exception {
+        login("analyst");
+        var repository = spy(new PqrsStatisticsRepository(template));
+        var filter = new PqrsStatisticsFilter(START, START, Scope.INSTITUTIONAL, null);
+        var receipt = node(repository, ORIGINAL).preview(filter).receipt();
+        var pool = Executors.newFixedThreadPool(3);
+        var barrier = new CyclicBarrier(3);
+        try {
+            List<Future<String>> results = new ArrayList<>();
+            for (String subject : List.of("analyst", "other", "analyst")) results.add(
+                pool.submit(() -> {
+                    try {
+                        login(subject);
+                        var checker = node(repository, ORIGINAL.plusSeconds(1));
+                        barrier.await(10, TimeUnit.SECONDS);
+                        checker.check(filter, receipt);
+                        return "checked";
+                    } catch (PqrsStatisticsReceiptException error) {
+                        return error.getMessage();
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                    }
+                })
+            );
+            assertThat(results.get(0).get(15, TimeUnit.SECONDS)).isEqualTo("checked");
+            assertThat(results.get(1).get(15, TimeUnit.SECONDS)).isEqualTo("previewNotFound");
+            assertThat(results.get(2).get(15, TimeUnit.SECONDS)).isEqualTo("checked");
+            verify(repository, times(3)).institutional(any());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

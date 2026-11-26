@@ -93,7 +93,7 @@ public class PqrsStatisticsResource {
         return values.get(0);
     }
 
-    private static LocalDate date(String value) {
+    static LocalDate date(String value) {
         if (value != null && CIVIL_DATE.matcher(value).matches()) {
             try {
                 return LocalDate.parse(value);

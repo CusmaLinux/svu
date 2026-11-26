@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import co.edu.itp.svu.IntegrationTest;
@@ -23,9 +24,11 @@ import com.mongodb.event.CommandStartedEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,7 +52,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -429,5 +436,115 @@ class PqrsStatisticsResourceIT {
         if (scope != null) request.param("scope", scope);
         if (officeId != null) request.param("officeId", officeId);
         return request;
+    }
+
+    @DynamicPropertySource
+    static void narrativeKeys(DynamicPropertyRegistry registry) {
+        byte[] synthetic = new byte[32];
+        new SecureRandom().nextBytes(synthetic);
+        String ring = "test:" + Base64.getEncoder().encodeToString(synthetic);
+        registry.add("svu.pqrs-statistics.receipt.active-kid", () -> "test");
+        registry.add("svu.pqrs-statistics.receipt.keys", () -> ring);
+    }
+
+    @Autowired
+    private JwtEncoder encoder;
+
+    private String narrativeAuthorization(String roles) {
+        Instant now = Instant.now();
+        var claims = JwtClaimsSet.builder()
+            .subject("synthetic-analyst")
+            .issuedAt(now)
+            .expiresAt(now.plusSeconds(120))
+            .claim("auth", roles)
+            .build();
+        return "Bearer " + encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS512).build(), claims)).getTokenValue();
+    }
+
+    private static final String BODY = "{\"filter\":{\"start\":\"2004-02-01\",\"end\":\"2004-03-31\",\"scope\":\"INSTITUTIONAL\"}}";
+
+    private MockHttpServletRequestBuilder narrative(String json) {
+        return post(BASE + "/narrative-previews").contentType("application/json").content(json);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { ADMIN, PQRSD_REPORTS, FUNCTIONARY + " " + PQRSD_REPORTS })
+    void issuesFromActualAuthenticatedCalculation(String roles) throws Exception {
+        mvc
+            .perform(narrative(BODY).header("Authorization", narrativeAuthorization(roles)))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(jsonPath("$.receipt").isString())
+            .andExpect(jsonPath("$.expiresAt").isString())
+            .andExpect(jsonPath("$.modelVersion").value(1))
+            .andExpect(jsonPath("$.statistics.received").value(3))
+            .andExpect(jsonPath("$.availableIndicators.length()").value(7));
+        assertThat(AGGREGATIONS.get()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "", USER, FUNCTIONARY, FRONT_DESK_CS })
+    void preventsUnauthorizedNarrativePreview(String roles) throws Exception {
+        var req = narrative(BODY);
+        if (!roles.isEmpty()) req.header("Authorization", narrativeAuthorization(roles));
+        mvc
+            .perform(req)
+            .andExpect(status().is(roles.isEmpty() ? 401 : 403))
+            .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+        assertThat(AGGREGATIONS.get()).isZero();
+    }
+
+    @Test
+    void enforcesLocalStrictJsonAndBodyLimits() throws Exception {
+        String authorization = narrativeAuthorization(PQRSD_REPORTS);
+        for (String json : List.of(
+            BODY + BODY,
+            BODY.replace("\"end\":", "\"start\":\"2004-02-01\",\"end\":"),
+            BODY.replace("\"filter\":", "\"filter\":{},\"filter\":"),
+            BODY.replace("\"scope\":", "\"unknown\":7,\"scope\":"),
+            BODY.replace("\"INSTITUTIONAL\"", "42"),
+            BODY.replace("\"INSTITUTIONAL\"", "null"),
+            "{\"filter\":[[[[[[]]]]]]}",
+            "{\"statistics\":{},\"filter\":{}}"
+        )) {
+            mvc
+                .perform(narrative(json).header("Authorization", authorization))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.invalidExportRequest"))
+                .andExpect(header().string("Cache-Control", "no-store"));
+        }
+        mvc
+            .perform(narrative("").content(new byte[] { (byte) 0xff }).header("Authorization", authorization))
+            .andExpect(status().isBadRequest());
+        mvc
+            .perform(narrative(BODY).header("Content-Encoding", "gzip").header("Authorization", authorization))
+            .andExpect(status().isUnsupportedMediaType());
+        mvc
+            .perform(narrative(BODY).contentType("text/plain").header("Authorization", authorization))
+            .andExpect(status().isUnsupportedMediaType());
+        mvc.perform(narrative(BODY + " ".repeat(262145)).header("Authorization", authorization)).andExpect(status().isPayloadTooLarge());
+        assertThat(AGGREGATIONS.get()).isZero();
+    }
+
+    @Test
+    void enforcesInclusiveByteBudgetOnBodiesOfUnknownLength() {
+        var service = mock(co.edu.itp.svu.service.report.PqrsStatisticsNarrativeService.class);
+        var resource = new PqrsStatisticsNarrativeResource(service);
+        var request = new org.springframework.mock.web.MockHttpServletRequest() {
+            @Override
+            public long getContentLengthLong() {
+                return -1;
+            }
+        };
+        request.setContentType("application/json");
+        byte[] exact =
+            (BODY + " ".repeat(PqrsStatisticsNarrativeResource.MAX_BODY - BODY.length())).getBytes(
+                    java.nio.charset.StandardCharsets.US_ASCII
+                );
+        request.setContent(exact);
+        assertThat(resource.create(request).getStatusCode().value()).isEqualTo(200);
+        request.setContent(java.util.Arrays.copyOf(exact, exact.length + 1));
+        assertThatThrownBy(() -> resource.create(request)).hasMessage("exportBodyTooLarge");
+        org.mockito.Mockito.verify(service).preview(any());
     }
 }

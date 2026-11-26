@@ -43,7 +43,11 @@ public class PqrsStatisticsRepository {
         return aggregate(window, Optional.empty());
     }
 
-    public List<Bucket> office(Window window, String officeId) {
+    public record ResolvedOffice(String idType, String id, String name) {}
+
+    public record AggregationResult(ResolvedOffice office, List<Bucket> buckets) {}
+
+    public AggregationResult officeWithIdentity(Window window, String officeId) {
         if (officeId == null || officeId.isBlank()) throw new IllegalArgumentException("Office required");
         List<Object> ids = new ArrayList<>();
         ids.add(officeId);
@@ -51,12 +55,19 @@ public class PqrsStatisticsRepository {
         var matches = mongo
             .getCollection("oficina")
             .find(new Document("_id", new Document("$in", ids)))
-            .projection(new Document("_id", 1))
+            .projection(new Document("_id", 1).append("nombre", 1))
             .limit(2)
             .maxTime(queryTimeoutMs, TimeUnit.MILLISECONDS)
             .into(new ArrayList<>());
         if (matches.size() != 1) throw new InvalidPqrsStatisticsFilter("unknownOrAmbiguousOffice", "Unknown or ambiguous office");
-        return aggregate(window, Optional.of(matches.get(0).get("_id")));
+        Document row = matches.get(0);
+        Object id = row.get("_id");
+        var identity = new ResolvedOffice(
+            id instanceof ObjectId ? "objectId" : "string",
+            id.toString(),
+            row.get("nombre") instanceof String name ? name : null
+        );
+        return new AggregationResult(identity, aggregate(window, Optional.of(id)));
     }
 
     private static Document dates(Instant start, Instant end) {

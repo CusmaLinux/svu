@@ -98,15 +98,15 @@ public class PqrsStatisticsService {
         );
     }
 
+    record Observation(PqrsStatistics statistics, ResolvedOffice office) {}
+
     public PqrsStatistics calculate(PqrsStatisticsFilter filter) {
+        return observe(filter, clock.instant().truncatedTo(ChronoUnit.MILLIS)).statistics();
+    }
+
+    Observation observe(PqrsStatisticsFilter filter, Instant observed) {
         authorization.requireStatisticalAccess();
-        Instant observed = clock.instant().truncatedTo(ChronoUnit.MILLIS);
-        if (filter.end().isAfter(observed.atZone(ZONE).toLocalDate())) {
-            throw new InvalidPqrsStatisticsFilter("futurePeriod", "Future reporting date");
-        }
-        if (ChronoUnit.DAYS.between(filter.start(), filter.end()) + 1 > maximumDays) {
-            throw new InvalidPqrsStatisticsFilter("periodTooLong", "Reporting period exceeds the maximum number of days");
-        }
+        validatePeriod(filter, observed);
         YearMonth first = YearMonth.from(filter.start());
         Instant end = startOfDay(filter.end().plusDays(1));
         Instant cutoff = end.isAfter(observed) ? observed : end;
@@ -117,15 +117,15 @@ public class PqrsStatisticsService {
             cutoff,
             ZONE
         );
-        var buckets =
+        AggregationResult aggregation =
             switch (filter.scope()) {
-                case INSTITUTIONAL -> repository.institutional(window);
-                case OFFICE -> repository.office(window, filter.officeId());
+                case INSTITUTIONAL -> new AggregationResult(null, repository.institutional(window));
+                case OFFICE -> repository.officeWithIdentity(window, filter.officeId());
             };
         var totals = new Counts();
         var byMonth = new HashMap<YearMonth, Counts>();
         long baseline = 0;
-        for (Bucket bucket : buckets) {
+        for (Bucket bucket : aggregation.buckets()) {
             if (bucket.month().isBefore(first)) {
                 baseline += bucket.count();
             } else {
@@ -182,17 +182,30 @@ public class PqrsStatisticsService {
             .forEach(c -> warnings.add("OFFICE_" + c));
         if (cutoff.isBefore(end)) warnings.add("PROVISIONAL_PERIOD");
         var coverage = new Coverage(warnings.isEmpty() ? "OBSERVED" : "PARTIAL", List.copyOf(warnings), LIMITATIONS);
-        return new PqrsStatistics(
-            filter,
-            new PqrsStatistics.Period(ZONE.getId(), window.start(), end, cutoff, observed),
-            coverage,
-            totals.total,
-            List.copyOf(series),
-            shares,
-            Map.copyOf(totals.states),
-            totals.officeRows(),
-            DEFERRED
+        return new Observation(
+            new PqrsStatistics(
+                filter,
+                new PqrsStatistics.Period(ZONE.getId(), window.start(), end, cutoff, observed),
+                coverage,
+                totals.total,
+                List.copyOf(series),
+                shares,
+                Map.copyOf(totals.states),
+                totals.officeRows(),
+                DEFERRED
+            ),
+            aggregation.office()
         );
+    }
+
+    void validatePeriod(PqrsStatisticsFilter filter, Instant observed) {
+        if (filter == null) throw new InvalidPqrsStatisticsFilter("invalidExportRequest", "Missing reporting filter");
+        if (filter.end().isAfter(observed.atZone(ZONE).toLocalDate())) {
+            throw new InvalidPqrsStatisticsFilter("futurePeriod", "Future reporting date");
+        }
+        if (ChronoUnit.DAYS.between(filter.start(), filter.end()) + 1 > maximumDays) {
+            throw new InvalidPqrsStatisticsFilter("periodTooLong", "Reporting period exceeds the maximum number of days");
+        }
     }
 
     private static Instant startOfDay(LocalDate date) {

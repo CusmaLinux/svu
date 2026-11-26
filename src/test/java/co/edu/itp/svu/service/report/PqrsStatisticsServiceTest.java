@@ -61,7 +61,13 @@ class PqrsStatisticsServiceTest {
         assertThatIllegalArgumentException()
             .isThrownBy(() -> limited.calculate(new PqrsStatisticsFilter(today.minusDays(2), today, Scope.OFFICE, "office")));
         verifyNoInteractions(repository);
+        when(repository.officeWithIdentity(any(), eq("office"))).thenReturn(
+            new PqrsStatisticsRepository.AggregationResult(
+                new PqrsStatisticsRepository.ResolvedOffice("string", "office", "Office"),
+                List.of()
+            )
+        );
         limited.calculate(new PqrsStatisticsFilter(today.minusDays(1), today, Scope.OFFICE, "office"));
-        verify(repository).office(any(), eq("office"));
+        verify(repository).officeWithIdentity(any(), eq("office"));
     }
 }
