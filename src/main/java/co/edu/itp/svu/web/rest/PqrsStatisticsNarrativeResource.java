@@ -3,6 +3,7 @@ package co.edu.itp.svu.web.rest;
 import co.edu.itp.svu.domain.InvalidPqrsStatisticsFilter;
 import co.edu.itp.svu.service.report.PqrsStatisticsNarrativeService;
 import co.edu.itp.svu.service.report.PqrsStatisticsReceiptException;
+import co.edu.itp.svu.service.report.PqrsStatisticsWordExport;
 import com.mongodb.MongoException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataAccessException;
@@ -15,8 +16,22 @@ public class PqrsStatisticsNarrativeResource {
 
     private final PqrsStatisticsNarrativeService service;
 
-    public PqrsStatisticsNarrativeResource(PqrsStatisticsNarrativeService service) {
+    private final PqrsStatisticsWordExport word;
+
+    public PqrsStatisticsNarrativeResource(PqrsStatisticsNarrativeService service, PqrsStatisticsWordExport word) {
         this.service = service;
+        this.word = word;
+    }
+
+    @PostMapping("/export/docx")
+    public ResponseEntity<byte[]> docx(HttpServletRequest request) {
+        var file = word.generate(() -> PqrsStatisticsNarrativeRequest.export(request));
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.noStore())
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.name()).build().toString())
+            .header("X-Content-Type-Options", "nosniff")
+            .body(file.bytes());
     }
 
     @PostMapping("/narrative-previews")

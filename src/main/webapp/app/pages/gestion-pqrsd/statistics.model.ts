@@ -50,3 +50,14 @@ export interface PqrsStatistics {
   currentOffices: OfficeCount[];
   deferredIndicators: Record<string, Availability>;
 }
+
+export interface NarrativePreview {
+  receipt: string;
+  expiresAt: string;
+  modelVersion: number;
+  methodologyVersion: number;
+  catalogVersion: number;
+  resolvedOffice: { idType: string; id: string; name: string | null } | null;
+  availableIndicators: string[];
+  statistics: PqrsStatistics;
+}

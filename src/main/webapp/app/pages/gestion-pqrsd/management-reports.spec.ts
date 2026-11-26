@@ -12,7 +12,20 @@ vi.mock('vue-echarts', () => ({ default: { name: 'TestChart', props: ['option'],
 
 const root = 'api/reports/gestion-pqrsd';
 const configUrl = root + '/configuration';
-const previewUrl = root + '/preview';
+const previewUrl = root + '/narrative-previews';
+const wordUrl = root + '/export/docx';
+const wordType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const signed = (statistics = testReport, receipt = 'synthetic-receipt') =>
+  reply({
+    receipt,
+    expiresAt: '2099-12-31T23:59:00Z',
+    modelVersion: 1,
+    methodologyVersion: 1,
+    catalogVersion: 1,
+    resolvedOffice: null,
+    availableIndicators: testConfiguration.availableIndicators,
+    statistics,
+  });
 const exportUrl = root + '/export/xlsx';
 const xlsxType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const catalogUrl = 'api/oficinas/catalogo';
@@ -21,6 +34,7 @@ const failure = (status: number, data = {}) => Object.assign(new AxiosError('syn
 
 describe('Vista previa de gestión PQRSD', () => {
   const get = vi.spyOn(axios, 'get');
+  const post = vi.spyOn(axios, 'post');
   let view: VueWrapper;
   let router: Router;
 
@@ -43,7 +57,7 @@ describe('Vista previa de gestión PQRSD', () => {
   }
 
   const submit = () => view.get('form').trigger('submit');
-  const previews = () => get.mock.calls.filter(([url]) => url === previewUrl);
+  const previews = () => post.mock.calls.filter(([url]) => url === previewUrl);
   const button = (label: string) => view.findAll('button').find(control => control.text() === label)!;
   const introduction = () => view.get<HTMLTextAreaElement>('#narrative-introduction');
   const dialogIsOpen = () => view.get<HTMLDialogElement>('dialog').element.open;
@@ -57,6 +71,8 @@ describe('Vista previa de gestión PQRSD', () => {
 
   beforeEach(() => {
     useStore().setAuthentication({ login: 'synthetic', authorities: [Authority.PQRSD_REPORTS] });
+    post.mockReset();
+    post.mockImplementation(() => Promise.resolve(signed()));
     get.mockReset();
     get.mockImplementation(url => Promise.resolve(reply(url === configUrl ? testConfiguration : testReport)));
   });
@@ -74,7 +90,7 @@ describe('Vista previa de gestión PQRSD', () => {
     await submit();
     await flushPromises();
     expect(previews()).toHaveLength(1);
-    expect(previews()[0][1]?.params).toStrictEqual({ start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL' });
+    expect(previews()[0][1]?.filter).toStrictEqual({ start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL' });
     expect(view.findAll('[data-test="chart"]')).toHaveLength(6);
     expect(view.findAll('article > section')).toHaveLength(7);
     expect(view.get('.metric.primary').text()).toContain('13');
@@ -127,11 +143,11 @@ describe('Vista previa de gestión PQRSD', () => {
     await view.get('#report-office').setValue('office-1');
     await submit();
     await flushPromises();
-    expect(previews()[0][1]?.params).toEqual({ start: '2024-01-01', end: '2024-03-20', scope: 'OFFICE', officeId: 'office-1' });
+    expect(previews()[0][1]?.filter).toEqual({ start: '2024-01-01', end: '2024-03-20', scope: 'OFFICE', officeId: 'office-1' });
     await view.get('#report-scope').setValue('INSTITUTIONAL');
     expect(view.find('article').exists()).toBe(false);
     await submit();
-    expect(previews()[1][1]?.params).not.toHaveProperty('officeId');
+    expect(previews()[1][1]?.filter).not.toHaveProperty('officeId');
   });
 
   it.each([
@@ -148,8 +164,8 @@ describe('Vista previa de gestión PQRSD', () => {
   });
 
   it('presenta un conjunto vacío y conserva valores nulos', async () => {
-    get.mockResolvedValueOnce(reply(testConfiguration)).mockResolvedValueOnce(
-      reply({
+    post.mockResolvedValueOnce(
+      signed({
         ...testReport,
         received: 0,
         currentOffices: [],
@@ -171,8 +187,7 @@ describe('Vista previa de gestión PQRSD', () => {
   it('cancela consultas antiguas, descarta su resultado y bloquea el envío duplicado', async () => {
     let oldResolve!: (response: AxiosResponse) => void;
     let newResolve!: (response: AxiosResponse) => void;
-    get
-      .mockResolvedValueOnce(reply(testConfiguration))
+    post
       .mockImplementationOnce(
         () =>
           new Promise(resolve => {
@@ -192,11 +207,11 @@ describe('Vista previa de gestión PQRSD', () => {
     expect(previews()).toHaveLength(1);
     expect(view.text()).toContain('Preparando vista previa');
     await dates('2024-02-01');
-    expect(previews()[0][1]?.signal?.aborted).toBe(true);
+    expect(previews()[0][2]?.signal?.aborted).toBe(true);
     await submit();
-    newResolve(reply({ ...testReport, received: 7, filter: { ...testReport.filter, start: '2024-02-01' } }));
+    newResolve(signed({ ...testReport, received: 7, filter: { ...testReport.filter, start: '2024-02-01' } }));
     await flushPromises();
-    oldResolve(reply(testReport));
+    oldResolve(signed());
     await flushPromises();
     expect(view.get('.metric.primary').text()).toContain('7');
     const clear = view.findAll('button').find(button => button.text() === 'Limpiar filtros')!;
@@ -211,7 +226,7 @@ describe('Vista previa de gestión PQRSD', () => {
     [403, 'Ya no tienes permiso'],
     [503, 'temporalmente indisponible'],
   ])('maneja el estado HTTP %s y sólo permite reintentar el fallo temporal', async (status, message) => {
-    get.mockResolvedValueOnce(reply(testConfiguration)).mockRejectedValueOnce(failure(status));
+    post.mockRejectedValueOnce(failure(status));
     await open();
     await dates();
     await submit();
@@ -254,7 +269,7 @@ describe('Vista previa de gestión PQRSD', () => {
     ['error.unknownOrAmbiguousOffice', 'no existe o su identificador es ambiguo'],
     ['__proto__', 'Revisa los filtros solicitados'],
   ])('traduce el problema HTTP 400 %s sin mostrar el detalle interno', async (code, message) => {
-    get.mockResolvedValueOnce(reply(testConfiguration)).mockRejectedValueOnce(failure(400, { message: code, detail: 'detalle interno' }));
+    post.mockRejectedValueOnce(failure(400, { message: code, detail: 'detalle interno' }));
     await open();
     await dates();
     await submit();
@@ -264,7 +279,7 @@ describe('Vista previa de gestión PQRSD', () => {
   });
 
   it('ofrece un reintento seguro tras un fallo de comunicación', async () => {
-    get.mockResolvedValueOnce(reply(testConfiguration)).mockRejectedValueOnce(new AxiosError('detalle interno'));
+    post.mockRejectedValueOnce(new AxiosError('detalle interno'));
     await open();
     await dates();
     await submit();
@@ -280,7 +295,7 @@ describe('Vista previa de gestión PQRSD', () => {
     await submit();
     await flushPromises();
     expect(view.find('article').exists()).toBe(true);
-    get.mockImplementationOnce(async () => {
+    post.mockImplementationOnce(async () => {
       useStore().logout();
       return undefined;
     });
@@ -292,7 +307,7 @@ describe('Vista previa de gestión PQRSD', () => {
   });
 
   it('interpreta una respuesta consumida como sesión expirada aunque el estado local siga activo', async () => {
-    get.mockResolvedValueOnce(reply(testConfiguration)).mockResolvedValueOnce(undefined);
+    post.mockResolvedValueOnce(undefined);
     await open();
     await dates();
     await submit();
@@ -606,7 +621,8 @@ describe('Vista previa de gestión PQRSD', () => {
       await introduction().setValue('Texto que sólo vive en memoria');
       await button('Ver informe integrado').trigger('click');
       expect(storage).not.toHaveBeenCalled();
-      expect(get.mock.calls.map(([url]) => url)).toEqual([configUrl, previewUrl]);
+      expect(get.mock.calls.map(([url]) => url)).toEqual([configUrl]);
+      expect(previews()).toHaveLength(1);
       const reload = new Event('beforeunload', { cancelable: true });
       expect(window.dispatchEvent(reload)).toBe(false);
       window.dispatchEvent(new Event('pagehide'));
@@ -615,6 +631,92 @@ describe('Vista previa de gestión PQRSD', () => {
       expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true);
     } finally {
       storage.mockRestore();
+    }
+  });
+  it('descarga Word con el recibo y el texto asociado, sin cifras del cliente', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const url = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:word');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    try {
+      await openPreview();
+      await introduction().setValue('Acta preliminar');
+      post.mockResolvedValueOnce(reply(new Blob(['docx']), { 'content-type': wordType }));
+      await button('Descargar Word').trigger('click');
+      await flushPromises();
+      expect(post.mock.calls.at(-1)).toEqual([
+        wordUrl,
+        {
+          receipt: 'synthetic-receipt',
+          filter: { start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL' },
+          narrative: { introduction: 'Acta preliminar' },
+        },
+        expect.objectContaining({ responseType: 'blob' }),
+      ]);
+      expect(click).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(revoke).toHaveBeenCalledWith('blob:word'));
+    } finally {
+      click.mockRestore();
+      url.mockRestore();
+      revoke.mockRestore();
+    }
+  });
+
+  it.each([409, 410])('conserva el texto en un conflicto %s y requiere reasociación explícita', async status => {
+    await openPreview();
+    await introduction().setValue('Mantener este texto');
+    const detail = new Blob([JSON.stringify({ message: status === 409 ? 'error.statisticsChanged' : 'error.previewExpired' })]);
+    post.mockRejectedValueOnce(failure(status, detail));
+    await button('Descargar Word').trigger('click');
+    await flushPromises();
+    expect(button('Descargar Word').attributes('disabled')).toBeDefined();
+    post.mockResolvedValueOnce(
+      signed({ ...testReport, received: 14, period: { ...testReport.period, effectiveCutoff: '2024-03-21T05:00:01Z' } }, 'new-receipt'),
+    );
+    await button('Obtener nueva vista previa').trigger('click');
+    await flushPromises();
+    expect(view.text()).toContain('Corte original');
+    expect(view.text()).toContain('Corte nuevo');
+    expect(view.get('.comparison-table').text()).toContain('Total de solicitudes');
+    expect(view.get('.metric.primary').text()).toContain('13');
+    expect(introduction().element.value).toBe('Mantener este texto');
+    await button('Asociar mi texto a esta vista previa').trigger('click');
+    expect(view.get('.metric.primary').text()).toContain('14');
+    expect(introduction().element.value).toBe('Mantener este texto');
+    expect(post.mock.calls.filter(([url]) => url === wordUrl)).toHaveLength(1);
+    post.mockResolvedValueOnce(reply(new Blob(['{}']), { 'content-type': 'application/json' }));
+    await button('Descargar Word').trigger('click');
+    await flushPromises();
+    expect(post.mock.calls.at(-1)?.[1]).toHaveProperty('receipt', 'new-receipt');
+    expect(view.text()).toContain('No fue posible');
+  });
+
+  it('descarta la descarga Word obsoleta al editar y limpia ante pérdida de autorización', async () => {
+    await openPreview();
+    const url = vi.spyOn(URL, 'createObjectURL');
+    let done!: (res: AxiosResponse) => void;
+    try {
+      post.mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            done = resolve;
+          }),
+      );
+      await button('Descargar Word').trigger('click');
+      await button('Descargar Word').trigger('click');
+      expect(post.mock.calls.filter(([path]) => path === wordUrl)).toHaveLength(1);
+      const signal = post.mock.calls.at(-1)?.[2]?.signal;
+      await introduction().setValue('Nueva versión');
+      expect(signal?.aborted).toBe(true);
+      done(reply(new Blob(['docx']), { 'content-type': wordType }));
+      await flushPromises();
+      expect(url).not.toHaveBeenCalled();
+      post.mockRejectedValueOnce(failure(403, new Blob(['{}'])));
+      await button('Descargar Word').trigger('click');
+      await flushPromises();
+      expect(view.find('article').exists()).toBe(false);
+      expect(view.find('#narrative-introduction').exists()).toBe(false);
+    } finally {
+      url.mockRestore();
     }
   });
 });

@@ -2,14 +2,16 @@ import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import { isAxiosError } from 'axios';
 import { useStore } from '@/store';
 import { hasStatisticsAccess } from '@/shared/security/statistics-access';
-import type { PqrsStatistics, PreviewFilter, Scope, StatisticsConfiguration } from './statistics.model';
+import type { NarrativePreview, PqrsStatistics, PreviewFilter, Scope, StatisticsConfiguration } from './statistics.model';
 import { type OfficeOption, statisticsService } from './statistics.service';
+import { compareNarrativePreviews } from './statistics-preview-comparison';
 import type { NarrativeDraft, NarrativeField } from './report-narrative';
 
 type RequestState = 'idle' | 'loading' | 'error';
 type RequestError = { message: string; retryable: boolean };
 
 const filterErrors: Record<string, string> = {
+  'error.invalidNarrative': 'Revisa el texto narrativo y sus límites antes de descargar.',
   'error.unknownOrAmbiguousOffice': 'La dependencia no existe o su identificador es ambiguo. Selecciona otra dependencia.',
   'error.invalidDate': 'Revisa que ambas fechas sean válidas.',
   'error.invalidPeriod': 'Revisa el periodo. La fecha inicial debe ser anterior o igual a la fecha final.',
@@ -37,8 +39,20 @@ function httpError(error: unknown): RequestError {
         return { message: 'La sesión finalizó. Ingresa de nuevo para consultar el informe.', retryable: false };
       case 403:
         return { message: 'Ya no tienes permiso para consultar informes de gestión PQRSD.', retryable: false };
-      case 503:
+      case 413:
+        return { message: 'La solicitud supera el tamaño permitido.', retryable: false };
+      case 429:
+        return { message: 'Ya hay una exportación en curso para esta credencial.', retryable: true };
+      case 503: {
+        const code = error.response.data?.message;
+        if (code === 'error.exportChartCapacity' || code === 'error.exportDocumentCapacity') {
+          return { message: 'El informe supera la capacidad de exportación. Reduce el periodo o el alcance.', retryable: false };
+        }
+        if (code === 'error.exportChartFontUnavailable') {
+          return { message: 'El servidor no dispone de una fuente para una etiqueta del informe.', retryable: false };
+        }
         return { message: 'El servicio de informes está temporalmente indisponible.', retryable: true };
+      }
     }
   }
   return { message: 'No fue posible comunicarse con el servicio de informes. Inténtalo de nuevo.', retryable: true };
@@ -74,7 +88,15 @@ export function useStatisticsPreview() {
   const previewState = ref<RequestState>('idle');
   const previewError = shallowRef<RequestError>();
   const validationError = ref('');
-  const downloading = ref(false);
+  const downloading = ref<'xlsx' | 'docx'>();
+  const authenticatedPreview = shallowRef<NarrativePreview>();
+  const replacement = shallowRef<NarrativePreview>();
+  const reviewRequired = ref(false);
+  const reviewing = ref(false);
+  const differences = computed(() =>
+    authenticatedPreview.value && replacement.value ? compareNarrativePreviews(authenticatedPreview.value, replacement.value) : [],
+  );
+  let reviewRequest: AbortController | undefined;
   const downloadError = ref('');
   let previewId = 0;
   let downloadRequest: AbortController | undefined;
@@ -82,10 +104,20 @@ export function useStatisticsPreview() {
   let catalogRequest: AbortController | undefined;
   let previewRequest: AbortController | undefined;
 
-  function clearPreview() {
+  function cancelDownload() {
     downloadRequest?.abort();
     downloadRequest = undefined;
-    downloading.value = false;
+    downloading.value = undefined;
+  }
+
+  function clearPreview() {
+    cancelDownload();
+    reviewRequest?.abort();
+    reviewRequest = undefined;
+    reviewing.value = false;
+    reviewRequired.value = false;
+    authenticatedPreview.value = undefined;
+    replacement.value = undefined;
     downloadError.value = '';
     previewRequest?.abort();
     previewRequest = undefined;
@@ -193,8 +225,24 @@ export function useStatisticsPreview() {
     previewRequest = request;
     previewState.value = 'loading';
     try {
-      const data = await statisticsService.preview(filter, request.signal);
+      let data: PqrsStatistics;
+      let authenticated: NarrativePreview | undefined;
+      try {
+        authenticated = await statisticsService.narrativePreview(filter, request.signal);
+        data = authenticated.statistics;
+      } catch (error) {
+        // The legacy statistical view and XLSX remain available without a receipt keyring.
+        if (
+          previewRequest !== request ||
+          !isAxiosError(error) ||
+          error.response?.status !== 503 ||
+          error.response.data?.message !== 'error.exportUnavailable'
+        )
+          throw error;
+        data = await statisticsService.preview(filter, request.signal);
+      }
       if (previewRequest !== request || !allowed.value) return;
+      authenticatedPreview.value = authenticated;
       preview.value = data;
       narrative.value = { previewId: ++previewId, filter: Object.freeze(filter), fields: {} };
       previewState.value = 'idle';
@@ -207,15 +255,21 @@ export function useStatisticsPreview() {
     }
   }
 
-  async function downloadExcel() {
+  async function download(format: 'xlsx' | 'docx') {
     const filter = narrative.value?.filter;
     if (!filter || !preview.value || !allowed.value || accessError.value || downloadRequest) return;
+    const view = authenticatedPreview.value;
+    if (format === 'docx' && (!view || reviewRequired.value || !narrative.value)) return;
+    const fields = { ...narrative.value?.fields };
     const request = new AbortController();
     downloadRequest = request;
-    downloading.value = true;
+    downloading.value = format;
     downloadError.value = '';
     try {
-      const { blob, filename } = await statisticsService.exportXlsx(filter, request.signal);
+      const { blob, filename } =
+        format === 'docx' && view
+          ? await statisticsService.exportWord(view.receipt, filter, fields, request.signal)
+          : await statisticsService.exportXlsx(filter, request.signal);
       if (downloadRequest !== request || !allowed.value) return;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -231,24 +285,68 @@ export function useStatisticsPreview() {
       }
     } catch (error) {
       if (downloadRequest !== request || handleAccessError(error)) return;
-      if (isAxiosError(error) && error.response?.status === 400 && error.response.data instanceof Blob) {
+      if (isAxiosError(error) && error.response?.data instanceof Blob) {
         try {
           error.response.data = JSON.parse(await error.response.data.text());
         } catch {
           // Fall back to the generic filter error for malformed problem details.
         }
       }
-      if (downloadRequest === request) downloadError.value = httpError(error).message;
+      if (downloadRequest !== request) return;
+      if (format === 'docx' && isAxiosError(error) && [404, 409, 410].includes(error.response?.status ?? 0)) {
+        reviewRequired.value = true;
+        downloadError.value =
+          error.response?.status === 410
+            ? 'El comprobante venció. Obtén una nueva vista previa para revisar las cifras y asociar tu texto.'
+            : 'El comprobante ya no corresponde a las cifras vigentes. Revisa una nueva vista previa antes de descargar.';
+      } else downloadError.value = httpError(error).message;
     } finally {
       if (downloadRequest === request) {
         downloadRequest = undefined;
-        downloading.value = false;
+        downloading.value = undefined;
       }
     }
   }
 
+  async function loadReplacement() {
+    const draft = narrative.value;
+    if (!draft || !reviewRequired.value || reviewRequest || !allowed.value || accessError.value) return;
+    const request = new AbortController();
+    reviewRequest = request;
+    reviewing.value = true;
+    replacement.value = undefined;
+    downloadError.value = '';
+    try {
+      const next = await statisticsService.narrativePreview(draft.filter, request.signal);
+      if (reviewRequest === request && allowed.value && narrative.value === draft) replacement.value = next;
+    } catch (error) {
+      if (reviewRequest === request && !handleAccessError(error)) downloadError.value = httpError(error).message;
+    } finally {
+      if (reviewRequest === request) {
+        reviewRequest = undefined;
+        reviewing.value = false;
+      }
+    }
+  }
+
+  function associate() {
+    const next = replacement.value;
+    const draft = narrative.value;
+    if (!next || !draft || !allowed.value || accessError.value) return;
+    cancelDownload();
+    authenticatedPreview.value = next;
+    preview.value = next.statistics;
+    narrative.value = { previewId: ++previewId, filter: draft.filter, fields: { ...draft.fields } };
+    replacement.value = undefined;
+    reviewRequired.value = false;
+    downloadError.value = '';
+  }
+
   function editNarrative(field: NarrativeField, text: string) {
-    if (narrative.value && allowed.value && !accessError.value) narrative.value.fields[field] = text;
+    if (narrative.value && allowed.value && !accessError.value) {
+      if (downloading.value === 'docx') cancelDownload();
+      narrative.value.fields[field] = text;
+    }
   }
 
   watch(form, clearPreview, { flush: 'sync' });
@@ -261,7 +359,7 @@ export function useStatisticsPreview() {
     { flush: 'sync' },
   );
   watch(
-    [allowed, () => store.account?.login],
+    [allowed, () => store.account],
     ([canAccess]) => {
       clearAccess();
       accessError.value = canAccess ? '' : 'Ingresa con una cuenta autorizada para consultar informes de gestión PQRSD.';
@@ -289,7 +387,15 @@ export function useStatisticsPreview() {
     previewError,
     downloading,
     downloadError,
-    downloadExcel,
+    downloadExcel: () => download('xlsx'),
+    downloadWord: () => download('docx'),
+    authenticatedPreview,
+    replacement,
+    reviewRequired,
+    reviewing,
+    differences,
+    loadReplacement,
+    associate,
     validationError,
     accessError,
     clearFilters,

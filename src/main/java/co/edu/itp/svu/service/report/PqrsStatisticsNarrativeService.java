@@ -136,6 +136,16 @@ public class PqrsStatisticsNarrativeService {
         return clock.instant().truncatedTo(ChronoUnit.MILLIS);
     }
 
+    String exportCredentialKey() {
+        return java.util.HexFormat.of()
+            .formatHex(digest(currentCredential().getTokenValue().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    void recheckValidity(PqrsStatisticsFilter filter, String receipt) {
+        var credential = currentCredential();
+        receipts.authenticate(receipt, credential, filter, now());
+    }
+
     private Jwt currentCredential() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof JwtAuthenticationToken token) || !token.isAuthenticated()) throw new PqrsStatisticsReceiptException(

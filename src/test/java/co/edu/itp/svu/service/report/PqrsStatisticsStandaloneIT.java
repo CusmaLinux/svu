@@ -184,11 +184,15 @@ class PqrsStatisticsStandaloneIT {
     private final PqrsAuthorizationService policy = new PqrsAuthorizationService(null, null);
 
     private PqrsStatisticsNarrativeService node(PqrsStatisticsRepository repository, Instant now) {
+        return node(repository, Clock.fixed(now, ZoneOffset.UTC));
+    }
+
+    private PqrsStatisticsNarrativeService node(PqrsStatisticsRepository repository, Clock clock) {
         return new PqrsStatisticsNarrativeService(
             new PqrsStatisticsService(repository, policy),
             policy,
             PqrsStatisticsReceiptTest.ring("test", "test:" + syntheticKey),
-            Clock.fixed(now, ZoneOffset.UTC)
+            clock
         );
     }
 
@@ -460,6 +464,69 @@ class PqrsStatisticsStandaloneIT {
             assertThatThrownBy(() -> proxy.prepare(new PqrsStatisticsDocumentService.ExportRequest("SYNTHETIC-INVALID", filter, narrative)))
                 .hasMessage("previewNotFound")
                 .hasNoCause();
+            assertThat(appender.list)
+                .extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .containsExactly("capture enabled");
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(level);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void authenticExpiryDuringDocxRenderingDiscardsBytesWithoutRequeryOrDebugDisclosure() {
+        login("analyst");
+        var current = new java.util.concurrent.atomic.AtomicReference<>(ORIGINAL);
+        Clock clock = new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return Clock.fixed(current.get(), zone);
+            }
+
+            @Override
+            public Instant instant() {
+                return current.get();
+            }
+        };
+        var repository = spy(new PqrsStatisticsRepository(template));
+        var service = node(repository, clock);
+        var filter = new PqrsStatisticsFilter(START, START, Scope.INSTITUTIONAL, null);
+        var preview = service.preview(filter);
+        var documentService = new PqrsStatisticsDocumentService(service, clock);
+        var docx = new PqrsStatisticsDocx(12_000, 8_388_608) {
+            @Override
+            public byte[] generate(PqrsStatisticsDocument model) throws java.io.IOException {
+                var bytes = super.generate(model);
+                current.set(preview.expiresAt());
+                return bytes;
+            }
+        };
+        var exporter = new PqrsStatisticsWordExport(service, documentService, docx, new PqrsStatisticsExportAdmission(2));
+        var env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("dev");
+        var proxies = new org.springframework.aop.aspectj.annotation.AspectJProxyFactory(exporter);
+        proxies.addAspect(new co.edu.itp.svu.aop.logging.LoggingAspect(env));
+        PqrsStatisticsWordExport proxy = proxies.getProxy();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(PqrsStatisticsWordExport.class);
+        var level = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        logger.addAppender(appender);
+        try {
+            logger.debug("capture enabled");
+            var text = PqrsStatisticsNarrativeText.validate(
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode().put("objective", "SYNTHETIC-WORD-PRIVATE")
+            );
+            var request = new PqrsStatisticsDocumentService.ExportRequest(preview.receipt(), filter, text);
+            assertThatThrownBy(() -> proxy.generate(() -> request)).hasMessage("previewExpired").hasNoCause();
+            verify(repository, times(2)).institutional(any());
             assertThat(appender.list)
                 .extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
                 .containsExactly("capture enabled");

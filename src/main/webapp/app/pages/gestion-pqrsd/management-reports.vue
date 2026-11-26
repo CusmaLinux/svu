@@ -23,6 +23,14 @@ const {
   downloading,
   downloadError,
   downloadExcel,
+  downloadWord,
+  authenticatedPreview,
+  replacement,
+  reviewRequired,
+  reviewing,
+  differences,
+  loadReplacement,
+  associate,
   validationError,
   accessError,
   clearFilters,
@@ -217,12 +225,55 @@ onBeforeUnmount(() => {
         <button type="button" class="btn btn-outline-secondary" :disabled="!preview || downloading" @click="downloadExcel">
           Descargar Excel
         </button>
+        <button
+          type="button"
+          class="btn report-submit"
+          :disabled="!authenticatedPreview || !!downloading || reviewRequired"
+          @click="downloadWord"
+        >
+          Descargar Word
+        </button>
         <small class="text-muted">
           El Excel contiene estadísticas y se genera con los filtros de la vista previa. Los datos pueden haber cambiado.
         </small>
       </div>
-      <p v-if="downloading" class="mt-2" role="status">Generando el archivo Excel…</p>
+      <p v-if="downloading" class="mt-2" role="status">Generando el archivo {{ downloading === 'docx' ? 'Word' : 'Excel' }}…</p>
+      <p v-if="preview && !authenticatedPreview" class="text-muted mt-2">La descarga Word requiere una vista previa con comprobante.</p>
       <p v-if="downloadError" class="alert alert-warning mt-2" role="alert">{{ downloadError }}</p>
+      <section v-if="reviewRequired && authenticatedPreview" class="filter-card mt-3" aria-labelledby="comparison-title">
+        <h2 id="comparison-title">Revisar una nueva vista previa</h2>
+        <p>Tu texto y la vista original se conservan hasta que confirmes la asociación.</p>
+        <button type="button" class="btn btn-outline-secondary" :disabled="reviewing" @click="loadReplacement">
+          {{ reviewing ? 'Consultando cifras…' : 'Obtener nueva vista previa' }}
+        </button>
+        <div v-if="replacement" class="mt-3">
+          <p><strong>Corte original</strong> · {{ authenticatedPreview.statistics.period.effectiveCutoff }}</p>
+          <p><strong>Corte nuevo</strong> · {{ replacement.statistics.period.effectiveCutoff }}</p>
+          <div v-if="differences.length" class="comparison-table table-responsive" tabindex="0">
+            <table class="table table-sm">
+              <caption>
+                Cambios entre vistas previas
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Dato</th>
+                  <th scope="col">Original</th>
+                  <th scope="col">Nuevo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="difference in differences" :key="difference.key">
+                  <th scope="row">{{ difference.title }}</th>
+                  <td>{{ difference.before }}</td>
+                  <td>{{ difference.after }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else>Las cifras comparadas coinciden. Puedes asociar tu texto a la nueva vista.</p>
+          <button type="button" class="btn report-submit" @click="associate">Asociar mi texto a esta vista previa</button>
+        </div>
+      </section>
       <template v-if="preview && narrative">
         <div class="filter-card mt-4">
           <h2>Informe preliminar</h2>
@@ -301,6 +352,10 @@ h2 {
 }
 label {
   font-weight: 600;
+}
+.comparison-table {
+  max-height: 24rem;
+  overflow: auto;
 }
 .actions {
   display: flex;

@@ -20,7 +20,7 @@ public final class PqrsStatisticsChartImage {
     static final int MAX_SERIES = 12;
     static final int MAX_LABEL_UNITS = 512;
     private static final Color TEXT = new Color(0x253744);
-    private static final Font FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
+    private static final Font FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 18);
 
     private PqrsStatisticsChartImage() {}
 
@@ -33,7 +33,7 @@ public final class PqrsStatisticsChartImage {
             canvas.setColor(Color.WHITE);
             canvas.fillRect(0, 0, WIDTH, HEIGHT);
             canvas.setColor(TEXT);
-            canvas.setFont(FONT.deriveFont(Font.BOLD, 22f));
+            canvas.setFont(FONT.deriveFont(Font.BOLD, 26f));
             drawText(canvas, chart.title(), 30, 39, WIDTH - 60);
             canvas.setFont(FONT);
             canvas.drawString(chart.unit() == Unit.PERCENT ? "Variación (%)" : "Solicitudes", 30, 63);
@@ -105,12 +105,16 @@ public final class PqrsStatisticsChartImage {
         int bottom = chart.kind() == ChartKind.STACKED_COLUMNS ? 500 : 620;
         var bounds = domain(chart);
         var format = numberFormat(chart);
+        double previousTick = Double.NEGATIVE_INFINITY;
         for (int step = 0; step <= 4; step++) {
-            int y = bottom - ((bottom - top) * step) / 4;
+            double value = bounds.minimum() * (1 - step / 4d) + bounds.maximum() * (step / 4d);
+            if (chart.unit() == Unit.REQUESTS) value = Math.floor(value);
+            if (value <= previousTick) continue;
+            previousTick = value;
+            int y = bounds.y(value, top, bottom);
             g.setColor(new Color(0xDCE3E8));
             g.drawLine(left, y, right, y);
             g.setColor(TEXT);
-            double value = bounds.minimum() * (1 - step / 4d) + bounds.maximum() * (step / 4d);
             drawText(g, format.format(value), 12, y + 4, left - 18);
         }
 
@@ -121,10 +125,10 @@ public final class PqrsStatisticsChartImage {
         for (int i = 0; i < chart.categories().size(); i++) {
             var category = chart.categories().get(i);
             int x = left + slot * i + slot / 2;
-            int labelX = x - slot / 2 + 2;
-            int suffix = category.partial() ? g.getFontMetrics().stringWidth("*") : 0;
-            drawText(g, category.label(), labelX, bottom + 22, slot - 4 - suffix);
-            if (category.partial()) g.drawString("*", labelX + slot - 4 - suffix, bottom + 22);
+            String suffix = category.partial() ? "*" : "";
+            var metrics = g.getFontMetrics();
+            String label = fit(metrics, category.label(), slot - 4 - metrics.stringWidth(suffix)) + suffix;
+            drawText(g, label, x - metrics.stringWidth(label) / 2, bottom + 22, slot - 4);
             if (chart.kind() == ChartKind.LINE) {
                 var series = chart.series().get(0);
                 BigDecimal value = series.points().get(i).value();
@@ -198,14 +202,19 @@ public final class PqrsStatisticsChartImage {
         }
     }
 
-    /** Visual elision only. The chart definition and table retain the full label. */
     private static void drawText(Graphics2D g, String value, int x, int y, int width) {
-        var metrics = g.getFontMetrics();
-        if (metrics.stringWidth(value) > width) {
-            int end = value.length();
-            while (end > 0 && metrics.stringWidth(value.substring(0, end) + "…") > width) end = value.offsetByCodePoints(end, -1);
-            value = value.substring(0, end) + "…";
+        String fitted = fit(g.getFontMetrics(), value, width);
+        if (g.getFont().canDisplayUpTo(fitted) != -1) {
+            throw new PqrsStatisticsReceiptException(503, "exportChartFontUnavailable");
         }
-        g.drawString(value, x, y);
+        g.drawString(fitted, x, y);
+    }
+
+    /** Visual elision only. The chart definition and table retain the full label. */
+    private static String fit(java.awt.FontMetrics metrics, String value, int width) {
+        if (metrics.stringWidth(value) <= width) return value;
+        int end = value.length();
+        while (end > 0 && metrics.stringWidth(value.substring(0, end) + "…") > width) end = value.offsetByCodePoints(end, -1);
+        return value.substring(0, end) + "…";
     }
 }

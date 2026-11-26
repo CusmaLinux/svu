@@ -529,7 +529,7 @@ class PqrsStatisticsResourceIT {
     @Test
     void enforcesInclusiveByteBudgetOnBodiesOfUnknownLength() {
         var service = mock(co.edu.itp.svu.service.report.PqrsStatisticsNarrativeService.class);
-        var resource = new PqrsStatisticsNarrativeResource(service);
+        var resource = new PqrsStatisticsNarrativeResource(service, null);
         var request = new org.springframework.mock.web.MockHttpServletRequest() {
             @Override
             public long getContentLengthLong() {
@@ -546,5 +546,100 @@ class PqrsStatisticsResourceIT {
         request.setContent(java.util.Arrays.copyOf(exact, exact.length + 1));
         assertThatThrownBy(() -> resource.create(request)).hasMessage("exportBodyTooLarge");
         org.mockito.Mockito.verify(service).preview(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { ADMIN, PQRSD_REPORTS, FUNCTIONARY + " " + PQRSD_REPORTS })
+    void downloadsEditableDocxFromAuthenticatedPreviewWithOneMoreAggregate(String roles) throws Exception {
+        String jwt = narrativeAuthorization(roles);
+        String receipt = json
+            .readTree(
+                mvc
+                    .perform(narrative(BODY).header("Authorization", jwt))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsByteArray()
+            )
+            .get("receipt")
+            .asText();
+        var request = (ObjectNode) json.readTree(BODY);
+        request.put("receipt", receipt);
+        request.putObject("narrative").put("introduction", "  <script>SYNTHETIC-LITERAL</script>\n\nEspañol 🌳 =SUM(A1)  ");
+        byte[] bytes = mvc
+            .perform(post(BASE + "/export/docx").header("Authorization", jwt).contentType("application/json").content(request.toString()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+            .andExpect(header().string("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .andExpect(
+                header()
+                    .string(
+                        "Content-Disposition",
+                        "attachment; filename=\"Informe_PQRSD_Preliminar_Institucional_2004-02-01_2004-03-31.docx\""
+                    )
+            )
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(bytes))) {
+            var parts = new java.util.HashMap<String, String>();
+            for (var part = in.getNextEntry(); part != null; part = in.getNextEntry()) {
+                if (part.getName().endsWith(".xml") || part.getName().endsWith(".rels")) parts.put(
+                    part.getName(),
+                    new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                );
+                assertThat(part.getName()).doesNotContainIgnoringCase("vbaProject").doesNotContain("embeddings/");
+            }
+            assertThat(parts.get("word/document.xml"))
+                .contains(
+                    "INFORME PRELIMINAR",
+                    "&lt;script>SYNTHETIC-LITERAL",
+                    "Español 🌳 =SUM(A1)",
+                    "Sin texto redactado.",
+                    "tblHeader",
+                    "keepNext",
+                    "<w:br"
+                )
+                .doesNotContain(receipt, "synthetic-private", "w:hyperlink");
+            assertThat(parts.values()).noneMatch(value -> value.contains("TargetMode=\"External\""));
+            assertThat(parts.values()).anyMatch(value -> value.contains(" PAGE "));
+        }
+        assertThat(AGGREGATIONS.get()).isEqualTo(2);
+        request.put("receipt", "INVALID");
+        mvc
+            .perform(post(BASE + "/export/docx").header("Authorization", jwt).contentType("application/json").content(request.toString()))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("error.previewNotFound"));
+        assertThat(AGGREGATIONS.get()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "", USER, FUNCTIONARY, FRONT_DESK_CS })
+    void rejectsDocxAuthorizationBeforeParsingInvalidBody(String roles) throws Exception {
+        var request = post(BASE + "/export/docx").contentType("application/json").content("invalid body");
+        if (!roles.isEmpty()) request.header("Authorization", narrativeAuthorization(roles));
+        mvc.perform(request).andExpect(status().is(roles.isEmpty() ? 401 : 403));
+        assertThat(AGGREGATIONS.get()).isZero();
+    }
+
+    @Test
+    void documentRejectsChangedCountsWithoutRendering() throws Exception {
+        String jwt = narrativeAuthorization(PQRSD_REPORTS);
+        String receipt = json
+            .readTree(mvc.perform(narrative(BODY).header("Authorization", jwt)).andReturn().getResponse().getContentAsByteArray())
+            .get("receipt")
+            .asText();
+        mongo
+            .getCollection("pqrs")
+            .updateOne(new Document("_id", ROOT_IDS.get(0)), new Document("$set", new Document("type", "COMPLAINT")));
+        var request = (ObjectNode) json.readTree(BODY);
+        request.put("receipt", receipt);
+        request.putObject("narrative");
+        mvc
+            .perform(post(BASE + "/export/docx").header("Authorization", jwt).contentType("application/json").content(request.toString()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("error.statisticsChanged"));
+        assertThat(AGGREGATIONS.get()).isEqualTo(2);
     }
 }
