@@ -101,8 +101,8 @@ class PqrsStatisticsDocumentTest {
         var image = ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(chart)));
         assertThat(image.getWidth()).isEqualTo(1200);
         assertThat(image.getHeight()).isEqualTo(720);
-        assertThat(image.getRGB(285, 620)).isEqualTo(new Color(green).getRGB());
-        assertThat(image.getRGB(985, 85)).isEqualTo(new Color(green).getRGB());
+        assertThat(image.getRGB(285, 553)).isEqualTo(new Color(green).getRGB());
+        assertThat(image.getRGB(985, 152)).isEqualTo(new Color(green).getRGB());
         for (int y = 85; y <= 620; y++) assertThat(image.getRGB(635, y)).isNotEqualTo(new Color(green).getRGB());
     }
 
@@ -126,9 +126,61 @@ class PqrsStatisticsDocumentTest {
         assertThat(ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(bars))).getRGB(400, 102)).isEqualTo(
             new Color(0xA36123).getRGB()
         );
-        assertThat(ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(stacked))).getRGB(372, 90)).isEqualTo(
+        assertThat(ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(stacked))).getRGB(372, 130)).isEqualTo(
             new Color(0x355A9C).getRGB()
         );
+    }
+
+    @Test
+    void usesReadableAxisStepsAndKeepsZeroDistinctFromMissing() throws Exception {
+        var category = List.of(new ChartCategory("Enero", false, 0x16746d));
+        var chart = new Chart(
+            TableId.VARIATIONS,
+            ChartKind.LINE,
+            Unit.PERCENT,
+            "Variación",
+            category,
+            List.of(new Series("Variación", 0x16746d, List.of(new Point(BigDecimal.valueOf(-50))))),
+            List.of()
+        );
+        var axis = PqrsStatisticsChartImage.domain(chart);
+        assertThat(axis.minimum()).isEqualTo(-60);
+        assertThat(axis.maximum()).isEqualTo(0);
+        assertThat(axis.step()).isEqualTo(20);
+
+        var zero = new Chart(
+            TableId.EVOLUTION,
+            ChartKind.COLUMNS,
+            Unit.REQUESTS,
+            "Evolución",
+            category,
+            List.of(new Series("Recibidas", 0x16746d, List.of(new Point(BigDecimal.ZERO)))),
+            List.of()
+        );
+        var missing = new Chart(
+            TableId.EVOLUTION,
+            ChartKind.COLUMNS,
+            Unit.REQUESTS,
+            "Evolución",
+            category,
+            List.of(new Series("Recibidas", 0x16746d, List.of(new Point(null)))),
+            List.of()
+        );
+        assertThat(PqrsStatisticsChartImage.hasObservedValues(zero)).isTrue();
+        assertThat(PqrsStatisticsChartImage.hasObservedValues(missing)).isFalse();
+
+        var titled = ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(chart, true)));
+        var untitled = ImageIO.read(new ByteArrayInputStream(PqrsStatisticsChartImage.png(chart, false)));
+        assertThat(nonWhitePixels(titled, 20, 48)).isPositive();
+        assertThat(nonWhitePixels(untitled, 20, 48)).isZero();
+    }
+
+    private static long nonWhitePixels(java.awt.image.BufferedImage image, int top, int bottom) {
+        long count = 0;
+        for (int y = top; y <= bottom; y++) for (int x = 0; x < image.getWidth(); x++) {
+            if (image.getRGB(x, y) != Color.WHITE.getRGB()) count++;
+        }
+        return count;
     }
 
     @Test

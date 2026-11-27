@@ -258,14 +258,14 @@ public class PqrsStatisticsDocx {
     }
 
     private static void renderChart(XWPFDocument document, Chart chart) throws IOException {
-        heading(document, chart.title(), 2);
+        if (!PqrsStatisticsChartImage.hasObservedValues(chart)) return;
         var p = document.createParagraph();
         p.setAlignment(ParagraphAlignment.CENTER);
         try {
             var run = p.createRun();
             run
                 .addPicture(
-                    new ByteArrayInputStream(PqrsStatisticsChartImage.png(chart)),
+                    new ByteArrayInputStream(PqrsStatisticsChartImage.png(chart, false)),
                     Document.PICTURE_TYPE_PNG,
                     "figura.png",
                     Units.toEMU(456),

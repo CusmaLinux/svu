@@ -25,6 +25,10 @@ public final class PqrsStatisticsChartImage {
     private PqrsStatisticsChartImage() {}
 
     public static byte[] png(Chart chart) {
+        return png(chart, true);
+    }
+
+    static byte[] png(Chart chart, boolean includeTitle) {
         validate(chart);
         var image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         var canvas = image.createGraphics();
@@ -34,7 +38,7 @@ public final class PqrsStatisticsChartImage {
             canvas.fillRect(0, 0, WIDTH, HEIGHT);
             canvas.setColor(TEXT);
             canvas.setFont(FONT.deriveFont(Font.BOLD, 26f));
-            drawText(canvas, chart.title(), 30, 39, WIDTH - 60);
+            if (includeTitle) drawText(canvas, chart.title(), 30, 39, WIDTH - 60);
             canvas.setFont(FONT);
             canvas.drawString(chart.unit() == Unit.PERCENT ? "Variación (%)" : "Solicitudes", 30, 63);
             if (chart.kind() == ChartKind.BARS) horizontal(canvas, chart);
@@ -63,6 +67,10 @@ public final class PqrsStatisticsChartImage {
         } catch (IOException failure) {
             throw PqrsStatisticsReceiptException.unavailable();
         }
+    }
+
+    static boolean hasObservedValues(Chart chart) {
+        return chart.series().stream().flatMap(series -> series.points().stream()).anyMatch(point -> point.value() != null);
     }
 
     private static void validate(Chart chart) {
@@ -105,12 +113,7 @@ public final class PqrsStatisticsChartImage {
         int bottom = chart.kind() == ChartKind.STACKED_COLUMNS ? 500 : 620;
         var bounds = domain(chart);
         var format = numberFormat(chart);
-        double previousTick = Double.NEGATIVE_INFINITY;
-        for (int step = 0; step <= 4; step++) {
-            double value = bounds.minimum() * (1 - step / 4d) + bounds.maximum() * (step / 4d);
-            if (chart.unit() == Unit.REQUESTS) value = Math.floor(value);
-            if (value <= previousTick) continue;
-            previousTick = value;
+        for (double value = bounds.minimum(); value <= bounds.maximum() + bounds.step() * 1e-9; value += bounds.step()) {
             int y = bounds.y(value, top, bottom);
             g.setColor(new Color(0xDCE3E8));
             g.drawLine(left, y, right, y);
@@ -174,7 +177,7 @@ public final class PqrsStatisticsChartImage {
         return format;
     }
 
-    private static Domain domain(Chart chart) {
+    static Domain domain(Chart chart) {
         var values = new ArrayList<Double>();
         for (int index = 0; index < chart.categories().size(); index++) {
             double sum = 0;
@@ -193,10 +196,22 @@ public final class PqrsStatisticsChartImage {
         double min = Math.min(0, values.stream().mapToDouble(Double::doubleValue).min().orElse(0));
         double max = Math.max(0, values.stream().mapToDouble(Double::doubleValue).max().orElse(0));
         if (!Double.isFinite(max - min)) throw PqrsStatisticsReceiptException.unavailable();
-        return new Domain(min, max == min ? 1 : max);
+        if (max == min) max = min + 1;
+        double step = niceStep((max - min) / 4, chart.unit() == Unit.REQUESTS);
+        min = Math.floor(min / step) * step;
+        max = Math.ceil(max / step) * step;
+        return new Domain(min, max, step);
     }
 
-    private record Domain(double minimum, double maximum) {
+    private static double niceStep(double raw, boolean integer) {
+        if (integer) return Math.max(1, Math.ceil(raw));
+        double magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+        double normalized = raw / magnitude;
+        double factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return factor * magnitude;
+    }
+
+    record Domain(double minimum, double maximum, double step) {
         int y(double value, int top, int bottom) {
             return bottom - (int) Math.round(((value - minimum) / (maximum - minimum)) * (bottom - top));
         }
