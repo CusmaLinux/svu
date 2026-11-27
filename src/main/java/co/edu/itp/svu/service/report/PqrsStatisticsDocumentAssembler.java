@@ -187,7 +187,7 @@ final class PqrsStatisticsDocumentAssembler {
                         )
                     )
                     .toList(),
-                row(new Text(TOTAL), total, total, Missing.NULL_VALUE),
+                row(new Text(TOTAL), total, total, totalTypePercentage(types, r.received())),
                 "El denominador es el total recibido. Los porcentajes redondeados se muestran por separado."
             )
         );
@@ -325,7 +325,7 @@ final class PqrsStatisticsDocumentAssembler {
             .map(m -> {
                 var cells = new ArrayList<Cell>();
                 cells.add(month(m));
-                types.forEach(t -> cells.add(quantity(m.types().get(t.code()))));
+                types.forEach(t -> cells.add(monthlyTypeCount(m, t.code())));
                 cells.add(new Quantity(m.received()));
                 return new Row(cells);
             })
@@ -421,14 +421,36 @@ final class PqrsStatisticsDocumentAssembler {
         return charts;
     }
 
-    private static Point monthlyOfficePoint(PqrsStatistics.Month month, Category identity) {
-        return month
+    static Point monthlyOfficePoint(PqrsStatistics.Month month, Category identity) {
+        var observed = month
             .currentOffices()
             .stream()
             .filter(o -> OfficeCategories.key(o).equals(new OfficeKey(identity.code(), identity.idType(), identity.id())))
             .findFirst()
-            .map(o -> new Point(BigDecimal.valueOf(o.count())))
-            .orElse(new Point(null));
+            .map(o -> new Point(BigDecimal.valueOf(o.count())));
+        if (observed.isPresent()) return observed.get();
+        return officeCountsAreExhaustive(month) ? new Point(BigDecimal.ZERO) : new Point(null);
+    }
+
+    static Cell totalTypePercentage(List<PqrsStatistics.TypeShare> types, long denominator) {
+        if (denominator == 0) return Missing.NO_CALCULABLE;
+        long categorized = types.stream().mapToLong(PqrsStatistics.TypeShare::count).sum();
+        return categorized == denominator ? new Percentage(BigDecimal.valueOf(100)) : Missing.PARTIAL_INFORMATION;
+    }
+
+    static Cell monthlyTypeCount(PqrsStatistics.Month month, String code) {
+        if (month.types() == null) return Missing.NULL_VALUE;
+        Long count = month.types().get(code);
+        if (count != null) return new Quantity(count);
+        return typeCountsAreExhaustive(month) ? new Quantity(0) : Missing.PARTIAL_INFORMATION;
+    }
+
+    private static boolean typeCountsAreExhaustive(PqrsStatistics.Month month) {
+        return month.types() != null && month.types().values().stream().mapToLong(Long::longValue).sum() == month.received();
+    }
+
+    private static boolean officeCountsAreExhaustive(PqrsStatistics.Month month) {
+        return month.currentOffices() != null && month.currentOffices().stream().mapToLong(OfficeCount::count).sum() == month.received();
     }
 
     private static String selectionNote(int shown, int total) {

@@ -2,10 +2,12 @@ package co.edu.itp.svu.service.report;
 
 import static org.assertj.core.api.Assertions.*;
 
+import co.edu.itp.svu.service.dto.PqrsStatistics;
 import co.edu.itp.svu.service.report.PqrsStatisticsDocument.*;
 import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -13,6 +15,48 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 class PqrsStatisticsDocumentTest {
+
+    @Test
+    void totalTypePercentageUsesExhaustiveCountsAndDoesNotAddRoundedPercentages() {
+        var types = List.of(
+            new PqrsStatistics.TypeShare("A", 1, 3, new BigDecimal("33.33")),
+            new PqrsStatistics.TypeShare("B", 1, 3, new BigDecimal("33.33")),
+            new PqrsStatistics.TypeShare("C", 1, 3, new BigDecimal("33.33"))
+        );
+        assertThat(PqrsStatisticsDocumentAssembler.totalTypePercentage(types, 3)).isEqualTo(new Percentage(BigDecimal.valueOf(100)));
+        assertThat(PqrsStatisticsDocumentAssembler.totalTypePercentage(types, 0)).isEqualTo(Missing.NO_CALCULABLE);
+        assertThat(PqrsStatisticsDocumentAssembler.totalTypePercentage(types.subList(0, 2), 3)).isEqualTo(Missing.PARTIAL_INFORMATION);
+    }
+
+    @Test
+    void missingMonthlyCategoriesAreZeroOnlyForExhaustiveObservedCounts() {
+        var exhaustive = month(
+            4,
+            java.util.Map.of("A", 4L),
+            List.of(new PqrsStatistics.OfficeCount("ASSIGNED", "office", "1", "Oficina", 4))
+        );
+        var partial = month(4, java.util.Map.of("A", 3L), List.of(new PqrsStatistics.OfficeCount("ASSIGNED", "office", "1", "Oficina", 3)));
+
+        assertThat(PqrsStatisticsDocumentAssembler.monthlyTypeCount(exhaustive, "B")).isEqualTo(new Quantity(0));
+        assertThat(PqrsStatisticsDocumentAssembler.monthlyTypeCount(partial, "B")).isEqualTo(Missing.PARTIAL_INFORMATION);
+        var office = new Category("ASSIGNED", "office", "2", "Otra oficina");
+        assertThat(PqrsStatisticsDocumentAssembler.monthlyOfficePoint(exhaustive, office).value()).isEqualTo(BigDecimal.ZERO);
+        assertThat(PqrsStatisticsDocumentAssembler.monthlyOfficePoint(partial, office).value()).isNull();
+    }
+
+    @Test
+    void missingValueLabelsKeepDistinctReportingStates() {
+        assertThat(Missing.NO_CALCULABLE.label()).isEqualTo("No calculable");
+        assertThat(Missing.NULL_VALUE.label()).isEqualTo("Información no disponible");
+        assertThat(Missing.NOT_APPLICABLE.label()).isEqualTo("No aplica");
+        assertThat(Missing.PARTIAL_INFORMATION.label()).isEqualTo("Información parcial");
+        assertThat(Missing.DEFINITION_PENDING.label()).isEqualTo("Pendiente de definición");
+        assertThat(Availability.DEFINITION_PENDING.label()).contains("pendiente de definición");
+    }
+
+    private static PqrsStatistics.Month month(long received, java.util.Map<String, Long> types, List<PqrsStatistics.OfficeCount> offices) {
+        return new PqrsStatistics.Month(YearMonth.of(2024, 1), received, true, null, "NO_COMPARABLE_BASE", null, types, offices);
+    }
 
     @Test
     void copiesSourceCollectionsAtEachLevel() {

@@ -162,6 +162,9 @@ public record PqrsStatisticsDocument(Metadata metadata, List<Section> sections) 
     public enum Missing implements Cell {
         NULL_VALUE("Información no disponible"),
         NO_CALCULABLE("No calculable"),
+        NOT_APPLICABLE("No aplica"),
+        PARTIAL_INFORMATION("Información parcial"),
+        DEFINITION_PENDING("Pendiente de definición"),
         PARTIAL_MONTH("Mes parcial"),
         NO_COMPARABLE_BASE("Sin base comparable");
 
