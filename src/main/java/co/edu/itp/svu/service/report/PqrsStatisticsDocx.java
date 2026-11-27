@@ -67,7 +67,12 @@ public class PqrsStatisticsDocx {
                 for (var table : section.tables()) {
                     heading(document, table.title(), 2);
                     renderTable(document, table);
-                    for (var note : table.notes()) text(document.createParagraph(), note, 9, false, DARK);
+                    for (var note : table.notes()) if (
+                        section.charts().stream().noneMatch(chart -> chart.table() == table.id() && chart.notes().contains(note))
+                    ) {
+                        text(document.createParagraph(), note, 9, false, DARK);
+                    }
+                    if (table.id() == TableId.METHODOLOGY) renderTechnicalMetadata(document, source.metadata());
                     for (var figure : section.charts()) if (figure.table() == table.id()) renderChart(document, figure);
                 }
             }
@@ -117,27 +122,33 @@ public class PqrsStatisticsDocx {
         text(footer, "Informe preliminar  •  Página ", 9, false, DARK);
         footer.getCTP().addNewFldSimple().setInstr(" PAGE ");
 
-        text(document.createParagraph(), report.institution(), 12, true, TEAL);
         heading(document, report.title(), 0);
         text(document.createParagraph(), "INFORME PRELIMINAR", 12, true, TEAL);
+        detail(document, "Periodo", DATE.format(report.filter().start()) + " a " + DATE.format(report.filter().end()));
+    }
+
+    private static void renderTechnicalMetadata(XWPFDocument document, Metadata report) {
+        heading(document, "Trazabilidad de la generación", 3);
+        var time = TIME.withZone(ZoneId.of(report.period().zone()));
         detail(document, "Alcance", report.office() == null ? "Institucional" : "Por dependencia");
         if (report.office() != null) detail(
             document,
             "Dependencia",
             report.office().name() == null ? report.office().id() : report.office().name()
         );
-        detail(document, "Periodo", DATE.format(report.filter().start()) + " a " + DATE.format(report.filter().end()));
-        var time = TIME.withZone(ZoneId.of(report.period().zone()));
         detail(document, "Zona horaria", report.period().zone());
         detail(document, "Corte efectivo de recepción", time.format(report.period().effectiveCutoff()));
         detail(document, "Observación original", time.format(report.period().observedAt()));
         detail(document, "Comprobación", time.format(report.checkedAt()));
         detail(document, "Generación", time.format(report.generatedAt()));
         detail(document, "Cobertura", report.coverage());
+        detail(document, "Versión del modelo", Integer.toString(report.modelVersion()));
+        detail(document, "Versión metodológica", Integer.toString(report.methodologyVersion()));
+        detail(document, "Versión del catálogo", Integer.toString(report.catalogVersion()));
         text(
             document.createParagraph(),
             "Las cifras corresponden al resultado agregado comprobado. La observación no es transaccional.",
-            10,
+            9,
             false,
             DARK
         );
@@ -169,14 +180,30 @@ public class PqrsStatisticsDocx {
         var header = table.getRow(0);
         header.setRepeatHeader(true);
         header.setCantSplitRow(true);
-        int totalWeight = model.columns().stream().mapToInt(PqrsStatisticsDocx::weight).sum();
         int[] widths = new int[n];
+        int[] weights = new int[n];
+        int totalWeight = 0;
         for (int index = 0; index < n; index++) {
             var column = model.columns().get(index);
-            int width = (WIDTH * weight(column)) / totalWeight;
+            int longest = column.name().length();
+            for (var row : model.rows()) longest = Math.max(
+                longest,
+                display(row.cells().get(index), NumberFormat.getNumberInstance(SPANISH)).length()
+            );
+            if (model.totals() != null) longest = Math.max(
+                longest,
+                display(model.totals().cells().get(index), NumberFormat.getNumberInstance(SPANISH)).length()
+            );
+            weights[index] = Math.max(weight(column), Math.min(14, (longest + 9) / 10));
+            totalWeight += weights[index];
+        }
+        int assigned = 0;
+        for (int index = 0; index < n; index++) {
+            int width = index == n - 1 ? WIDTH - assigned : (WIDTH * weights[index]) / totalWeight;
+            assigned += width;
             widths[index] = width;
             grid.addNewGridCol().setW(BigInteger.valueOf(width));
-            formatCell(header.getCell(index), column.name(), width, DARK, true, false);
+            formatCell(header.getCell(index), model.columns().get(index).name(), width, DARK, true, false);
         }
         var format = NumberFormat.getNumberInstance(SPANISH);
         format.setMaximumFractionDigits(8);
@@ -223,6 +250,7 @@ public class PqrsStatisticsDocx {
         if (fill != null) cell.setColor(fill);
         var p = cell.getParagraphs().get(0);
         p.setSpacingAfter(25);
+        p.setSpacingBefore(0);
         if (numeric) p.setAlignment(ParagraphAlignment.RIGHT);
         boolean header = DARK.equals(fill);
         if (header) p.setKeepNext(true);
@@ -259,6 +287,7 @@ public class PqrsStatisticsDocx {
         run.setFontSize(size);
         run.setBold(bold);
         run.setColor(color);
+        p.setWordWrapped(false);
         // Process literal segments with Word break and tab elements, never with XML or field instructions.
         int start = 0;
         for (int index = 0; index < value.length(); index++) {
