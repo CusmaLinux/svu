@@ -428,8 +428,7 @@ final class PqrsStatisticsDocumentAssembler {
             .filter(o -> OfficeCategories.key(o).equals(new OfficeKey(identity.code(), identity.idType(), identity.id())))
             .findFirst()
             .map(o -> new Point(BigDecimal.valueOf(o.count())));
-        if (observed.isPresent()) return observed.get();
-        return officeCountsAreExhaustive(month) ? new Point(BigDecimal.ZERO) : new Point(null);
+        return observed.orElseGet(() -> officeCountsAreExhaustive(month) ? new Point(BigDecimal.ZERO) : new Point(null));
     }
 
     static Cell totalTypePercentage(List<PqrsStatistics.TypeShare> types, long denominator) {
