@@ -54,4 +54,15 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
 
         return new PageImpl<>(pqrsList, pageable, count);
     }
+
+    @Override
+    public List<Pqrs> findPublishedByOffice(String officeId) {
+        Object storedOfficeId = ObjectId.isValid(officeId) ? new ObjectId(officeId) : officeId;
+        Query query = new Query(
+            new Criteria()
+                .andOperator(Criteria.where("oficinaResponder.$id").is(storedOfficeId), Criteria.where("publication.state").ne("PREPARING"))
+        );
+        query.fields().include("_id").include("file_number");
+        return mongoTemplate.find(query, Pqrs.class);
+    }
 }

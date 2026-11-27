@@ -79,7 +79,7 @@ class AttachmentOperationStandaloneIT {
         );
         template = new MongoTemplate(new SimpleMongoClientDatabaseFactory(client, DATABASE));
         repository = new AttachmentOperationRepository(template);
-        publicationRepository = new AttachmentPublicationRepository(template);
+        publicationRepository = new AttachmentPublicationRepository(template, repository);
         Document hello = client.getDatabase(DATABASE).runCommand(new Document("hello", 1));
         assertThat(hello.getString("setName")).isNull();
         assertThat(hello.getBoolean("isreplicaset", false)).isFalse();
@@ -100,6 +100,7 @@ class AttachmentOperationStandaloneIT {
         template.dropCollection(AttachmentOperationRepository.COLLECTION);
         template.dropCollection("pqrs");
         template.dropCollection("respuesta");
+        template.dropCollection("archivo_adjunto");
         repository.ensureIndexes();
         writeConcerns.clear();
     }
@@ -156,33 +157,73 @@ class AttachmentOperationStandaloneIT {
     }
 
     @Test
-    void publishesRootWithSingleCasAndResolvesRepeatedConfirmation() {
-        ObjectId id = new ObjectId();
-        String operation = UUID.randomUUID().toString();
-        String publication = UUID.randomUUID().toString();
-        String digest = "a".repeat(64);
+    void publishesOnlyAfterVerifiedPhysicalAndOwnershipEvidenceAndSerializesConcurrentCalls(@TempDir Path root) throws Exception {
+        AttachmentStorage storage = physicalStorage(root);
+        AttachmentOperationRepository physicalOperations = new AttachmentOperationRepository(template, storage);
+        AttachmentPublicationRepository guardedPublications = new AttachmentPublicationRepository(template, physicalOperations);
+        AttachmentPublicationVerifier verifier = new AttachmentPublicationVerifier(
+            physicalOperations,
+            guardedPublications,
+            storage,
+            template
+        );
+        AttachmentOperation candidate = logicalBatch("verified-publication", PHYSICAL_BYTES);
+        candidate.setPublicationId(UUID.randomUUID().toString());
+        var preparing = acquire(physicalOperations.reserve(candidate));
+        var prepared = prepareForSelection(storage, preparing, PHYSICAL_BYTES);
+        assertThat(physicalOperations.selectPhysicalGeneration(prepared.evidence(), prepared.writer())).isEqualTo(SELECTED);
+        var filesReady = physicalOperations.findById(preparing.getId()).orElseThrow();
+        var persisting = physicalOperations.beginVerifiedPersistence(lease(filesReady)).orElseThrow();
+        ObjectId caseId = (ObjectId) persisting.getCaseId();
+        ObjectId metadataId = persisting.getLogicalFiles().get(0).metadataId();
+        String storageKey = persisting.getPhysicalGenerations().get(0).entries().get(0).storageKey();
+        template
+            .getCollection("archivo_adjunto")
+            .insertOne(
+                new Document("_id", metadataId)
+                    .append("url_archivo", storageKey)
+                    .append("pqrs_attachment", new com.mongodb.DBRef("pqrs", caseId))
+            );
         template
             .getCollection("pqrs")
             .insertOne(
-                new Document("_id", id).append(
-                    "publication",
-                    new Document("state", "PREPARING")
-                        .append("operation_id", operation)
-                        .append("publication_id", publication)
-                        .append("digest", digest)
-                        .append("revision", 7L)
-                )
+                new Document("_id", caseId)
+                    .append("archivosAdjuntos", List.of(new com.mongodb.DBRef("archivo_adjunto", metadataId)))
+                    .append(
+                        "publication",
+                        new Document("state", "PREPARING")
+                            .append("operation_id", persisting.getId())
+                            .append("publication_id", persisting.getPublicationId())
+                            .append("digest", persisting.getRequestDigest())
+                            .append("revision", 7L)
+                    )
             );
 
-        assertThat(publicationRepository.publish("pqrs", id, operation, publication, digest, 7L)).isEqualTo(
-            AttachmentPublicationRepository.Result.PUBLISHED
-        );
-        assertThat(publicationRepository.publish("pqrs", id, operation, publication, digest, 7L)).isEqualTo(
+        var results = race(() -> verifier.publishIfVerified(lease(persisting)), () -> verifier.publishIfVerified(lease(persisting)));
+
+        assertThat(results).containsExactlyInAnyOrder(
+            AttachmentPublicationRepository.Result.PUBLISHED,
             AttachmentPublicationRepository.Result.ALREADY_PUBLISHED
         );
-        Document root = template.getCollection("pqrs").find(new Document("_id", id)).first();
-        assertThat(root.getEmbedded(List.of("publication", "state"), String.class)).isEqualTo("COMMITTED");
-        assertThat(root.getEmbedded(List.of("publication", "revision"), Long.class)).isEqualTo(8L);
+        Document published = template.getCollection("pqrs").find(new Document("_id", caseId)).first();
+        Document marker = published.get("publication", Document.class);
+        assertThat(marker.getString("state")).isEqualTo("COMMITTED");
+        assertThat(marker.getLong("revision")).isEqualTo(8L);
+        assertThat(marker.getLong("fencing_token")).isEqualTo(lease(persisting).fencing());
+        assertThat(marker.getLong("selected_generation")).isEqualTo(persisting.getSelectedPhysicalGeneration());
+        manifests()
+            .updateOne(
+                new Document("_id", persisting.getId()),
+                new Document(
+                    "$set",
+                    new Document("updated_at", Date.from(Instant.now().minusSeconds(120))).append(
+                        "claim.lease_until",
+                        Date.from(Instant.now().minusSeconds(1))
+                    )
+                )
+            );
+        new co.edu.itp.svu.service.storage.AttachmentRecoveryService(physicalOperations, template, verifier, storage).recoverPendingBatch();
+        assertThat(physicalOperations.findById(persisting.getId()).orElseThrow().getState()).isEqualTo(AttachmentOperationState.COMMITTED);
     }
 
     @Test
@@ -216,7 +257,52 @@ class AttachmentOperationStandaloneIT {
     }
 
     @Test
-    void recoveryAbortsOnlyUnpublishedPreparationAndFinalizesUncertainPublishedRoot() {
+    void attachmentReadersHidePreparedOrAmbiguousRecordsAndKeepLegacyAndCommittedOnes() {
+        ObjectId legacyId = new ObjectId();
+        ObjectId preparedId = new ObjectId();
+        ObjectId publishedId = new ObjectId();
+        ObjectId rootId = new ObjectId();
+        template
+            .getCollection("pqrs")
+            .insertMany(
+                List.of(
+                    new Document("_id", rootId).append("publication", new Document("state", "PREPARING")),
+                    new Document("_id", new ObjectId()).append("publication", new Document("state", "COMMITTED"))
+                )
+            );
+        ObjectId publishedRootId = template
+            .getCollection("pqrs")
+            .find(new Document("publication.state", "COMMITTED"))
+            .first()
+            .getObjectId("_id");
+        template
+            .getCollection("archivo_adjunto")
+            .insertMany(
+                List.of(
+                    new Document("_id", legacyId).append("url_archivo", "legacy.bin"),
+                    new Document("_id", preparedId)
+                        .append("url_archivo", "prepared.bin")
+                        .append("pqrs_attachment", new com.mongodb.DBRef("pqrs", rootId)),
+                    new Document("_id", publishedId)
+                        .append("url_archivo", "published.bin")
+                        .append("pqrs_attachment", new com.mongodb.DBRef("pqrs", publishedRootId))
+                )
+            );
+        AttachmentPublicationVisibilityRepository visibility = new AttachmentPublicationVisibilityRepository(template);
+
+        assertThat(visibility.isVisible(legacyId.toHexString())).isTrue();
+        assertThat(visibility.isVisible(preparedId.toHexString())).isFalse();
+        assertThat(visibility.isVisible(publishedId.toHexString())).isTrue();
+        assertThat(visibility.isVisibleKey("legacy.bin")).isTrue();
+        assertThat(visibility.isVisibleKey("prepared.bin")).isFalse();
+        var search = new AttachedFileQueryRepositoryImpl(template).search("", org.springframework.data.domain.PageRequest.of(0, 10));
+        assertThat(search.getContent())
+            .extracting(co.edu.itp.svu.domain.ArchivoAdjunto::getId)
+            .containsExactlyInAnyOrder(legacyId.toHexString(), publishedId.toHexString());
+    }
+
+    @Test
+    void recoveryAbortsOnlyUnpublishedPreparationAndFinalizesUncertainPublishedRoot(@TempDir Path root) throws Exception {
         var abandoned = operation("actor-recovery-a", "key-recovery-a", "digest-recovery-a");
         abandoned.setPublicationId(UUID.randomUUID().toString());
         repository.reserve(abandoned);
@@ -227,10 +313,10 @@ class AttachmentOperationStandaloneIT {
                 new Document("$set", new Document("updated_at", Date.from(Instant.now().minusSeconds(120))))
             );
 
-        var committed = operation("actor-recovery-b", "key-recovery-b", "digest-recovery-b");
-        committed.setPublicationId(UUID.randomUUID().toString());
-        repository.reserve(committed);
-        var claim = acquire(repository.findById(committed.getId()).orElseThrow());
+        var ambiguous = operation("actor-recovery-b", "key-recovery-b", "digest-recovery-b");
+        ambiguous.setPublicationId(UUID.randomUUID().toString());
+        repository.reserve(ambiguous);
+        var claim = acquire(repository.findById(ambiguous.getId()).orElseThrow());
         var filesReady = repository.filesReady(lease(claim), List.of()).orElseThrow();
         var persisting = repository.beginPersistence(lease(filesReady)).orElseThrow();
         ObjectId rootId = (ObjectId) persisting.getCaseId();
@@ -242,7 +328,7 @@ class AttachmentOperationStandaloneIT {
                     new Document("state", "COMMITTED")
                         .append("operation_id", persisting.getId())
                         .append("publication_id", persisting.getPublicationId())
-                        .append("digest", "root-digest")
+                        .append("digest", "mismatched-root-digest")
                         .append("revision", 3L)
                         .append("committed_at", Date.from(Instant.now()))
                 )
@@ -260,12 +346,22 @@ class AttachmentOperationStandaloneIT {
                 )
             );
 
-        new co.edu.itp.svu.service.storage.AttachmentRecoveryService(repository, template).recoverPendingBatch();
+        Files.createDirectories(root);
+        Path retainedHistorical = Files.writeString(root.resolve("legacy-report.pdf"), "synthetic historical object");
+        var storage = physicalStorage(root);
+        var publications = new AttachmentPublicationRepository(template, repository);
+        var verifier = new AttachmentPublicationVerifier(repository, publications, storage, template);
+        var recovery = new co.edu.itp.svu.service.storage.AttachmentRecoveryService(repository, template, verifier, storage);
+        recovery.recoverPendingBatch();
 
         assertThat(repository.findById(abandoned.getId()).orElseThrow().getState()).isEqualTo(AttachmentOperationState.ABORTED);
-        var recovered = repository.findById(committed.getId()).orElseThrow();
-        assertThat(recovered.getState()).isEqualTo(AttachmentOperationState.COMMITTED);
-        assertThat(recovered.getEvidence().getRootDigest()).isEqualTo("root-digest");
+        var recovered = repository.findById(ambiguous.getId()).orElseThrow();
+        assertThat(recovered.getState()).isEqualTo(AttachmentOperationState.RECONCILIATION_REQUIRED);
+        assertThat(recovered.getEvidence()).isNull();
+        assertThat(recovery.inspectPhysicalInventory()).isEqualTo(
+            new co.edu.itp.svu.service.storage.AttachmentRecoveryService.PhysicalInventory(1, 0, 0, 0, 1)
+        );
+        assertThat(retainedHistorical).hasContent("synthetic historical object");
     }
 
     private AttachmentOperation operation(String actor, String key, String digest) {

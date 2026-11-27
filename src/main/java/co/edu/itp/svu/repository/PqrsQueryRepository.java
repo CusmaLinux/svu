@@ -1,6 +1,7 @@
 package co.edu.itp.svu.repository;
 
 import co.edu.itp.svu.domain.Pqrs;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,4 +16,6 @@ public interface PqrsQueryRepository {
      * @return a page of matching Pqrs entities.
      */
     Page<Pqrs> search(String query, Optional<String> officeId, Pageable pageable);
+
+    List<Pqrs> findPublishedByOffice(String officeId);
 }

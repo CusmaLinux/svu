@@ -209,9 +209,9 @@ public class OficinaService {
             .findOptionById(officeId)
             .map(office -> {
                 List<CaseReference> references = pqrsRepository
-                    .findReferencesByOficinaResponder_Id(office.id())
+                    .findPublishedByOffice(office.id())
                     .stream()
-                    .map(reference -> new CaseReference(reference.id(), reference.fileNumber()))
+                    .map(reference -> new CaseReference(reference.getId(), reference.getFileNumber()))
                     .toList();
                 return new OfficeCases(office.id(), office.nombre(), references);
             });

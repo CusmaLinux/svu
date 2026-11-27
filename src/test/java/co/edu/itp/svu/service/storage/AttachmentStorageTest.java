@@ -55,6 +55,23 @@ class AttachmentStorageTest {
         }
     }
 
+    @Test
+    void inventoriesOnlyRegularPhysicalFilesWithoutRemovingHistoricalOrUncertainEntries() throws IOException {
+        Path historical = Files.writeString(root.resolve("historical name.pdf"), "legacy");
+        Path uncertain = Files.writeString(root.resolve("uncertain.tmp"), "unclassified");
+        Path directory = Files.createDirectory(root.resolve("directory"));
+        Files.createSymbolicLink(root.resolve("link"), historical);
+
+        assertThat(new AttachmentStorage(root, UUID::randomUUID).listStoredKeys()).containsExactlyInAnyOrder(
+            "historical name.pdf",
+            "uncertain.tmp"
+        );
+        assertThat(historical).hasContent("legacy");
+        assertThat(uncertain).hasContent("unclassified");
+        assertThat(directory).exists();
+        assertThat(root.resolve("link")).exists();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "", ".", "..", "../synthetic", "/synthetic", "sub/file", "sub\\file", "C:synthetic", "a\nb", "\uD800" })
     void rejectsInvalidKeys(String key) {

@@ -8,6 +8,7 @@ import co.edu.itp.svu.domain.SatisfactionSurvey;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
+import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
 import co.edu.itp.svu.repository.OficinaRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
@@ -68,6 +69,8 @@ public class PqrsService {
 
     private final ArchivoAdjuntoRepository attachedFileRepository;
 
+    private final AttachmentPublicationVisibilityRepository attachmentVisibility;
+
     private final ArchivoAdjuntoService attachedFileService;
 
     private final RespuestaRepository responseRepository;
@@ -102,6 +105,7 @@ public class PqrsService {
         ArchivoAdjuntoMapper archivoAdjuntoMapper,
         OficinaRepository oficinaRepository,
         ArchivoAdjuntoRepository attachedFileRepository,
+        AttachmentPublicationVisibilityRepository attachmentVisibility,
         ArchivoAdjuntoService attachedFileService,
         OficinaMapper oficinaMapper,
         PqrsNotificationService pqrsNotificationService,
@@ -121,6 +125,7 @@ public class PqrsService {
         this.pqrsMapper = pqrsMapper;
         this.oficinaRepository = oficinaRepository;
         this.attachedFileRepository = attachedFileRepository;
+        this.attachmentVisibility = attachmentVisibility;
         this.attachedFileService = attachedFileService;
         this.oficinaMapper = oficinaMapper;
         this.pqrsNotificationService = pqrsNotificationService;
@@ -168,7 +173,7 @@ public class PqrsService {
 
         List<Oficina> offices = oficinaRepository.findAll();
 
-        Set<ArchivoAdjunto> attachments = attachedFileRepository.findByPqrsAttachment_Id(pqrsId);
+        Set<ArchivoAdjunto> attachments = visibleAttachments(attachedFileRepository.findByPqrsAttachment_Id(pqrsId));
 
         String fileText = fileExtractorService.extractTextFromAttachments(attachments);
 
@@ -265,13 +270,15 @@ public class PqrsService {
             .findById(id)
             .map(pqrs -> {
                 authorization.checkCaseReadAccess(pqrs);
-                Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
+                Set<ArchivoAdjunto> pqrsAttachments = visibleAttachments(attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId()));
                 pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
                 List<Respuesta> responsesFromDb = visibleResponses(pqrs.getId());
                 Set<Respuesta> populatedResponses = new HashSet<>();
                 for (Respuesta response : responsesFromDb) {
-                    Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
+                    Set<ArchivoAdjunto> responseAttachments = visibleAttachments(
+                        attachedFileRepository.findByResponseAttachment_Id(response.getId())
+                    );
                     response.set_transientAttachments(responseAttachments != null ? responseAttachments : new HashSet<>());
                     populatedResponses.add(response);
                 }
@@ -525,13 +532,15 @@ public class PqrsService {
         Optional<Pqrs> pqrsOpt = pqrsRepository.findByAccessToken(accessToken);
 
         return pqrsOpt.map(pqrs -> {
-            Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
+            Set<ArchivoAdjunto> pqrsAttachments = visibleAttachments(attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId()));
             pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
             List<Respuesta> responsesFromDb = visibleResponses(pqrs.getId());
             Set<Respuesta> populatedResponses = new HashSet<>();
             for (Respuesta response : responsesFromDb) {
-                Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
+                Set<ArchivoAdjunto> responseAttachments = visibleAttachments(
+                    attachedFileRepository.findByResponseAttachment_Id(response.getId())
+                );
                 response.set_transientAttachments(responseAttachments != null ? responseAttachments : new HashSet<>());
                 populatedResponses.add(response);
             }
@@ -547,6 +556,11 @@ public class PqrsService {
             .stream()
             .filter(response -> response.getPublication() == null || !"PREPARING".equals(response.getPublication().getState()))
             .toList();
+    }
+
+    private Set<ArchivoAdjunto> visibleAttachments(Set<ArchivoAdjunto> attachments) {
+        if (attachments == null) return new HashSet<>();
+        return attachments.stream().filter(file -> attachmentVisibility.isVisible(file.getId())).collect(Collectors.toSet());
     }
 
     public PublicResponseDTO addPublicResponseToPqrs(String accessToken, PublicResponseDTO publicResponseDTO, List<MultipartFile> files) {

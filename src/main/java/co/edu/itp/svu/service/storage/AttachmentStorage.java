@@ -1,6 +1,7 @@
 package co.edu.itp.svu.service.storage;
 
 import co.edu.itp.svu.config.ApplicationProperties;
+import co.edu.itp.svu.domain.attachment.AttachmentIntegrityVerifier;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Lease;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.PhysicalWriteContext;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.ReservedFile;
@@ -43,7 +44,7 @@ import org.springframework.util.unit.DataSize;
 
 /** Physical storage only. Callers must authorize the document before opening or removing it. */
 @Component
-public class AttachmentStorage implements PhysicalPreparationVerifier {
+public class AttachmentStorage implements PhysicalPreparationVerifier, AttachmentIntegrityVerifier {
 
     public enum Failure {
         INVALID_KEY,
@@ -460,6 +461,30 @@ public class AttachmentStorage implements PhysicalPreparationVerifier {
                 : Optional.empty();
         } catch (IOException ex) {
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public boolean isPersistedVerified(String logicalId, String storageKey, long expectedSize, String expectedSha256) {
+        return verifyPersisted(logicalId, storageKey, expectedSize, expectedSha256).isPresent();
+    }
+
+    /** Read-only inventory. Unknown and noncanonical keys are reported unchanged and never removed. */
+    @Override
+    public Set<String> listStoredKeys() {
+        try (var directory = openRoot()) {
+            Set<String> keys = new HashSet<>();
+            for (Path entry : directory) {
+                var attributes = directory
+                    .getFileAttributeView(entry.getFileName(), BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
+                    .readAttributes();
+                if (attributes.isRegularFile()) keys.add(entry.getFileName().toString());
+            }
+            return Set.copyOf(keys);
+        } catch (StorageException e) {
+            throw new IllegalStateException("Physical inventory unavailable", e);
+        } catch (IOException e) {
+            throw new IllegalStateException("Physical inventory unavailable", e);
         }
     }
 

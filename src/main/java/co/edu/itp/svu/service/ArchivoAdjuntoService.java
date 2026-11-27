@@ -3,6 +3,7 @@ package co.edu.itp.svu.service;
 import co.edu.itp.svu.config.ApplicationProperties;
 import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
+import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import java.io.File;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,16 +38,19 @@ public class ArchivoAdjuntoService {
     private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
 
     private final ArchivoAdjuntoMapper archivoAdjuntoMapper;
+    private final AttachmentPublicationVisibilityRepository attachmentVisibility;
 
     private final String uploadDir;
 
     public ArchivoAdjuntoService(
         ArchivoAdjuntoRepository archivoAdjuntoRepository,
         ArchivoAdjuntoMapper archivoAdjuntoMapper,
+        AttachmentPublicationVisibilityRepository attachmentVisibility,
         ApplicationProperties appProperties
     ) {
         this.archivoAdjuntoRepository = archivoAdjuntoRepository;
         this.archivoAdjuntoMapper = archivoAdjuntoMapper;
+        this.attachmentVisibility = attachmentVisibility;
         this.uploadDir = appProperties.getFile().getUploadDir();
     }
 
@@ -123,6 +128,7 @@ public class ArchivoAdjuntoService {
         return archivoAdjuntoRepository
             .findAll()
             .stream()
+            .filter(file -> attachmentVisibility.isVisible(file.getId()))
             .map(archivoAdjuntoMapper::toDto)
             .collect(Collectors.toCollection(LinkedList::new));
     }
@@ -135,7 +141,10 @@ public class ArchivoAdjuntoService {
      */
     public Optional<ArchivoAdjuntoDTO> findOne(String id) {
         LOG.debug("Request to get ArchivoAdjunto : {}", id);
-        return archivoAdjuntoRepository.findById(id).map(archivoAdjuntoMapper::toDto);
+        return archivoAdjuntoRepository
+            .findById(id)
+            .filter(file -> attachmentVisibility.isVisible(file.getId()))
+            .map(archivoAdjuntoMapper::toDto);
     }
 
     /**
@@ -145,6 +154,7 @@ public class ArchivoAdjuntoService {
      */
     public void delete(String id) {
         LOG.debug("Request to delete ArchivoAdjunto : {}", id);
+        if (!attachmentVisibility.isVisible(id)) throw new AccessDeniedException("Attachment is not published");
         archivoAdjuntoRepository.deleteById(id);
     }
 
@@ -155,11 +165,13 @@ public class ArchivoAdjuntoService {
      */
     public void deleteByFileURL(String fileURL) {
         LOG.debug("Request to delete ArchivoAdjunto : {}", fileURL);
+        if (!attachmentVisibility.isVisibleKey(fileURL)) throw new AccessDeniedException("Attachment is not published");
         archivoAdjuntoRepository.deleteByUrlArchivo(fileURL);
     }
 
     public File downloadFile(String fileName) throws IOException {
         LOG.debug("Request to download a file");
+        if (!attachmentVisibility.isVisibleKey(fileName)) throw new AccessDeniedException("Attachment is not published");
 
         Path rootLocation = Path.of(this.uploadDir);
         Path filePath = rootLocation.resolve(fileName);
@@ -173,6 +185,7 @@ public class ArchivoAdjuntoService {
 
     public void deleteFile(String fileName) throws IOException {
         LOG.debug("Request to delete a file");
+        if (!attachmentVisibility.isVisibleKey(fileName)) throw new AccessDeniedException("Attachment is not published");
 
         Path rootLocation = Path.of(this.uploadDir);
         Path filePath = rootLocation.resolve(fileName);

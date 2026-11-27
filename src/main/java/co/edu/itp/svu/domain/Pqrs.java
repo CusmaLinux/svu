@@ -109,6 +109,18 @@ public class Pqrs implements Serializable {
         @Field("revision")
         private Long revision;
 
+        @Field("fencing_token")
+        private Long fencingToken;
+
+        @Field("manifest_revision")
+        private Long manifestRevision;
+
+        @Field("selected_generation")
+        private Long selectedGeneration;
+
+        @Field("lease_until")
+        private Instant leaseUntil;
+
         public String getState() {
             return state;
         }
@@ -147,6 +159,38 @@ public class Pqrs implements Serializable {
 
         public void setRevision(Long revision) {
             this.revision = revision;
+        }
+
+        public Long getFencingToken() {
+            return fencingToken;
+        }
+
+        public void setFencingToken(Long fencingToken) {
+            this.fencingToken = fencingToken;
+        }
+
+        public Long getManifestRevision() {
+            return manifestRevision;
+        }
+
+        public void setManifestRevision(Long manifestRevision) {
+            this.manifestRevision = manifestRevision;
+        }
+
+        public Long getSelectedGeneration() {
+            return selectedGeneration;
+        }
+
+        public void setSelectedGeneration(Long selectedGeneration) {
+            this.selectedGeneration = selectedGeneration;
+        }
+
+        public Instant getLeaseUntil() {
+            return leaseUntil;
+        }
+
+        public void setLeaseUntil(Instant leaseUntil) {
+            this.leaseUntil = leaseUntil;
         }
     }
 

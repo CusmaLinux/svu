@@ -5,6 +5,7 @@ import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
+import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.repository.RespuestaRepository;
 import co.edu.itp.svu.repository.UserRepository;
@@ -31,6 +32,7 @@ public class RespuestaService {
     private final RespuestaRepository respuestaRepository;
     private final PqrsRepository pqrsRepository;
     private final ArchivoAdjuntoRepository attachedFileRepository;
+    private final AttachmentPublicationVisibilityRepository attachmentVisibility;
     private final ResponseMapper responseMapper;
     private final ArchivoAdjuntoMapper attachedFileMapper;
     private final UserRepository userRepository;
@@ -40,6 +42,7 @@ public class RespuestaService {
         RespuestaRepository respuestaRepository,
         PqrsRepository pqrsRepository,
         ArchivoAdjuntoRepository attachedFileRepository,
+        AttachmentPublicationVisibilityRepository attachmentVisibility,
         ResponseMapper responseMapper,
         ArchivoAdjuntoMapper attachedFileMapper,
         UserRepository userRepository,
@@ -48,6 +51,7 @@ public class RespuestaService {
         this.respuestaRepository = respuestaRepository;
         this.pqrsRepository = pqrsRepository;
         this.attachedFileRepository = attachedFileRepository;
+        this.attachmentVisibility = attachmentVisibility;
         this.responseMapper = responseMapper;
         this.attachedFileMapper = attachedFileMapper;
         this.userRepository = userRepository;
@@ -137,6 +141,7 @@ public class RespuestaService {
             attachedFileRepository
                 .findByResponseAttachment_Id(response.getId())
                 .stream()
+                .filter(file -> attachmentVisibility.isVisible(file.getId()))
                 .filter(file -> belongsToCase(file, pqrs))
                 .map(attachedFileMapper::toDto)
                 .collect(Collectors.toSet())
@@ -160,6 +165,7 @@ public class RespuestaService {
         Set<String> retainedIds = attachedFileRepository
             .findByResponseAttachment_Id(responseId)
             .stream()
+            .filter(file -> attachmentVisibility.isVisible(file.getId()))
             .filter(file -> belongsToCase(file, pqrs))
             .map(ArchivoAdjunto::getId)
             .collect(Collectors.toSet());

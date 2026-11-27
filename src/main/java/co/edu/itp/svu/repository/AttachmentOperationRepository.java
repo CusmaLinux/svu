@@ -285,6 +285,10 @@ public class AttachmentOperationRepository {
         return value != null && value.matches("[0-9a-f]{64}");
     }
 
+    private static long number(Object value, long fallback) {
+        return value instanceof Number number ? number.longValue() : fallback;
+    }
+
     public Optional<AttachmentOperation> findById(String id) {
         return first(eq("_id", id));
     }
@@ -430,11 +434,18 @@ public class AttachmentOperationRepository {
     }
 
     public Optional<AttachmentOperation> renew(Lease lease, Duration ttl) {
+        if (lease.version().state() == PERSISTING) return Optional.empty();
         return change(ordinaryMutation(lease), new Document(LEASE, deadline(ttl)));
     }
 
     public Optional<AttachmentOperation> release(Lease lease) {
+        if (lease.version().state() == PERSISTING) return Optional.empty();
         return change(ordinaryMutation(lease), clearLease());
+    }
+
+    /** Re-reads the exact owner, fence, state, revision and Mongo-clock lease before publication checks. */
+    public Optional<AttachmentOperation> findCurrent(Lease lease) {
+        return first(lease.filter());
     }
 
     private static Bson ordinaryMutation(Lease lease) {
@@ -484,15 +495,62 @@ public class AttachmentOperationRepository {
     public Optional<AttachmentOperation> beginVerifiedPersistence(Lease lease) {
         if (lease.version().formatVersion() != 2 || lease.version().state() != FILES_READY) return Optional.empty();
         requireTransition(lease, PERSISTING);
-        Bson guard = and(lease.filter(), exists(SELECTED), eq("physical_generations.state", "VERIFIED"));
+        Document selectedVerified = new Document(
+            "$gt",
+            List.of(
+                new Document(
+                    "$size",
+                    new Document(
+                        "$filter",
+                        new Document("input", "$physical_generations")
+                            .append("as", "generation")
+                            .append(
+                                "cond",
+                                new Document(
+                                    "$and",
+                                    List.of(
+                                        new Document("$eq", List.of("$$generation.generation", "$" + SELECTED)),
+                                        new Document("$eq", List.of("$$generation.state", "VERIFIED"))
+                                    )
+                                )
+                            )
+                    )
+                ),
+                0
+            )
+        );
+        Bson guard = and(lease.filter(), exists(SELECTED), expr(selectedVerified));
         return change(guard, new Document("state", PERSISTING.name()));
     }
 
-    public record PublishedRoot(String collection, Object id, String operationId, String publicationId, String digest, long revision) {}
+    public record PublishedRoot(
+        String collection,
+        Object id,
+        String operationId,
+        String publicationId,
+        String digest,
+        long revision,
+        long manifestRevision,
+        long fencingToken,
+        long selectedGeneration
+    ) {}
 
     /** Completes the manifest only after a primary read proves the single-root publication CAS. */
     public Optional<AttachmentOperation> confirmPublished(Lease lease, PublishedRoot expected) {
-        if (lease.version().state() != PERSISTING || !Set.of("pqrs", "respuesta").contains(expected.collection())) return Optional.empty();
+        if (
+            lease.version().state() != PERSISTING ||
+            lease.version().formatVersion() != 2 ||
+            !Set.of("pqrs", "respuesta").contains(expected.collection()) ||
+            expected.fencingToken() < 1 ||
+            expected.selectedGeneration() < 1
+        ) return Optional.empty();
+        AttachmentOperation current = first(lease.filter()).orElse(null);
+        if (
+            current == null ||
+            !Objects.equals(current.getSelectedPhysicalGeneration(), expected.selectedGeneration()) ||
+            expected.manifestRevision() > lease.version().revision() ||
+            expected.fencingToken() > lease.fencing()
+        ) return Optional.empty();
         var root = mongo
             .getCollection(expected.collection())
             .withReadPreference(ReadPreference.primary())
@@ -507,7 +565,13 @@ public class AttachmentOperationRepository {
             !Objects.equals(expected.operationId(), publication.getString("operation_id")) ||
             !Objects.equals(expected.publicationId(), publication.getString("publication_id")) ||
             !Objects.equals(expected.digest(), publication.getString("digest")) ||
-            !Objects.equals(expected.revision(), publication.get("revision", Number.class).longValue())
+            number(publication.get("revision"), -1) != expected.revision() ||
+            number(publication.get("manifest_revision"), -1) != expected.manifestRevision() ||
+            number(publication.get("fencing_token"), -1) != expected.fencingToken() ||
+            number(publication.get("selected_generation"), -1) != expected.selectedGeneration() ||
+            !(publication.get("committed_at") instanceof Date committedAt) ||
+            !(publication.get("lease_until") instanceof Date leaseUntil) ||
+            committedAt.after(leaseUntil)
         ) return Optional.empty();
         Document evidence = new Document("persisted_case_id", "pqrs".equals(expected.collection()) ? expected.id() : null)
             .append("persisted_response_id", "respuesta".equals(expected.collection()) ? expected.id() : null)

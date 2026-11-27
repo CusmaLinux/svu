@@ -1,15 +1,20 @@
 package co.edu.itp.svu.service.storage;
 
+import co.edu.itp.svu.domain.attachment.AttachmentIntegrityVerifier;
 import co.edu.itp.svu.domain.attachment.AttachmentOperation;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationState;
 import co.edu.itp.svu.repository.AttachmentOperationRepository;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Lease;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.PublishedRoot;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Version;
+import co.edu.itp.svu.repository.AttachmentPublicationRepository;
+import co.edu.itp.svu.repository.AttachmentPublicationVerifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.bson.Document;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -25,11 +30,65 @@ public class AttachmentRecoveryService {
 
     private final AttachmentOperationRepository operations;
     private final MongoTemplate mongo;
+    private final AttachmentPublicationVerifier publicationVerifier;
+    private final AttachmentIntegrityVerifier integrityVerifier;
 
-    public AttachmentRecoveryService(AttachmentOperationRepository operations, MongoTemplate mongo) {
+    public AttachmentRecoveryService(
+        AttachmentOperationRepository operations,
+        MongoTemplate mongo,
+        AttachmentPublicationVerifier publicationVerifier,
+        AttachmentIntegrityVerifier integrityVerifier
+    ) {
         this.operations = operations;
         this.mongo = mongo;
+        this.publicationVerifier = publicationVerifier;
+        this.integrityVerifier = integrityVerifier;
     }
+
+    /** Read-only physical reconciliation. Orphans and uncertain references are counted, never deleted. */
+    public PhysicalInventory inspectPhysicalInventory() {
+        Set<String> physical = new HashSet<>(integrityVerifier.listStoredKeys());
+        Set<String> metadata = new HashSet<>();
+        mongo
+            .getCollection("archivo_adjunto")
+            .find()
+            .projection(new Document("url_archivo", 1))
+            .forEach(document -> {
+                if (document.get("url_archivo") instanceof String key) metadata.add(key);
+            });
+        Set<String> manifested = new HashSet<>();
+        mongo
+            .getCollection(AttachmentOperationRepository.COLLECTION)
+            .find()
+            .projection(new Document("physical_generations.entries.storage_key", 1))
+            .forEach(document -> {
+                Object rawGenerations = document.get("physical_generations");
+                if (rawGenerations instanceof List<?> generations) {
+                    for (Object rawGeneration : generations) {
+                        if (rawGeneration instanceof Document generation && generation.get("entries") instanceof List<?> entries) {
+                            for (Object rawEntry : entries) {
+                                if (rawEntry instanceof Document entry && entry.get("storage_key") instanceof String key) manifested.add(
+                                    key
+                                );
+                            }
+                        }
+                    }
+                }
+            });
+        Set<String> referenced = new HashSet<>(metadata);
+        referenced.addAll(manifested);
+        long missing = referenced.stream().filter(key -> !physical.contains(key)).count();
+        long unclassified = physical.stream().filter(key -> !referenced.contains(key)).count();
+        return new PhysicalInventory(physical.size(), metadata.size(), manifested.size(), missing, unclassified);
+    }
+
+    public record PhysicalInventory(
+        long physicalFiles,
+        long metadataKeys,
+        long manifestKeys,
+        long missingReferences,
+        long unclassifiedFiles
+    ) {}
 
     @Scheduled(fixedDelayString = "${svu.attachments.recovery-delay-ms:60000}")
     public void recoverPendingBatch() {
@@ -45,7 +104,15 @@ public class AttachmentRecoveryService {
 
         AttachmentOperationState state = candidate.getState();
         if (state == AttachmentOperationState.PERSISTING) {
-            if (!finalizePublishedRoot(candidate, lease)) operations.requireReconciliation(lease);
+            if (finalizePublishedRoot(candidate, lease)) return;
+            AttachmentPublicationRepository.Result publication = publicationVerifier.publishIfVerified(lease);
+            if (
+                publication == AttachmentPublicationRepository.Result.PUBLISHED ||
+                publication == AttachmentPublicationRepository.Result.ALREADY_PUBLISHED
+            ) {
+                if (finalizePublishedRoot(candidate, lease)) return;
+            }
+            if (publication != AttachmentPublicationRepository.Result.UNCERTAIN) operations.requireReconciliation(lease);
             return;
         }
 
@@ -80,10 +147,17 @@ public class AttachmentRecoveryService {
                     operation.getId(),
                     operation.getPublicationId(),
                     publication.getString("digest"),
-                    revision.longValue()
+                    revision.longValue(),
+                    number(publication.get("manifest_revision"), -1),
+                    number(publication.get("fencing_token"), -1),
+                    number(publication.get("selected_generation"), -1)
                 )
             )
             .isPresent();
+    }
+
+    private static long number(Object value, long fallback) {
+        return value instanceof Number number ? number.longValue() : fallback;
     }
 
     private Lease lease(AttachmentOperation operation) {
