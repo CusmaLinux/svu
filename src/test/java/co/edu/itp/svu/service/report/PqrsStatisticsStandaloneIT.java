@@ -12,6 +12,7 @@ import co.edu.itp.svu.service.report.PqrsStatisticsDocument.*;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -430,7 +431,9 @@ class PqrsStatisticsStandaloneIT {
         assertThat(offices.charts()).allSatisfy(chart ->
             assertThat(chart.notes()).anyMatch(note -> note.contains("La tabla conserva todas"))
         );
-        assertThat(offices.charts().get(1).series()).anyMatch(series -> series.points().stream().anyMatch(point -> point.value() == null));
+        assertThat(offices.charts().get(1).series()).anyMatch(series ->
+            series.points().stream().anyMatch(point -> BigDecimal.ZERO.equals(point.value()))
+        );
     }
 
     @Test
