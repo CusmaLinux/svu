@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import co.edu.itp.svu.IntegrationTest;
@@ -451,13 +452,12 @@ class PqrsStatisticsResourceIT {
     private JwtEncoder encoder;
 
     private String narrativeAuthorization(String roles) {
+        return narrativeAuthorization(roles, "synthetic-analyst");
+    }
+
+    private String narrativeAuthorization(String roles, String subject) {
         Instant now = Instant.now();
-        var claims = JwtClaimsSet.builder()
-            .subject("synthetic-analyst")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(120))
-            .claim("auth", roles)
-            .build();
+        var claims = JwtClaimsSet.builder().subject(subject).issuedAt(now).expiresAt(now.plusSeconds(120)).claim("auth", roles).build();
         return "Bearer " + encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS512).build(), claims)).getTokenValue();
     }
 
@@ -612,6 +612,120 @@ class PqrsStatisticsResourceIT {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("error.previewNotFound"));
         assertThat(AGGREGATIONS.get()).isEqualTo(2);
+    }
+
+    @Test
+    void persistsOwnedSnapshotEditsOnlyNarrativeAndReexportsWithoutRecalculation() throws Exception {
+        String owner = narrativeAuthorization(PQRSD_REPORTS);
+        String receipt = json
+            .readTree(
+                mvc
+                    .perform(narrative(BODY).header("Authorization", owner))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsByteArray()
+            )
+            .get("receipt")
+            .asText();
+        ObjectNode body = json.createObjectNode();
+        body.put("receipt", receipt);
+        body.putObject("filter").put("start", START).put("end", END).put("scope", "INSTITUTIONAL");
+        body.putObject("narrative").put("introduction", "Texto de prueba sintético");
+        ObjectNode forged = body.deepCopy();
+        forged.putObject("statistics").put("received", 999999);
+        mvc
+            .perform(post(BASE + "/saved").header("Authorization", owner).contentType("application/json").content(forged.toString()))
+            .andExpect(status().isBadRequest());
+        assertThat(AGGREGATIONS.get()).isEqualTo(1);
+        var created = mvc
+            .perform(post(BASE + "/saved").header("Authorization", owner).contentType("application/json").content(body.toString()))
+            .andExpect(status().isCreated())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(jsonPath("$.statistics.received").value(3))
+            .andExpect(jsonPath("$.version").value(0))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        String id = json.readTree(created).get("id").asText();
+        try {
+            String originalSnapshot = mongo
+                .getCollection("pqrs_statistics_saved_report")
+                .find(new Document("_id", id))
+                .first()
+                .getString("statisticsSnapshot");
+            mvc.perform(get(BASE + "/saved/{id}", id).header("Authorization", owner)).andExpect(status().isOk());
+            mvc
+                .perform(get(BASE + "/saved/{id}", id).header("Authorization", narrativeAuthorization(PQRSD_REPORTS, "other-user")))
+                .andExpect(status().isNotFound());
+            mvc
+                .perform(get(BASE + "/saved/{id}", id).header("Authorization", narrativeAuthorization(USER)))
+                .andExpect(status().isForbidden());
+            mvc
+                .perform(get(BASE + "/saved").header("Authorization", owner).param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.reports[0].id").value(id));
+
+            ObjectNode update = json.createObjectNode();
+            update.put("expectedVersion", 0);
+            update.putObject("narrative").put("introduction", "Narrativa editada");
+            mvc
+                .perform(
+                    put(BASE + "/saved/{id}/narrative", id)
+                        .header("Authorization", owner)
+                        .contentType("application/json")
+                        .content(update.toString())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.statistics.received").value(3))
+                .andExpect(jsonPath("$.narrative.introduction").value("Narrativa editada"));
+            mvc
+                .perform(
+                    put(BASE + "/saved/{id}/narrative", id)
+                        .header("Authorization", owner)
+                        .contentType("application/json")
+                        .content(update.toString())
+                )
+                .andExpect(status().isConflict());
+            assertThat(
+                mongo.getCollection("pqrs_statistics_saved_report").find(new Document("_id", id)).first().getString("statisticsSnapshot")
+            ).isEqualTo(originalSnapshot);
+
+            mongo.getCollection("pqrs").deleteOne(new Document("_id", ROOT_IDS.get(0)));
+            int beforeExports = AGGREGATIONS.get();
+            mvc
+                .perform(get(BASE + "/saved/{id}", id).header("Authorization", owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statistics.received").value(3));
+            byte[] xlsx = mvc
+                .perform(get(BASE + "/saved/{id}/export/xlsx", id).header("Authorization", owner))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andReturn()
+                .getResponse()
+                .getContentAsByteArray();
+            byte[] docx = mvc
+                .perform(get(BASE + "/saved/{id}/export/docx", id).header("Authorization", owner))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                .andReturn()
+                .getResponse()
+                .getContentAsByteArray();
+            assertThat(xlsx).isNotEmpty();
+            assertThat(docx).isNotEmpty();
+            assertThat(AGGREGATIONS.get()).isEqualTo(beforeExports);
+            var audit = mongo
+                .getCollection("pqrs_statistics_report_audit")
+                .find(new Document("reportId", id))
+                .into(new java.util.ArrayList<>());
+            assertThat(audit).extracting(event -> event.getString("operation")).contains("CREATE", "UPDATE", "GENERATE", "DOWNLOAD");
+            assertThat(audit.toString()).doesNotContain("Narrativa editada", "synthetic-private", receipt);
+        } finally {
+            mongo.getCollection("pqrs_statistics_report_audit").deleteMany(new Document("reportId", id));
+            mongo.getCollection("pqrs_statistics_saved_report").deleteOne(new Document("_id", id));
+        }
     }
 
     @ParameterizedTest

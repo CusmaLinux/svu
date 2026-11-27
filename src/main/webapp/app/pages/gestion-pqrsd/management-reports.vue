@@ -2,7 +2,9 @@
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import ReportNarrativeSection from './report-narrative-section.vue';
+import SavedReports from './saved-reports.vue';
 import StatisticsReport from './statistics-report.vue';
+import { statisticsService } from './statistics.service';
 import { useStatisticsPreview } from './use-statistics-preview';
 
 const {
@@ -41,6 +43,10 @@ const {
 } = useStatisticsPreview();
 
 const reading = ref(false);
+const savedReports = ref<InstanceType<typeof SavedReports>>();
+const showSavedReports = ref(false);
+const saving = ref(false);
+const saveError = ref('');
 const discardDialog = ref<HTMLDialogElement>();
 let discardDecision: { accept: () => void; cancel: () => void } | undefined;
 
@@ -91,6 +97,20 @@ function beforeUnload(event: BeforeUnloadEvent) {
   if (!narrativeDirty.value) return;
   event.preventDefault();
   event.returnValue = true;
+}
+
+async function saveReport() {
+  if (!authenticatedPreview.value || !narrative.value || saving.value) return;
+  saving.value = true;
+  saveError.value = '';
+  try {
+    await statisticsService.save(authenticatedPreview.value.receipt, narrative.value.filter, narrative.value.fields);
+    await savedReports.value?.reload();
+  } catch {
+    saveError.value = 'No fue posible guardar el informe. Verifica el acceso y vuelve a intentarlo.';
+  } finally {
+    saving.value = false;
+  }
 }
 
 watch(
@@ -233,6 +253,12 @@ onBeforeUnmount(() => {
         >
           Descargar Word
         </button>
+        <button type="button" class="btn report-submit" :disabled="!authenticatedPreview || saving || reviewRequired" @click="saveReport">
+          {{ saving ? 'Guardando informe…' : 'Guardar informe' }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @click="showSavedReports = !showSavedReports">
+          {{ showSavedReports ? 'Ocultar mis informes' : 'Mis informes / historial' }}
+        </button>
         <small class="text-muted">
           El Excel contiene estadísticas y se genera con los filtros de la vista previa. Los datos pueden haber cambiado.
         </small>
@@ -240,6 +266,7 @@ onBeforeUnmount(() => {
       <p v-if="downloading" class="mt-2" role="status">Generando el archivo {{ downloading === 'docx' ? 'Word' : 'Excel' }}…</p>
       <p v-if="preview && !authenticatedPreview" class="text-muted mt-2">La descarga Word requiere una vista previa con comprobante.</p>
       <p v-if="downloadError" class="alert alert-warning mt-2" role="alert">{{ downloadError }}</p>
+      <p v-if="saveError" class="alert alert-warning mt-2" role="alert">{{ saveError }}</p>
       <section v-if="reviewRequired && authenticatedPreview" class="filter-card mt-3" aria-labelledby="comparison-title">
         <h2 id="comparison-title">Revisar una nueva vista previa</h2>
         <p>Tu texto y la vista original se conservan hasta que confirmes la asociación.</p>
@@ -291,6 +318,7 @@ onBeforeUnmount(() => {
           </template>
         </statistics-report>
       </template>
+      <saved-reports v-if="showSavedReports" ref="savedReports" class="mt-4" />
     </template>
     <dialog
       ref="discardDialog"

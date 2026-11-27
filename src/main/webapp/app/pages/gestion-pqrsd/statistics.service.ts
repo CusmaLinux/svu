@@ -7,6 +7,33 @@ const pageSize = 100;
 const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const docx = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 export type OfficeOption = { id: string; nombre: string };
+export interface SavedReportSummary {
+  id: string;
+  title: string;
+  filter: { start: string; end: string; scope: 'INSTITUTIONAL' | 'OFFICE'; officeId: string | null };
+  office: { idType: string; id: string; name: string | null } | null;
+  cutoff: string;
+  createdAt: string;
+  modifiedAt: string;
+  generatedAt: string;
+  version: number;
+  received: number;
+}
+export interface SavedReport extends SavedReportSummary {
+  statistics: PqrsStatistics;
+  narrative: ReportNarrative;
+  createdBy: string;
+  modifiedBy: string;
+  modelVersion: number;
+  methodologyVersion: number;
+  catalogVersion: number;
+}
+export interface SavedReportPage {
+  reports: SavedReportSummary[];
+  total: number;
+  page: number;
+  size: number;
+}
 
 // The shared interceptor can resolve without a response after handling an expired session.
 function responseOrExpired<T>(response: AxiosResponse<T> | undefined): AxiosResponse<T> {
@@ -49,6 +76,32 @@ export const statisticsService = {
   async exportXlsx(filter: PreviewFilter, signal: AbortSignal) {
     const response = responseOrExpired(await axios.get<Blob>(base + '/export/xlsx', { params: filter, signal, responseType: 'blob' }));
     return downloadFile(response, xlsx, `${fileSuffix(filter)}.xlsx`);
+  },
+  async save(receipt: string, filter: PreviewFilter, narrative: ReportNarrative) {
+    return responseOrExpired(await axios.post<SavedReport>(base + '/saved', { receipt, filter, narrative })).data;
+  },
+  async savedReports(params: { page: number; size: number; scope?: string; start?: string; end?: string }) {
+    return responseOrExpired(await axios.get<SavedReportPage>(base + '/saved', { params })).data;
+  },
+  async savedReport(id: string) {
+    return responseOrExpired(await axios.get<SavedReport>(base + '/saved/' + encodeURIComponent(id))).data;
+  },
+  async updateSavedNarrative(id: string, expectedVersion: number, narrative: ReportNarrative) {
+    return responseOrExpired(
+      await axios.put<SavedReport>(base + '/saved/' + encodeURIComponent(id) + '/narrative', { expectedVersion, narrative }),
+    ).data;
+  },
+  async exportSavedWord(id: string) {
+    const response = responseOrExpired(
+      await axios.get<Blob>(base + '/saved/' + encodeURIComponent(id) + '/export/docx', { responseType: 'blob' }),
+    );
+    return downloadFile(response, docx, `Guardado_${id}.docx`);
+  },
+  async exportSavedXlsx(id: string) {
+    const response = responseOrExpired(
+      await axios.get<Blob>(base + '/saved/' + encodeURIComponent(id) + '/export/xlsx', { responseType: 'blob' }),
+    );
+    return downloadFile(response, xlsx, `Guardado_${id}.xlsx`);
   },
   async offices(signal: AbortSignal) {
     const offices = new Map<string, OfficeOption>();

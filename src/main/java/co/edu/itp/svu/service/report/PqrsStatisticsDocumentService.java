@@ -1,5 +1,6 @@
 package co.edu.itp.svu.service.report;
 
+import co.edu.itp.svu.service.dto.PqrsStatistics;
 import co.edu.itp.svu.service.dto.PqrsStatisticsFilter;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
@@ -35,8 +36,19 @@ public class PqrsStatisticsDocumentService {
         }
     }
 
+    public record Prepared(PqrsStatisticsDocument document, PqrsStatistics statistics, java.util.List<String> availableIndicators) {}
+
     public PqrsStatisticsDocument prepare(ExportRequest request) {
+        return prepareSnapshot(request).document();
+    }
+
+    public Prepared prepareSnapshot(ExportRequest request) {
         var checked = previews.check(request.filter(), request.receipt());
-        return PqrsStatisticsDocumentAssembler.assemble(checked, request.narrative(), clock.instant().truncatedTo(ChronoUnit.MILLIS));
+        var document = PqrsStatisticsDocumentAssembler.assemble(
+            checked,
+            request.narrative(),
+            clock.instant().truncatedTo(ChronoUnit.MILLIS)
+        );
+        return new Prepared(document, checked.statistics(), checked.availableIndicators());
     }
 }

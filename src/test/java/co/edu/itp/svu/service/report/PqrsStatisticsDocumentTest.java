@@ -54,6 +54,16 @@ class PqrsStatisticsDocumentTest {
         assertThat(Availability.DEFINITION_PENDING.label()).contains("pendiente de definición");
     }
 
+    @Test
+    void validatesAndRoundTripsNarrativeFieldsForSavedSnapshots() {
+        var narrative = PqrsStatisticsNarrativeText.validate(java.util.Map.of("introduction", "Texto\r\nconservado"));
+        assertThat(narrative.asMap()).containsEntry("introduction", "Texto\nconservado");
+        assertThat(PqrsStatisticsNarrativeText.validate(narrative.asMap()).asMap()).isEqualTo(narrative.asMap());
+        assertThatThrownBy(() -> PqrsStatisticsNarrativeText.validate(java.util.Map.of("receipt", "credencial"))).hasMessage(
+            "invalidNarrative"
+        );
+    }
+
     private static PqrsStatistics.Month month(long received, java.util.Map<String, Long> types, List<PqrsStatistics.OfficeCount> offices) {
         return new PqrsStatistics.Month(YearMonth.of(2024, 1), received, true, null, "NO_COMPARABLE_BASE", null, types, offices);
     }

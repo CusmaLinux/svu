@@ -28,7 +28,7 @@ final class PqrsStatisticsNarrativeRequest {
 
     private PqrsStatisticsNarrativeRequest() {}
 
-    private static JsonNode read(HttpServletRequest request) {
+    static JsonNode read(HttpServletRequest request) {
         try {
             var type = MediaType.parseMediaType(request.getContentType() == null ? "" : request.getContentType());
             if (
@@ -68,6 +68,17 @@ final class PqrsStatisticsNarrativeRequest {
             PqrsStatisticsNarrativeText.validate(root.get("narrative"))
         );
     }
+
+    static NarrativeUpdate update(HttpServletRequest request) {
+        var root = read(request);
+        JsonNode version = root.get("expectedVersion");
+        if (
+            root.size() != 2 || version == null || !version.isIntegralNumber() || !version.canConvertToLong() || version.longValue() < 0
+        ) throw invalid();
+        return new NarrativeUpdate(version.longValue(), PqrsStatisticsNarrativeText.validate(root.get("narrative")));
+    }
+
+    record NarrativeUpdate(long expectedVersion, PqrsStatisticsNarrativeText narrative) {}
 
     private static PqrsStatisticsFilter filter(JsonNode f) {
         if (!f.isObject()) throw invalid();

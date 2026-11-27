@@ -27,6 +27,7 @@ const signed = (statistics = testReport, receipt = 'synthetic-receipt') =>
     statistics,
   });
 const exportUrl = root + '/export/xlsx';
+const savedUrl = root + '/saved';
 const xlsxType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const catalogUrl = 'api/oficinas/catalogo';
 const reply = (data: unknown, headers = {}) => ({ data, headers }) as AxiosResponse;
@@ -124,6 +125,49 @@ describe('Vista previa de gestión PQRSD', () => {
       expect(view.text()).toContain(text);
     }
     expect(view.text()).not.toContain('Denuncia');
+  });
+
+  it('guarda la vista previa autenticada junto con la narrativa y carga el historial a demanda', async () => {
+    await openPreview();
+    await introduction().setValue('Narrativa persistente');
+    await button('Guardar informe').trigger('click');
+    await flushPromises();
+    const saveCall = post.mock.calls.find(([url]) => url === savedUrl);
+    expect(saveCall?.[1]).toMatchObject({
+      receipt: 'synthetic-receipt',
+      filter: { start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL' },
+      narrative: { introduction: 'Narrativa persistente' },
+    });
+
+    get.mockImplementation(url => {
+      if (url === savedUrl)
+        return Promise.resolve(
+          reply({
+            reports: [
+              {
+                id: 'saved-1',
+                title: 'Informe de gestión PQRSD · 2024-01-01 a 2024-03-20',
+                filter: { start: '2024-01-01', end: '2024-03-20', scope: 'INSTITUTIONAL', officeId: null },
+                office: null,
+                cutoff: '2024-03-20T00:00:00Z',
+                createdAt: '2024-03-20T00:00:00Z',
+                modifiedAt: '2024-03-20T00:00:00Z',
+                generatedAt: '2024-03-20T00:00:00Z',
+                version: 0,
+                received: 13,
+              },
+            ],
+            total: 1,
+            page: 0,
+            size: 10,
+          }),
+        );
+      return Promise.resolve(reply(url === configUrl ? testConfiguration : testReport));
+    });
+    await button('Mis informes / historial').trigger('click');
+    await flushPromises();
+    expect(view.text()).toContain('Mis informes guardados');
+    expect(view.text()).toContain('Informe de gestión PQRSD · 2024-01-01 a 2024-03-20');
   });
 
   it('pagina el catálogo, exige una oficina válida y envía su ID sin cambiar el alcance', async () => {

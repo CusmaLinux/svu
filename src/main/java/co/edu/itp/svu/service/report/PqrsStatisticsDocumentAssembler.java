@@ -41,9 +41,13 @@ final class PqrsStatisticsDocumentAssembler {
     private PqrsStatisticsDocumentAssembler() {}
 
     static PqrsStatisticsDocument assemble(Checked checked, PqrsStatisticsNarrativeText narrative, Instant generatedAt) {
+        return assemble(checked, narrative, generatedAt, UUID.randomUUID());
+    }
+
+    static PqrsStatisticsDocument assemble(Checked checked, PqrsStatisticsNarrativeText narrative, Instant generatedAt, UUID id) {
         var report = checked.statistics();
         var metadata = new Metadata(
-            UUID.randomUUID(),
+            id,
             INSTITUTION,
             "Informe de gestión PQRSD",
             Status.PRELIMINARY,

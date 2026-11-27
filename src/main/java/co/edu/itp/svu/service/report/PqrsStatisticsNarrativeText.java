@@ -82,8 +82,33 @@ public final class PqrsStatisticsNarrativeText {
             raw.put(field, value);
         }
 
+        return normalized(raw);
+    }
+
+    public static PqrsStatisticsNarrativeText validate(Map<String, String> narrative) {
+        if (narrative == null) throw invalid();
+        Map<Field, String> raw = new EnumMap<>(Field.class);
+        int total = 0;
+        for (var entry : narrative.entrySet()) {
+            Field field = FIELDS.get(entry.getKey());
+            String value = entry.getValue();
+            if (field == null || value == null) throw invalid();
+            total = checkLength(value, total);
+            if (value.codePoints().anyMatch(PqrsStatisticsNarrativeText::forbidden)) throw invalid();
+            raw.put(field, value);
+        }
+        return normalized(raw);
+    }
+
+    public Map<String, String> asMap() {
+        Map<String, String> values = new LinkedHashMap<>();
+        fields.forEach((field, value) -> values.put(field.id(), value));
+        return Map.copyOf(values);
+    }
+
+    private static PqrsStatisticsNarrativeText normalized(Map<Field, String> raw) {
         Map<Field, String> normalized = new EnumMap<>(Field.class);
-        total = 0;
+        int total = 0;
         for (var entry : raw.entrySet()) {
             String value = entry.getValue().replace("\r\n", "\n").replace('\r', '\n');
             total = checkLength(value, total);
