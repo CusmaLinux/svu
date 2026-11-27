@@ -6,8 +6,12 @@ import java.math.BigInteger;
 import java.text.NumberFormat;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
@@ -21,6 +25,7 @@ public class PqrsStatisticsDocx {
     private static final String DARK = "173742";
     private static final String TEAL = "17655E";
     private static final int WIDTH = 9466;
+    private static final int ANNEX_ROW_THRESHOLD = 30;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/uuuu", SPANISH);
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm:ss.SSS XXX", SPANISH);
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMMM uuuu", SPANISH);
@@ -43,6 +48,8 @@ public class PqrsStatisticsDocx {
         checkCapacity(source);
         try (var document = new XWPFDocument()) {
             layout(document, source.metadata());
+            renderExecutiveSummary(document, source);
+            Map<TableId, String> annexes = annexReferences(source);
             for (var section : source.sections()) {
                 heading(document, section.number() + ". " + section.title(), 1);
                 for (var field : section.narrative()) {
@@ -66,6 +73,17 @@ public class PqrsStatisticsDocx {
                 }
                 for (var table : section.tables()) {
                     heading(document, table.title(), 2);
+                    var annex = annexes.get(table.id());
+                    if (annex != null) {
+                        text(
+                            document.createParagraph(),
+                            "Tabla trasladada al Anexo " + annex + ". Se conserva allí completa.",
+                            10,
+                            false,
+                            DARK
+                        );
+                        continue;
+                    }
                     renderTable(document, table);
                     for (var note : table.notes()) if (
                         section.charts().stream().noneMatch(chart -> chart.table() == table.id() && chart.notes().contains(note))
@@ -76,9 +94,116 @@ public class PqrsStatisticsDocx {
                     for (var figure : section.charts()) if (figure.table() == table.id()) renderChart(document, figure);
                 }
             }
+            if (!annexes.isEmpty()) renderAnnexes(document, source, annexes);
             var output = new BoundedOutput(maximumBytes);
             document.write(output);
             return output.buffer.toByteArray();
+        }
+    }
+
+    private static void renderExecutiveSummary(XWPFDocument document, PqrsStatisticsDocument source) {
+        heading(document, "Resumen ejecutivo", 1);
+        var tables = source.sections().stream().flatMap(section -> section.tables().stream()).toList();
+        var summary = findTable(tables, TableId.SUMMARY);
+        Long received = null;
+        if (summary != null && !summary.rows().isEmpty() && summary.rows().get(0).cells().get(1) instanceof Quantity count) received =
+            count.value();
+        summaryLine(
+            document,
+            "Solicitudes recibidas: " +
+            (received == null ? "Información no disponible." : NumberFormat.getIntegerInstance(SPANISH).format(received) + ".")
+        );
+        summaryLine(document, "Cobertura del informe: " + source.metadata().coverage() + ".");
+
+        appendTopCounts(document, tables, TableId.TYPOLOGIES, "Tipologías principales", received);
+        appendTopCounts(document, tables, TableId.STATES, "Estados actuales", received);
+        appendTopCounts(document, tables, TableId.OFFICES, "Dependencias con mayor cantidad", received);
+
+        var variations = findTable(tables, TableId.VARIATIONS);
+        var calculated = new ArrayList<String>();
+        if (variations != null) for (var row : variations.rows()) {
+            if (row.cells().get(0) instanceof Month month && row.cells().get(3) instanceof Percentage value) {
+                calculated.add(MONTH.format(month.value()) + ": " + NumberFormat.getNumberInstance(SPANISH).format(value.value()) + " %");
+            }
+        }
+        summaryLine(
+            document,
+            "Variaciones mensuales calculables: " +
+            (calculated.isEmpty() ? "sin valores disponibles." : String.join("; ", calculated) + ".")
+        );
+
+        var warnings = new ArrayList<String>();
+        source.metadata().warnings().forEach(notice -> warnings.add("Advertencia: " + notice.explanation()));
+        source.metadata().limitations().forEach(notice -> warnings.add("Limitación: " + notice.explanation()));
+        source
+            .sections()
+            .stream()
+            .flatMap(section -> section.indicators().stream())
+            .filter(indicator -> indicator.availability() != Availability.AVAILABLE)
+            .forEach(indicator -> warnings.add(indicator.name() + ": " + indicator.availability().label() + ". " + indicator.explanation())
+            );
+        if (warnings.isEmpty()) summaryLine(document, "Advertencias: no se registraron advertencias de cobertura en el modelo.");
+        else warnings.forEach(warning -> summaryLine(document, warning));
+    }
+
+    private static void appendTopCounts(XWPFDocument document, List<Table> tables, TableId id, String label, Long received) {
+        var table = findTable(tables, id);
+        var top = new ArrayList<String>();
+        if (table != null && (received == null || received > 0)) table
+            .rows()
+            .stream()
+            .filter(row -> row.cells().size() > 1 && row.cells().get(0) instanceof Category && row.cells().get(1) instanceof Quantity)
+            .filter(row -> ((Quantity) row.cells().get(1)).value() > 0)
+            .sorted(Comparator.comparingLong((Row row) -> ((Quantity) row.cells().get(1)).value()).reversed())
+            .limit(3)
+            .forEach(row ->
+                top.add(
+                    ((Category) row.cells().get(0)).label() +
+                    " (" +
+                    NumberFormat.getIntegerInstance(SPANISH).format(((Quantity) row.cells().get(1)).value()) +
+                    ")"
+                )
+            );
+        if (top.isEmpty() && table == null) summaryLine(document, label + ": Información no disponible.");
+        else if (top.isEmpty() && received != null && received == 0) summaryLine(document, label + ": sin registros.");
+        else if (top.isEmpty()) summaryLine(document, label + ": Información no disponible.");
+        else summaryLine(document, label + ": " + String.join("; ", top) + ".");
+    }
+
+    private static Table findTable(List<Table> tables, TableId id) {
+        return tables.stream().filter(table -> table.id() == id).findFirst().orElse(null);
+    }
+
+    private static void summaryLine(XWPFDocument document, String value) {
+        text(document.createParagraph(), "• " + value, 10, false, DARK);
+    }
+
+    private static Map<TableId, String> annexReferences(PqrsStatisticsDocument source) {
+        var references = new EnumMap<TableId, String>(TableId.class);
+        for (var section : source.sections()) for (var table : section.tables()) {
+            if (table.rows().size() > ANNEX_ROW_THRESHOLD) references.putIfAbsent(
+                table.id(),
+                Character.toString((char) ('A' + references.size()))
+            );
+        }
+        return references;
+    }
+
+    private static void renderAnnexes(XWPFDocument document, PqrsStatisticsDocument source, Map<TableId, String> annexes)
+        throws IOException {
+        heading(document, "Anexos estadísticos", 1);
+        for (var section : source.sections()) for (var table : section.tables()) {
+            String reference = annexes.get(table.id());
+            if (reference == null) continue;
+            heading(document, "Anexo " + reference + " · " + table.title(), 2);
+            renderTable(document, table);
+            for (var note : table.notes()) if (
+                section.charts().stream().noneMatch(chart -> chart.table() == table.id() && chart.notes().contains(note))
+            ) {
+                text(document.createParagraph(), note, 9, false, DARK);
+            }
+            if (table.id() == TableId.METHODOLOGY) renderTechnicalMetadata(document, source.metadata());
+            for (var chart : section.charts()) if (chart.table() == table.id()) renderChart(document, chart);
         }
     }
 

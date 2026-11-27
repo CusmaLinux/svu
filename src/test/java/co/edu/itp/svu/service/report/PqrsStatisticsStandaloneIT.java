@@ -377,11 +377,13 @@ class PqrsStatisticsStandaloneIT {
             .writeValueAsString(document);
         assertThat(json).doesNotContain("PRIVATE_SENTINEL", preview.receipt(), "synthetic-analyst", "access_token", "archivosAdjuntos");
         assertThat(document.toString()).doesNotContain("SYNTHETIC-LITERAL");
+        var docxText = readDocxText(new PqrsStatisticsDocx(12_000, 8_388_608).generate(document));
+        assertThat(docxText).contains("Resumen ejecutivo", "Solicitudes recibidas:", "SYNTHETIC-LITERAL");
         verify(repository, times(2)).institutional(any());
     }
 
     @Test
-    void forwardsInvalidOrExpiredReceiptsBeforeAggregationAndKeepsEmptyOfficeIdentity() {
+    void forwardsInvalidOrExpiredReceiptsBeforeAggregationAndKeepsEmptyOfficeIdentity() throws Exception {
         login("analyst");
         var repository = spy(new PqrsStatisticsRepository(template));
         var office = new PqrsStatisticsFilter(START.plusYears(-2), START.plusYears(-2), Scope.OFFICE, A.toHexString());
@@ -392,6 +394,13 @@ class PqrsStatisticsStandaloneIT {
         assertThat(ready.metadata().office()).isEqualTo(preview.resolvedOffice());
         assertThat(ready.sections().get(0).tables().get(0).rows().get(0).cells().get(1)).isEqualTo(new Quantity(0));
         assertThat(ready.sections().get(4).tables().get(0).rows()).isEmpty();
+        var emptyDocx = readDocxText(new PqrsStatisticsDocx(12_000, 8_388_608).generate(ready));
+        assertThat(emptyDocx).contains(
+            "INFORME PRELIMINAR",
+            "Resumen ejecutivo",
+            "Solicitudes recibidas: 0",
+            "Tipologías principales: sin registros."
+        );
         assertThatThrownBy(() -> service.prepare(new PqrsStatisticsDocumentService.ExportRequest("INVALID", office, empty))).hasMessage(
             "previewNotFound"
         );
@@ -406,9 +415,9 @@ class PqrsStatisticsStandaloneIT {
     }
 
     @Test
-    void preservesAllOfficesInTablesAndBoundsOnlyTheGraphs() {
+    void preservesAllOfficesInTablesAndBoundsOnlyTheGraphs() throws Exception {
         login("analyst");
-        for (int i = 0; i < 18; i++) {
+        for (int i = 0; i < 32; i++) {
             String identity = String.format(Locale.ROOT, "synthetic-%02d", i);
             template.getCollection("oficina").insertOne(new Document("_id", identity).append("nombre", "Homónima"));
             insert("2024-01-10T05:00:00Z", "COMPLAINT", "PENDING", new DBRef("oficina", identity));
@@ -434,6 +443,21 @@ class PqrsStatisticsStandaloneIT {
         assertThat(offices.charts().get(1).series()).anyMatch(series ->
             series.points().stream().anyMatch(point -> BigDecimal.ZERO.equals(point.value()))
         );
+        byte[] bytes = new PqrsStatisticsDocx(12_000, 8_388_608).generate(result);
+        try (var archive = readDocx(bytes)) {
+            assertThat(archive.getTables()).hasSize(10);
+            var monthlyOfficesTable = archive
+                .getTables()
+                .stream()
+                .filter(table -> table.getRow(0).getCell(1).getText().contains("Dependencia actual"))
+                .findFirst()
+                .orElseThrow();
+            int expectedRows = offices.tables().get(1).rows().size() + 1 + (offices.tables().get(1).totals() == null ? 0 : 1);
+            assertThat(monthlyOfficesTable.getRows()).hasSize(expectedRows);
+            assertThat(archive.getParagraphs().stream().map(org.apache.poi.xwpf.usermodel.XWPFParagraph::getText).toList()).anyMatch(
+                paragraph -> paragraph.contains("Tabla trasladada al Anexo")
+            );
+        }
     }
 
     @Test
@@ -537,6 +561,37 @@ class PqrsStatisticsStandaloneIT {
             logger.detachAppender(appender);
             logger.setLevel(level);
             appender.stop();
+        }
+    }
+
+    private static String readDocxText(byte[] bytes) throws Exception {
+        try (var word = readDocx(bytes)) {
+            return (
+                word.getParagraphs().stream().map(org.apache.poi.xwpf.usermodel.XWPFParagraph::getText).reduce("", (a, b) -> a + "\n" + b) +
+                word.getTables().stream().map(org.apache.poi.xwpf.usermodel.XWPFTable::getText).reduce("", (a, b) -> a + "\n" + b)
+            );
+        }
+    }
+
+    private static org.apache.poi.xwpf.usermodel.XWPFDocument readDocx(byte[] bytes) throws Exception {
+        var file = java.nio.file.Files.createTempFile("synthetic-statistics", ".docx");
+        try {
+            java.nio.file.Files.write(file, bytes);
+            var pkg = org.apache.poi.openxml4j.opc.OPCPackage.open(
+                new org.apache.poi.openxml4j.util.ZipFileZipEntrySource(
+                    new org.apache.commons.compress.archivers.zip.ZipFile(file.toFile())
+                )
+            );
+            return new org.apache.poi.xwpf.usermodel.XWPFDocument(pkg) {
+                @Override
+                public void close() throws java.io.IOException {
+                    super.close();
+                    java.nio.file.Files.deleteIfExists(file);
+                }
+            };
+        } catch (Exception failure) {
+            java.nio.file.Files.deleteIfExists(file);
+            throw failure;
         }
     }
 }
