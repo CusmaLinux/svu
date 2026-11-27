@@ -268,7 +268,7 @@ public class PqrsService {
                 Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
                 pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
-                List<Respuesta> responsesFromDb = responseRepository.findByPqrsId(pqrs.getId());
+                List<Respuesta> responsesFromDb = visibleResponses(pqrs.getId());
                 Set<Respuesta> populatedResponses = new HashSet<>();
                 for (Respuesta response : responsesFromDb) {
                     Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
@@ -356,6 +356,8 @@ public class PqrsService {
         if (oldPqrs == null) {
             throw new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound");
         }
+        // The marker is intentionally absent from REST DTOs; legacy edits must preserve it.
+        pqrs.setPublication(oldPqrs.getPublication());
         authorization.checkCaseWriteAccess(oldPqrs, pqrs);
 
         if (SecurityUtils.isAuthenticated()) {
@@ -526,7 +528,7 @@ public class PqrsService {
             Set<ArchivoAdjunto> pqrsAttachments = attachedFileRepository.findByPqrsAttachment_Id(pqrs.getId());
             pqrs.set_transientAttachments(pqrsAttachments != null ? pqrsAttachments : new HashSet<>());
 
-            List<Respuesta> responsesFromDb = responseRepository.findByPqrsId(pqrs.getId());
+            List<Respuesta> responsesFromDb = visibleResponses(pqrs.getId());
             Set<Respuesta> populatedResponses = new HashSet<>();
             for (Respuesta response : responsesFromDb) {
                 Set<ArchivoAdjunto> responseAttachments = attachedFileRepository.findByResponseAttachment_Id(response.getId());
@@ -537,6 +539,14 @@ public class PqrsService {
 
             return publicPqrsMapper.toDto(pqrs);
         });
+    }
+
+    private List<Respuesta> visibleResponses(String pqrsId) {
+        return responseRepository
+            .findByPqrsId(pqrsId)
+            .stream()
+            .filter(response -> response.getPublication() == null || !"PREPARING".equals(response.getPublication().getState()))
+            .toList();
     }
 
     public PublicResponseDTO addPublicResponseToPqrs(String accessToken, PublicResponseDTO publicResponseDTO, List<MultipartFile> files) {

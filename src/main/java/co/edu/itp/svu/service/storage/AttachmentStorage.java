@@ -433,6 +433,36 @@ public class AttachmentStorage implements PhysicalPreparationVerifier {
         }
     }
 
+    /** Revalidates a previously synced private object after restart; it never repairs or deletes it. */
+    public Optional<PreparedFile> verifyPersisted(String logicalId, String storageKey, long expectedSize, String expectedSha256) {
+        if (
+            !canonicalUuid(logicalId) ||
+            !canonicalUuid(storageKey) ||
+            expectedSize < 0 ||
+            expectedSha256 == null ||
+            !expectedSha256.matches("[0-9a-f]{64}")
+        ) {
+            return Optional.empty();
+        }
+        try (InputStream input = open(storageKey)) {
+            MessageDigest digest = sha256();
+            byte[] buffer = new byte[BUFFER_SIZE];
+            long count = 0;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (read > expectedSize - count) return Optional.empty();
+                digest.update(buffer, 0, read);
+                count += read;
+            }
+            String actual = HexFormat.of().formatHex(digest.digest());
+            return count == expectedSize && actual.equals(expectedSha256)
+                ? Optional.of(new PreparedFile(logicalId, storageKey, count, actual))
+                : Optional.empty();
+        } catch (IOException ex) {
+            return Optional.empty();
+        }
+    }
+
     public void delete(String storageKey) throws StorageException {
         Path key = keyPath(storageKey);
         try (var directory = openRoot()) {

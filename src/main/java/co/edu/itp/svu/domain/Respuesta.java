@@ -37,6 +37,18 @@ public class Respuesta implements Serializable {
     @JsonIgnoreProperties(value = { "archivosAdjuntos", "oficinaResponder" }, allowSetters = true)
     private Pqrs pqrs;
 
+    /** Additive marker for new attachment operations; absent means a legacy published record. */
+    @Field("publication")
+    private Pqrs.Publication publication;
+
+    public Pqrs.Publication getPublication() {
+        return publication;
+    }
+
+    public void setPublication(Pqrs.Publication publication) {
+        this.publication = publication;
+    }
+
     @Transient
     private transient Set<ArchivoAdjunto> _transientAttachments;
 

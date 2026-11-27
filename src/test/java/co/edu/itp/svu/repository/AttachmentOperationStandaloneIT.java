@@ -47,6 +47,7 @@ class AttachmentOperationStandaloneIT {
     private static MongoClient client;
     private static MongoTemplate template;
     private static AttachmentOperationRepository repository;
+    private static AttachmentPublicationRepository publicationRepository;
 
     private static final List<BsonDocument> writeConcerns = new CopyOnWriteArrayList<>();
     private static AttachmentRequestIdentity identity;
@@ -78,6 +79,7 @@ class AttachmentOperationStandaloneIT {
         );
         template = new MongoTemplate(new SimpleMongoClientDatabaseFactory(client, DATABASE));
         repository = new AttachmentOperationRepository(template);
+        publicationRepository = new AttachmentPublicationRepository(template);
         Document hello = client.getDatabase(DATABASE).runCommand(new Document("hello", 1));
         assertThat(hello.getString("setName")).isNull();
         assertThat(hello.getBoolean("isreplicaset", false)).isFalse();
@@ -96,6 +98,8 @@ class AttachmentOperationStandaloneIT {
     @BeforeEach
     void resetCollection() {
         template.dropCollection(AttachmentOperationRepository.COLLECTION);
+        template.dropCollection("pqrs");
+        template.dropCollection("respuesta");
         repository.ensureIndexes();
         writeConcerns.clear();
     }
@@ -149,6 +153,119 @@ class AttachmentOperationStandaloneIT {
         template.save(op, AttachmentOperationRepository.COLLECTION);
         assertThat(repository.findExpiredClaims(10)).extracting(AttachmentOperation::getId).containsExactly(op.getId());
         assertThat(repository.findById(op.getId()).orElseThrow().getFormatVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void publishesRootWithSingleCasAndResolvesRepeatedConfirmation() {
+        ObjectId id = new ObjectId();
+        String operation = UUID.randomUUID().toString();
+        String publication = UUID.randomUUID().toString();
+        String digest = "a".repeat(64);
+        template
+            .getCollection("pqrs")
+            .insertOne(
+                new Document("_id", id).append(
+                    "publication",
+                    new Document("state", "PREPARING")
+                        .append("operation_id", operation)
+                        .append("publication_id", publication)
+                        .append("digest", digest)
+                        .append("revision", 7L)
+                )
+            );
+
+        assertThat(publicationRepository.publish("pqrs", id, operation, publication, digest, 7L)).isEqualTo(
+            AttachmentPublicationRepository.Result.PUBLISHED
+        );
+        assertThat(publicationRepository.publish("pqrs", id, operation, publication, digest, 7L)).isEqualTo(
+            AttachmentPublicationRepository.Result.ALREADY_PUBLISHED
+        );
+        Document root = template.getCollection("pqrs").find(new Document("_id", id)).first();
+        assertThat(root.getEmbedded(List.of("publication", "state"), String.class)).isEqualTo("COMMITTED");
+        assertThat(root.getEmbedded(List.of("publication", "revision"), Long.class)).isEqualTo(8L);
+    }
+
+    @Test
+    void listQueriesKeepLegacyAndCommittedRootsButHidePreparation() {
+        template
+            .getCollection("pqrs")
+            .insertMany(
+                List.of(
+                    new Document("_id", new ObjectId()).append("file_number", "legacy-visible").append("titulo", "legacy"),
+                    new Document("_id", new ObjectId())
+                        .append("file_number", "published-visible")
+                        .append("titulo", "published")
+                        .append("publication", new Document("state", "COMMITTED")),
+                    new Document("_id", new ObjectId())
+                        .append("file_number", "prepared-hidden")
+                        .append("titulo", "prepared")
+                        .append("publication", new Document("state", "PREPARING"))
+                )
+            );
+
+        var page = new PqrsQueryRepositoryImpl(template).search(
+            "",
+            java.util.Optional.empty(),
+            org.springframework.data.domain.PageRequest.of(0, 10)
+        );
+
+        assertThat(page.getContent())
+            .extracting(co.edu.itp.svu.domain.Pqrs::getFileNumber)
+            .containsExactlyInAnyOrder("legacy-visible", "published-visible");
+        assertThat(page.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    void recoveryAbortsOnlyUnpublishedPreparationAndFinalizesUncertainPublishedRoot() {
+        var abandoned = operation("actor-recovery-a", "key-recovery-a", "digest-recovery-a");
+        abandoned.setPublicationId(UUID.randomUUID().toString());
+        repository.reserve(abandoned);
+        template
+            .getCollection(AttachmentOperationRepository.COLLECTION)
+            .updateOne(
+                new Document("_id", abandoned.getId()),
+                new Document("$set", new Document("updated_at", Date.from(Instant.now().minusSeconds(120))))
+            );
+
+        var committed = operation("actor-recovery-b", "key-recovery-b", "digest-recovery-b");
+        committed.setPublicationId(UUID.randomUUID().toString());
+        repository.reserve(committed);
+        var claim = acquire(repository.findById(committed.getId()).orElseThrow());
+        var filesReady = repository.filesReady(lease(claim), List.of()).orElseThrow();
+        var persisting = repository.beginPersistence(lease(filesReady)).orElseThrow();
+        ObjectId rootId = (ObjectId) persisting.getCaseId();
+        template
+            .getCollection("pqrs")
+            .insertOne(
+                new Document("_id", rootId).append(
+                    "publication",
+                    new Document("state", "COMMITTED")
+                        .append("operation_id", persisting.getId())
+                        .append("publication_id", persisting.getPublicationId())
+                        .append("digest", "root-digest")
+                        .append("revision", 3L)
+                        .append("committed_at", Date.from(Instant.now()))
+                )
+            );
+        template
+            .getCollection(AttachmentOperationRepository.COLLECTION)
+            .updateOne(
+                new Document("_id", persisting.getId()),
+                new Document(
+                    "$set",
+                    new Document("updated_at", Date.from(Instant.now().minusSeconds(120))).append(
+                        "claim.lease_until",
+                        Date.from(Instant.now().minusSeconds(1))
+                    )
+                )
+            );
+
+        new co.edu.itp.svu.service.storage.AttachmentRecoveryService(repository, template).recoverPendingBatch();
+
+        assertThat(repository.findById(abandoned.getId()).orElseThrow().getState()).isEqualTo(AttachmentOperationState.ABORTED);
+        var recovered = repository.findById(committed.getId()).orElseThrow();
+        assertThat(recovered.getState()).isEqualTo(AttachmentOperationState.COMMITTED);
+        assertThat(recovered.getEvidence().getRootDigest()).isEqualTo("root-digest");
     }
 
     private AttachmentOperation operation(String actor, String key, String digest) {

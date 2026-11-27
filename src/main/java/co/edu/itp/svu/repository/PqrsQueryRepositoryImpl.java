@@ -29,6 +29,9 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
         Query query = new Query().with(pageable);
         List<Criteria> allCriteria = new ArrayList<>();
 
+        // A missing marker is a legacy published record; only new PREPARING roots are hidden.
+        allCriteria.add(Criteria.where("publication.state").ne("PREPARING"));
+
         if (StringUtils.hasText(queryString)) {
             Criteria titleCriteria = Criteria.where("titulo").regex(Pattern.quote(queryString), "i");
             Criteria fileNumberCriteria = Criteria.where("file_number").regex(Pattern.quote(queryString), "i");

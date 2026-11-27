@@ -80,6 +80,7 @@ public class PqrsStatisticsRepository {
             "$expr",
             Document.parse("{ $eq: [ { $type: '$fecha_creacion' }, 'date' ] }")
         );
+        match.append("publication.state", new Document("$ne", "PREPARING"));
         officeId.ifPresent(id -> match.append("oficinaResponder.$id", id));
         pipeline.add(new Document("$match", match));
 

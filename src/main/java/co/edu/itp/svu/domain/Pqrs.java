@@ -80,6 +80,76 @@ public class Pqrs implements Serializable {
     @JsonIgnoreProperties(value = { "pqrs" }, allowSetters = true)
     private SatisfactionSurvey satisfactionSurvey;
 
+    /** Additive marker for new attachment operations; absent means a legacy published record. */
+    @Field("publication")
+    private Publication publication;
+
+    public Publication getPublication() {
+        return publication;
+    }
+
+    public void setPublication(Publication publication) {
+        this.publication = publication;
+    }
+
+    public static class Publication implements Serializable {
+
+        @Field("state")
+        private String state;
+
+        @Field("operation_id")
+        private String operationId;
+
+        @Field("publication_id")
+        private String publicationId;
+
+        @Field("digest")
+        private String digest;
+
+        @Field("revision")
+        private Long revision;
+
+        public String getState() {
+            return state;
+        }
+
+        public void setState(String state) {
+            this.state = state;
+        }
+
+        public String getOperationId() {
+            return operationId;
+        }
+
+        public void setOperationId(String operationId) {
+            this.operationId = operationId;
+        }
+
+        public String getPublicationId() {
+            return publicationId;
+        }
+
+        public void setPublicationId(String publicationId) {
+            this.publicationId = publicationId;
+        }
+
+        public String getDigest() {
+            return digest;
+        }
+
+        public void setDigest(String digest) {
+            this.digest = digest;
+        }
+
+        public Long getRevision() {
+            return revision;
+        }
+
+        public void setRevision(Long revision) {
+            this.revision = revision;
+        }
+    }
+
     @Transient
     private transient Set<ArchivoAdjunto> _transientAttachments;
 

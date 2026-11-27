@@ -34,6 +34,18 @@ class AttachmentStorageTest {
         assertThat(root.resolve(second)).exists();
     }
 
+    @Test
+    void revalidatesPersistedGenerationWithoutDeletingOnMismatch() throws Exception {
+        var storage = new AttachmentStorage(root, UUID::randomUUID);
+        byte[] bytes = "verified synthetic bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String key = storage.write(new ByteArrayInputStream(bytes));
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+
+        assertThat(storage.verifyPersisted(UUID.randomUUID().toString(), key, bytes.length, hash)).isPresent();
+        assertThat(storage.verifyPersisted(UUID.randomUUID().toString(), key, bytes.length, "0".repeat(64))).isEmpty();
+        assertThat(root.resolve(key)).exists().hasBinaryContent(bytes);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "Informe con tildes á.pdf", "sin extensión" })
     void readsHistoricalKeysExactly(String name) throws IOException {

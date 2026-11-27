@@ -480,6 +480,43 @@ public class AttachmentOperationRepository {
         return change(lease.filter(), new Document("state", PERSISTING.name()));
     }
 
+    /** Starts v2 persistence only for the immutable, verified physical generation selected by CAS. */
+    public Optional<AttachmentOperation> beginVerifiedPersistence(Lease lease) {
+        if (lease.version().formatVersion() != 2 || lease.version().state() != FILES_READY) return Optional.empty();
+        requireTransition(lease, PERSISTING);
+        Bson guard = and(lease.filter(), exists(SELECTED), eq("physical_generations.state", "VERIFIED"));
+        return change(guard, new Document("state", PERSISTING.name()));
+    }
+
+    public record PublishedRoot(String collection, Object id, String operationId, String publicationId, String digest, long revision) {}
+
+    /** Completes the manifest only after a primary read proves the single-root publication CAS. */
+    public Optional<AttachmentOperation> confirmPublished(Lease lease, PublishedRoot expected) {
+        if (lease.version().state() != PERSISTING || !Set.of("pqrs", "respuesta").contains(expected.collection())) return Optional.empty();
+        var root = mongo
+            .getCollection(expected.collection())
+            .withReadPreference(ReadPreference.primary())
+            .find(eq("_id", expected.id()))
+            .first();
+        if (root == null) return Optional.empty();
+        Document publication = root.get("publication", Document.class);
+        if (
+            publication == null ||
+            !"COMMITTED".equals(publication.getString("state")) ||
+            !lease.version().id().equals(expected.operationId()) ||
+            !Objects.equals(expected.operationId(), publication.getString("operation_id")) ||
+            !Objects.equals(expected.publicationId(), publication.getString("publication_id")) ||
+            !Objects.equals(expected.digest(), publication.getString("digest")) ||
+            !Objects.equals(expected.revision(), publication.get("revision", Number.class).longValue())
+        ) return Optional.empty();
+        Document evidence = new Document("persisted_case_id", "pqrs".equals(expected.collection()) ? expected.id() : null)
+            .append("persisted_response_id", "respuesta".equals(expected.collection()) ? expected.id() : null)
+            .append("confirmed_at", "$$NOW")
+            .append("root_digest", expected.digest())
+            .append("publication_revision", expected.revision());
+        return change(lease.filter(), new Document("state", COMMITTED.name()).append("evidence", evidence));
+    }
+
     public Optional<AttachmentOperation> abortBeforePersistence(Lease lease) {
         requireTransition(lease, ABORTED);
         var current = first(lease.filter());

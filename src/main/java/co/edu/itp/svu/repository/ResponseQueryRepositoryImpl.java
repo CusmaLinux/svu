@@ -38,6 +38,8 @@ public class ResponseQueryRepositoryImpl implements ResponseQueryRepository {
         aggregationOperations.add(Aggregation.unwind("pqrsDetails"));
 
         List<Criteria> allCriteria = new ArrayList<>();
+        allCriteria.add(Criteria.where("publication.state").ne("PREPARING"));
+        allCriteria.add(Criteria.where("pqrsDetails.publication.state").ne("PREPARING"));
 
         officeId.ifPresent(id ->
             allCriteria.add(Criteria.where("pqrsDetails.oficinaResponder.$id").is(ObjectId.isValid(id) ? new ObjectId(id) : id))
