@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -64,5 +65,65 @@ public class PqrsQueryRepositoryImpl implements PqrsQueryRepository {
         );
         query.fields().include("_id").include("file_number");
         return mongoTemplate.find(query, Pqrs.class);
+    }
+
+    @Override
+    public boolean replaceIfAuthorizationCurrent(Pqrs pqrs, long expectedRevision, boolean officeChanged) {
+        org.bson.Document replacement = new org.bson.Document();
+        mongoTemplate.getConverter().write(pqrs, replacement);
+        replacement.put("authorization_revision", expectedRevision + (officeChanged ? 1 : 0));
+        replacement.remove("response_publication_lock");
+        Object id = storedId(pqrs.getId());
+        org.bson.Document revision = expectedRevision == 0
+            ? new org.bson.Document(
+                "$or",
+                List.of(
+                    new org.bson.Document("authorization_revision", 0L),
+                    new org.bson.Document("authorization_revision", new org.bson.Document("$exists", false))
+                )
+            )
+            : new org.bson.Document("authorization_revision", expectedRevision);
+        org.bson.Document filter = new org.bson.Document(
+            "$and",
+            List.of(
+                new org.bson.Document("_id", id)
+                    .append("response_publication_lock", new org.bson.Document("$exists", false))
+                    .append("publication.state", new org.bson.Document("$ne", "PREPARING")),
+                revision
+            )
+        );
+        return mongoTemplate.getCollection("pqrs").replaceOne(filter, replacement).getMatchedCount() == 1;
+    }
+
+    @Override
+    public boolean updateSatisfactionSurvey(String id, co.edu.itp.svu.domain.SatisfactionSurvey surveyReference) {
+        return (
+            mongoTemplate
+                .updateFirst(
+                    Query.query(Criteria.where("_id").is(storedId(id)).and("response_publication_lock").exists(false)),
+                    new Update().set("satisfactionSurvey", surveyReference),
+                    Pqrs.class
+                )
+                .getModifiedCount() ==
+            1
+        );
+    }
+
+    @Override
+    public boolean updateDeadline(String id, java.time.Instant deadline) {
+        return (
+            mongoTemplate
+                .updateFirst(
+                    Query.query(Criteria.where("_id").is(storedId(id))),
+                    new Update().set("fechaLimiteRespuesta", deadline),
+                    Pqrs.class
+                )
+                .getModifiedCount() ==
+            1
+        );
+    }
+
+    private static Object storedId(String id) {
+        return org.bson.types.ObjectId.isValid(id) ? new org.bson.types.ObjectId(id) : id;
     }
 }

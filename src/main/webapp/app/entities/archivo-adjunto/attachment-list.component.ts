@@ -11,28 +11,37 @@ export default defineComponent({
       type: Array as PropType<IArchivoAdjunto[]>,
       default: () => [],
     },
+    caseId: { type: String, default: null },
+    accessToken: { type: String, default: null },
   },
-  setup() {
+  setup(props) {
     const { t: t$ } = useI18n();
     const archivoAdjuntoService = inject('archivoAdjuntoService', () => new ArchivoAdjuntoService());
     const alertService = inject('alertService', () => useAlertService(), true);
 
-    const downloadAttachedFile = async (fileURL: string | undefined | null, fileName: string | undefined) => {
-      if (!fileURL && !fileName) {
-        return;
-      }
+    const downloadAttachedFile = async (
+      attachmentId: string | undefined,
+      fileURL: string | undefined | null,
+      fileName: string | undefined,
+    ) => {
+      if (!attachmentId || !fileName) return;
       try {
-        if (fileURL && fileName) {
-          const { blob } = await archivoAdjuntoService().downloadAttachedFile(fileURL);
-          const link = document.createElement('a');
-          const url = window.URL.createObjectURL(blob);
-          link.href = url;
-          link.setAttribute('download', fileName);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }
+        const result = props.accessToken
+          ? await archivoAdjuntoService().downloadForCitizen(props.accessToken, attachmentId)
+          : props.caseId
+            ? await archivoAdjuntoService().downloadForCase(props.caseId, attachmentId)
+            : fileURL
+              ? await archivoAdjuntoService().downloadAttachedFile(fileURL)
+              : null;
+        if (!result) return;
+        const link = document.createElement('a');
+        const url = window.URL.createObjectURL(result.blob);
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
       } catch (error: any) {
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       }

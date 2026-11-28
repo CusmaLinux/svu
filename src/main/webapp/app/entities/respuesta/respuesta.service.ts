@@ -59,6 +59,14 @@ export default class RespuestaService {
     });
   }
 
+  public createMultipart(entity: IRespuesta, files: File[], requestKey: string): Promise<IRespuesta> {
+    const formData = new FormData();
+    const response = { ...entity, _transientAttachments: [] };
+    formData.append('response', new Blob([JSON.stringify(response)], { type: 'application/json' }));
+    files.forEach(file => formData.append('files', file));
+    return axios.post(`${baseApiUrl}`, formData, { headers: { 'Idempotency-Key': requestKey } }).then(res => res.data);
+  }
+
   public update(entity: IRespuesta): Promise<IRespuesta> {
     return new Promise<IRespuesta>((resolve, reject) => {
       axios

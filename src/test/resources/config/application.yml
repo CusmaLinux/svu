@@ -109,6 +109,11 @@ application:
   file:
     upload-dir: /tmp/test-uploads
 
+svu:
+  attachments:
+    operation-identity-secret: test-only-attachment-operation-secret-32-bytes-minimum
+    secure-writers-enabled: true
+
 # application:
 management:
   health:

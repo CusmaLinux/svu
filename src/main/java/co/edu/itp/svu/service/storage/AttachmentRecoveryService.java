@@ -3,12 +3,14 @@ package co.edu.itp.svu.service.storage;
 import co.edu.itp.svu.domain.attachment.AttachmentIntegrityVerifier;
 import co.edu.itp.svu.domain.attachment.AttachmentOperation;
 import co.edu.itp.svu.domain.attachment.AttachmentOperationState;
+import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
 import co.edu.itp.svu.repository.AttachmentOperationRepository;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Lease;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.PublishedRoot;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.Version;
 import co.edu.itp.svu.repository.AttachmentPublicationRepository;
 import co.edu.itp.svu.repository.AttachmentPublicationVerifier;
+import co.edu.itp.svu.service.ResponsePublicationGate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -32,17 +34,20 @@ public class AttachmentRecoveryService {
     private final MongoTemplate mongo;
     private final AttachmentPublicationVerifier publicationVerifier;
     private final AttachmentIntegrityVerifier integrityVerifier;
+    private final ResponsePublicationGate responseGate;
 
     public AttachmentRecoveryService(
         AttachmentOperationRepository operations,
         MongoTemplate mongo,
         AttachmentPublicationVerifier publicationVerifier,
-        AttachmentIntegrityVerifier integrityVerifier
+        AttachmentIntegrityVerifier integrityVerifier,
+        ResponsePublicationGate responseGate
     ) {
         this.operations = operations;
         this.mongo = mongo;
         this.publicationVerifier = publicationVerifier;
         this.integrityVerifier = integrityVerifier;
+        this.responseGate = responseGate;
     }
 
     /** Read-only physical reconciliation. Orphans and uncertain references are counted, never deleted. */
@@ -119,7 +124,10 @@ public class AttachmentRecoveryService {
         String collection = candidate.getOperationType().name().equals("PUBLIC_CASE_CREATE") ? "pqrs" : "respuesta";
         Object rootId = "pqrs".equals(collection) ? candidate.getCaseId() : candidate.getResponseId();
         Document root = mongo.getCollection(collection).find(new Document("_id", rootId)).first();
-        if (root == null && operations.abortBeforePersistence(lease).isPresent()) return;
+        if (root == null && operations.abortBeforePersistence(lease).isPresent()) {
+            releaseResponseGate(candidate);
+            return;
+        }
         operations.requireReconciliation(lease);
     }
 
@@ -138,7 +146,7 @@ public class AttachmentRecoveryService {
             !operation.getId().equals(publication.getString("operation_id")) ||
             !java.util.Objects.equals(operation.getPublicationId(), publication.getString("publication_id"))
         ) return false;
-        return operations
+        boolean confirmed = operations
             .confirmPublished(
                 lease,
                 new PublishedRoot(
@@ -154,6 +162,14 @@ public class AttachmentRecoveryService {
                 )
             )
             .isPresent();
+        if (confirmed) releaseResponseGate(operation);
+        return confirmed;
+    }
+
+    private void releaseResponseGate(AttachmentOperation operation) {
+        if (operation.getOperationType() == AttachmentOperationType.INSTITUTIONAL_RESPONSE_CREATE && operation.getCaseId() != null) {
+            responseGate.release(operation.getCaseId().toString(), operation.getId());
+        }
     }
 
     private static long number(Object value, long fallback) {

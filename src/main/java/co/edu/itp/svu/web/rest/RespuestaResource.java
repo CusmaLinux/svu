@@ -15,8 +15,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -33,6 +35,9 @@ public class RespuestaResource {
 
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
+
+    @Value("${svu.attachments.secure-writers-enabled:false}")
+    private boolean secureAttachmentWritersEnabled;
 
     private final RespuestaService respuestaService;
 
@@ -55,6 +60,27 @@ public class RespuestaResource {
             throw new BadRequestAlertException("A new respuesta cannot already have an ID", ENTITY_NAME, "idexists");
         }
         responseDTO = respuestaService.save(responseDTO);
+        return ResponseEntity.created(new URI("/api/respuestas/" + responseDTO.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, responseDTO.getId()))
+            .body(responseDTO);
+    }
+
+    @PostMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDTO> createResponseMultipart(
+        @RequestPart("response") @Valid ResponseDTO responseDTO,
+        @RequestPart(value = "files", required = false) List<MultipartFile> files,
+        @RequestHeader("Idempotency-Key") String requestKey
+    ) throws URISyntaxException {
+        if (!secureAttachmentWritersEnabled) throw new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+            "Secure attachment writer is not enabled"
+        );
+        if (responseDTO.getId() != null) throw new BadRequestAlertException(
+            "A new respuesta cannot already have an ID",
+            ENTITY_NAME,
+            "idexists"
+        );
+        responseDTO = respuestaService.save(responseDTO, files, requestKey);
         return ResponseEntity.created(new URI("/api/respuestas/" + responseDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, responseDTO.getId()))
             .body(responseDTO);

@@ -210,3 +210,8 @@ jhipster:
 application:
   file:
     upload-dir: /var/www/svu/uploads/
+
+svu:
+  attachments:
+    operation-identity-secret: ${SVU_ATTACHMENT_OPERATION_SECRET:}
+    secure-writers-enabled: ${SVU_SECURE_ATTACHMENT_WRITERS_ENABLED:false}

@@ -33,14 +33,19 @@ export default defineComponent({
     const existingFilesInfo: Ref<IArchivoAdjunto[]> = ref([]);
     const filesToDelete: Ref<string[]> = ref([]);
     const fileInput = ref<HTMLInputElement | null>(null);
-    const archivosAdjuntosDTO = ref<IArchivoAdjunto[]>([]);
     const isUploading = ref(false);
-    const errorMessage = ref<string | null>(null);
-    const successMessage = ref<string | null>(null);
+    const idempotencyKey = ref<string | null>(null);
 
     const pqrs: Ref<IPqrs> = ref(new Pqrs());
     const oficinas: Ref<IOficina[]> = ref([]);
     const isSaving = ref(false);
+    watch(
+      [pqrs, files],
+      () => {
+        if (!isSaving.value) idempotencyKey.value = null;
+      },
+      { deep: true },
+    );
 
     const input: Ref<HTMLInputElement | null> = ref(null);
     const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'es'), true);
@@ -152,28 +157,6 @@ export default defineComponent({
         target.value = '';
       }
     };
-    const uploadFiles = async () => {
-      isUploading.value = true;
-      errorMessage.value = null;
-      successMessage.value = null;
-
-      const formData = new FormData();
-      files.value.forEach(file => {
-        formData.append('files', file);
-      });
-
-      try {
-        const uploadResponse = await archivoAdjuntoService().uploadFiles(formData);
-        archivosAdjuntosDTO.value = uploadResponse;
-
-        successMessage.value = 'Archivos subidos correctamente';
-      } catch (error) {
-        errorMessage.value = 'Error al subir archivos';
-        throw error;
-      } finally {
-        isUploading.value = false;
-      }
-    };
     const downloadAttachedFile = async (fileURL: string | undefined | null, fileName: string | undefined) => {
       if (!fileURL && !fileName) {
         return;
@@ -209,29 +192,30 @@ export default defineComponent({
         }
 
         isSaving.value = true;
-        if (filesToDelete.value.length > 0) {
-          await archivoAdjuntoService().deleteMultiple(filesToDelete.value);
-          filesToDelete.value = [];
-        }
-
-        if (files.value.length > 0) {
-          await uploadFiles();
-          pqrs.value._transientAttachments = archivosAdjuntosDTO.value.map(attachedFile => ({ id: attachedFile.id }));
-        }
-
         let savedPqrs;
         if (pqrs.value.id) {
+          if (files.value.length > 0) throw new Error('Los adjuntos de un expediente existente no se pueden añadir desde esta operación.');
+          if (filesToDelete.value.length > 0) {
+            await archivoAdjuntoService().deleteMultiple(filesToDelete.value);
+            filesToDelete.value = [];
+          }
           savedPqrs = await pqrsService().update(pqrs.value);
           alertService.showInfo(t$('ventanillaUnicaApp.pqrs.updated', { param: savedPqrs.id }));
         } else {
           const recaptchaToken = await getToken('create_pqrs');
-          const headers = { 'X-Recaptcha-Token': recaptchaToken };
-          savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value, headers);
+          isUploading.value = true;
+          idempotencyKey.value ??= crypto.randomUUID();
+          savedPqrs = await pqrsService().submitPqrsMultipart(pqrs.value, files.value, idempotencyKey.value, {
+            'X-Recaptcha-Token': recaptchaToken,
+          });
+          isUploading.value = false;
+          idempotencyKey.value = null;
           alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
         }
 
         previousState();
       } catch (error: any) {
+        isUploading.value = false;
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       } finally {
         isSaving.value = false;
@@ -297,16 +281,12 @@ export default defineComponent({
       existingFilesInfo,
       downloadAttachedFile,
       fileInput,
-      archivosAdjuntosDTO,
-      uploadFiles,
       onFileChange,
       triggerFileInput,
       removeFile,
       removeExistingFile,
       save,
       isUploading,
-      errorMessage,
-      successMessage,
       statesPqrsOptions,
       pqrsTypeOptions,
       oficinaOptions,

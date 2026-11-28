@@ -2,6 +2,7 @@ package co.edu.itp.svu.web.rest;
 
 import co.edu.itp.svu.repository.PqrsRepository;
 import co.edu.itp.svu.security.recaptcha.ValidateRecaptcha;
+import co.edu.itp.svu.service.ArchivoAdjuntoService;
 import co.edu.itp.svu.service.PqrsService;
 import co.edu.itp.svu.service.dto.CreateSatisfactionSurveyDTO;
 import co.edu.itp.svu.service.dto.PqrsDTO;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
@@ -23,9 +25,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -51,13 +55,18 @@ public class PqrsResource {
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
 
+    @Value("${svu.attachments.secure-writers-enabled:false}")
+    private boolean secureAttachmentWritersEnabled;
+
     private final PqrsService pqrsService;
+    private final ArchivoAdjuntoService archivoAdjuntoService;
 
     private final PqrsRepository pqrsRepository;
 
-    public PqrsResource(PqrsService pqrsService, PqrsRepository pqrsRepository) {
+    public PqrsResource(PqrsService pqrsService, PqrsRepository pqrsRepository, ArchivoAdjuntoService archivoAdjuntoService) {
         this.pqrsService = pqrsService;
         this.pqrsRepository = pqrsRepository;
+        this.archivoAdjuntoService = archivoAdjuntoService;
     }
 
     /**
@@ -212,7 +221,6 @@ public class PqrsResource {
     @PostMapping("/public/pqrs")
     @ValidateRecaptcha
     public ResponseEntity<PublicPqrsDTO> createPublicPqrs(@Valid @RequestBody PublicPqrsDTO publicPqrsDTO) throws URISyntaxException {
-        LOG.debug("REST request to create public Pqrs : {}", publicPqrsDTO);
         if (publicPqrsDTO.getAccessToken() != null) {
             throw new BadRequestAlertException("A new public pqrs cannot already have an ID", "pqrs", "idexists");
         }
@@ -223,6 +231,27 @@ public class PqrsResource {
             .buildAndExpand(result.getAccessToken())
             .toUri();
 
+        return ResponseEntity.created(locationUri)
+            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getAccessToken()))
+            .body(result);
+    }
+
+    @PostMapping(value = "/public/pqrs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ValidateRecaptcha
+    public ResponseEntity<PublicPqrsDTO> createPublicPqrsMultipart(
+        @RequestPart("pqrs") @Valid PublicPqrsDTO publicPqrsDTO,
+        @RequestPart(value = "files", required = false) List<MultipartFile> files,
+        @RequestHeader("Idempotency-Key") String requestKey
+    ) throws URISyntaxException {
+        requireSecureAttachmentWritersEnabled();
+        if (publicPqrsDTO.getAccessToken() != null) {
+            throw new BadRequestAlertException("A new public pqrs cannot already have an ID", "pqrs", "idexists");
+        }
+        PublicPqrsDTO result = pqrsService.createPublicPqrs(publicPqrsDTO, files, requestKey);
+        URI locationUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+            .path("/api/public/pqrs/{accessToken}")
+            .buildAndExpand(result.getAccessToken())
+            .toUri();
         return ResponseEntity.created(locationUri)
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getAccessToken()))
             .body(result);
@@ -260,16 +289,64 @@ public class PqrsResource {
         @RequestPart(value = "response") @Parameter(
             schema = @Schema(type = "string", format = "binary")
         ) PublicResponseDTO publicResponseDTO,
-        @RequestPart(value = "files", required = false) List<MultipartFile> files
+        @RequestPart(value = "files", required = false) List<MultipartFile> files,
+        @RequestHeader("Idempotency-Key") String requestKey
     ) throws URISyntaxException {
+        requireSecureAttachmentWritersEnabled();
         if (publicResponseDTO.getId() != null) {
             throw new BadRequestAlertException("A new public response cannot already have an ID", "publicResponse", "idexists");
         }
-        PublicResponseDTO result = pqrsService.addPublicResponseToPqrs(access_token, publicResponseDTO, files);
+        PublicResponseDTO result = pqrsService.addPublicResponseToPqrs(access_token, publicResponseDTO, files, requestKey);
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, "pqrs", result.getId()))
             .body(result);
+    }
+
+    private void requireSecureAttachmentWritersEnabled() {
+        if (!secureAttachmentWritersEnabled) throw new org.springframework.web.server.ResponseStatusException(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Secure attachment writer is not enabled"
+        );
+    }
+
+    @GetMapping("/pqrs/{id}/attachments/{attachmentId}")
+    public ResponseEntity<InputStreamResource> downloadCaseAttachment(@PathVariable String id, @PathVariable String attachmentId)
+        throws IOException {
+        requireSecureAttachmentWritersEnabled();
+        var download = archivoAdjuntoService.openForCase(id, attachmentId, null);
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .header("X-Content-Type-Options", "nosniff")
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(safeDownloadName(download.filename()), StandardCharsets.UTF_8).build().toString()
+            )
+            .body(new InputStreamResource(download.stream()));
+    }
+
+    @GetMapping("/public/pqrs/{access_token}/attachments/{attachmentId}")
+    public ResponseEntity<InputStreamResource> downloadPublicCaseAttachment(
+        @PathVariable String access_token,
+        @PathVariable String attachmentId
+    ) throws IOException {
+        requireSecureAttachmentWritersEnabled();
+        var download = archivoAdjuntoService.openForCitizenToken(access_token, attachmentId);
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .header("X-Content-Type-Options", "nosniff")
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(safeDownloadName(download.filename()), StandardCharsets.UTF_8).build().toString()
+            )
+            .body(new InputStreamResource(download.stream()));
+    }
+
+    private static String safeDownloadName(String filename) {
+        if (filename == null || filename.isBlank()) return "adjunto";
+        return filename.replaceAll("[\\r\\n\\p{Cntrl}]", "_");
     }
 
     /**

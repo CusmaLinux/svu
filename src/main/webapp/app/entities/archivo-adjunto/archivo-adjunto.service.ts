@@ -117,6 +117,22 @@ export default class ArchivoAdjuntoService {
     });
   }
 
+  public async downloadForCase(caseId: string, attachmentId: string): Promise<{ blob: Blob }> {
+    const response: AxiosResponse<Blob> = await axios.get(
+      `api/pqrs/${encodeURIComponent(caseId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      { responseType: 'blob' },
+    );
+    return { blob: response.data };
+  }
+
+  public async downloadForCitizen(accessToken: string, attachmentId: string): Promise<{ blob: Blob }> {
+    const response: AxiosResponse<Blob> = await axios.get(
+      `api/public/pqrs/${encodeURIComponent(accessToken)}/attachments/${encodeURIComponent(attachmentId)}`,
+      { responseType: 'blob' },
+    );
+    return { blob: response.data };
+  }
+
   public async deleteArchivo(nombre: string): Promise<void> {
     return axios.delete(`${baseApiUrl}/${nombre}`);
   }

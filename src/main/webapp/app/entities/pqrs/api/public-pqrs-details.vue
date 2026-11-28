@@ -20,7 +20,7 @@
             <p>{{ pqrs.descripcion }}</p>
           </div>
 
-          <attachment-list :attachments="pqrs._transientAttachments"></attachment-list>
+          <attachment-list :attachments="pqrs._transientAttachments" :access-token="effectiveAccessToken"></attachment-list>
 
           <!-- Communication History -->
           <h2 class="section-title" style="font-size: 1.5rem" v-text="t$('ventanillaUnicaApp.pqrs.detail.communicationHistory')"></h2>
@@ -39,7 +39,7 @@
                 <span class="message-time">{{ formatDateLong(response.fechaRespuesta) }}</span>
               </div>
               <p class="message-body">{{ response.contenido }}</p>
-              <attachment-list :attachments="response._transientAttachments"></attachment-list>
+              <attachment-list :attachments="response._transientAttachments" :access-token="effectiveAccessToken"></attachment-list>
             </div>
           </div>
           <div v-else>

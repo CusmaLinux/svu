@@ -4,6 +4,7 @@ import co.edu.itp.svu.domain.ArchivoAdjunto;
 import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
 import co.edu.itp.svu.repository.PqrsRepository;
@@ -16,7 +17,10 @@ import co.edu.itp.svu.service.dto.ResponseDTO;
 import co.edu.itp.svu.service.errors.BadRequestAlertException;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
 import co.edu.itp.svu.service.mapper.ResponseMapper;
+import co.edu.itp.svu.service.storage.AttachmentOperationCoordinator;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +29,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class RespuestaService {
@@ -37,6 +42,7 @@ public class RespuestaService {
     private final ArchivoAdjuntoMapper attachedFileMapper;
     private final UserRepository userRepository;
     private final PqrsAuthorizationService authorization;
+    private final AttachmentOperationCoordinator attachmentOperations;
 
     public RespuestaService(
         RespuestaRepository respuestaRepository,
@@ -46,7 +52,8 @@ public class RespuestaService {
         ResponseMapper responseMapper,
         ArchivoAdjuntoMapper attachedFileMapper,
         UserRepository userRepository,
-        PqrsAuthorizationService authorization
+        PqrsAuthorizationService authorization,
+        AttachmentOperationCoordinator attachmentOperations
     ) {
         this.respuestaRepository = respuestaRepository;
         this.pqrsRepository = pqrsRepository;
@@ -56,6 +63,7 @@ public class RespuestaService {
         this.attachedFileMapper = attachedFileMapper;
         this.userRepository = userRepository;
         this.authorization = authorization;
+        this.attachmentOperations = attachmentOperations;
     }
 
     public Page<ResponseDTO> search(String criteria, Pageable pageable) {
@@ -90,6 +98,35 @@ public class RespuestaService {
         Respuesta response = new Respuesta().contenido(input.getContenido()).fechaRespuesta(Instant.now()).pqrs(pqrs);
         response.setResolver(author);
         return responseMapper.toDto(respuestaRepository.insert(response));
+    }
+
+    public ResponseDTO save(ResponseDTO input, List<MultipartFile> files, String requestKey) {
+        Optional<String> authorizedOffice = authorization.requireResponseCreationOffice();
+        User author = SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .orElseThrow(() -> new AccessDeniedException("Unknown response author"));
+        Pqrs pqrs = findCase(input.getPqrs() == null ? null : input.getPqrs().getId()).orElseThrow(() ->
+            new BadRequestAlertException("Select an existing PQRSD", "respuesta", "pqrsrequired")
+        );
+        authorization.checkCaseInAuthorizedOffice(pqrs, authorizedOffice);
+        validateAttachments(input, null, pqrs);
+        String assignedOffice = pqrs.getOficinaResponder() == null ? null : pqrs.getOficinaResponder().getId();
+        if (assignedOffice == null || authorizedOffice.filter(id -> !id.equals(assignedOffice)).isPresent()) {
+            throw new AccessDeniedException("PQRSD response office is unavailable");
+        }
+        Respuesta response = new Respuesta().contenido(input.getContenido()).fechaRespuesta(Instant.now()).pqrs(pqrs);
+        response.setResolver(author);
+        response = attachmentOperations.publishResponse(
+            pqrs,
+            response,
+            files,
+            requestKey,
+            List.of("INSTITUTIONAL_RESPONSE", author.getId(), assignedOffice),
+            Map.of("content", input.getContenido() == null ? "" : input.getContenido()),
+            AttachmentOperationType.INSTITUTIONAL_RESPONSE_CREATE,
+            assignedOffice
+        );
+        return toDetail(response, pqrs);
     }
 
     public ResponseDTO update(ResponseDTO input, boolean partial) {
@@ -146,6 +183,11 @@ public class RespuestaService {
                 .map(attachedFileMapper::toDto)
                 .collect(Collectors.toSet())
         );
+        dto
+            .get_transientAttachments()
+            .forEach(file -> {
+                if (file.getId() != null && attachmentVisibility.isManaged(file.getId())) file.setUrlArchivo(null);
+            });
         return dto;
     }
 

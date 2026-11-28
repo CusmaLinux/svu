@@ -6,6 +6,7 @@ import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.domain.SatisfactionSurvey;
 import co.edu.itp.svu.domain.User;
+import co.edu.itp.svu.domain.attachment.AttachmentOperationType;
 import co.edu.itp.svu.domain.enumeration.PqrsStatus;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
@@ -33,6 +34,7 @@ import co.edu.itp.svu.service.mapper.api.PublicPqrsMapper;
 import co.edu.itp.svu.service.mapper.api.PublicResponseMapper;
 import co.edu.itp.svu.service.notification.PqrsNotificationService;
 import co.edu.itp.svu.service.notification.PqrsNotificationService.PqrsNotificationType;
+import co.edu.itp.svu.service.storage.AttachmentOperationCoordinator;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -40,6 +42,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -70,6 +73,8 @@ public class PqrsService {
     private final ArchivoAdjuntoRepository attachedFileRepository;
 
     private final AttachmentPublicationVisibilityRepository attachmentVisibility;
+
+    private final AttachmentOperationCoordinator attachmentOperations;
 
     private final ArchivoAdjuntoService attachedFileService;
 
@@ -106,6 +111,7 @@ public class PqrsService {
         OficinaRepository oficinaRepository,
         ArchivoAdjuntoRepository attachedFileRepository,
         AttachmentPublicationVisibilityRepository attachmentVisibility,
+        AttachmentOperationCoordinator attachmentOperations,
         ArchivoAdjuntoService attachedFileService,
         OficinaMapper oficinaMapper,
         PqrsNotificationService pqrsNotificationService,
@@ -126,6 +132,7 @@ public class PqrsService {
         this.oficinaRepository = oficinaRepository;
         this.attachedFileRepository = attachedFileRepository;
         this.attachmentVisibility = attachmentVisibility;
+        this.attachmentOperations = attachmentOperations;
         this.attachedFileService = attachedFileService;
         this.oficinaMapper = oficinaMapper;
         this.pqrsNotificationService = pqrsNotificationService;
@@ -164,7 +171,9 @@ public class PqrsService {
         satisfactionSurveyRepository.save(survey);
 
         pqrs.setSatisfactionSurvey(survey);
-        pqrsRepository.save(pqrs);
+        if (!pqrsRepository.updateSatisfactionSurvey(pqrs.getId(), survey)) throw new ConflictException(
+            "The case changed; retry the survey"
+        );
     }
 
     public String suggestOffice(String pqrsId) {
@@ -193,11 +202,29 @@ public class PqrsService {
             .map(existingPqrs -> {
                 // Partial updates can modify sensitive fields; only privileged staff may use this endpoint.
                 authorization.requireAdministrativeCaseAccess();
+                long expectedRevision = existingPqrs.getAuthorizationRevision();
+                Pqrs.Publication publication = existingPqrs.getPublication();
+                Pqrs.ResponsePublicationLock lock = existingPqrs.getResponsePublicationLock();
+                Set<ArchivoAdjunto> currentAttachments = existingPqrs.getArchivosAdjuntos();
+                validateExistingAttachmentIds(pqrsDTO.getArchivosAdjuntosDTO(), existingPqrs.getId());
                 pqrsMapper.partialUpdate(existingPqrs, pqrsDTO);
+                existingPqrs.setArchivosAdjuntos(currentAttachments);
+                existingPqrs.setPublication(publication);
+                existingPqrs.setResponsePublicationLock(lock);
+                existingPqrs.setAuthorizationRevision(expectedRevision);
+                boolean officeChanged =
+                    pqrsDTO.getOficinaResponder() != null &&
+                    !Objects.equals(
+                        existingPqrs.getOficinaResponder() == null ? null : existingPqrs.getOficinaResponder().getId(),
+                        pqrsDTO.getOficinaResponder().getId()
+                    );
+                if (officeChanged) existingPqrs.setAuthorizationRevision(expectedRevision + 1);
+                if (!pqrsRepository.replaceIfAuthorizationCurrent(existingPqrs, expectedRevision, officeChanged)) {
+                    throw new ConflictException("The case assignment or publication changed; reload the case");
+                }
                 return existingPqrs;
             })
-            .map(pqrsRepository::save)
-            .map(pqrsMapper::toDto);
+            .map(this::toPqrsDto);
     }
 
     public Page<PqrsDTO> findAll(String state, String idOffice, LocalDate date, Pageable pageable) {
@@ -214,7 +241,7 @@ public class PqrsService {
                 ? pqrsRepository.findAllByEstadoNotAndFechaCreacionLessThanEqual(state, date, pageable)
                 : pqrsRepository.findAllByEstadoAndFechaCreacionLessThanEqual(state, date, pageable);
         }
-        return page.map(pqrsMapper::toDto);
+        return page.map(this::toPqrsDto);
     }
 
     @Transactional(readOnly = true)
@@ -223,7 +250,7 @@ public class PqrsService {
 
         Optional<String> officeId = authorization.requireOperationalOffice();
 
-        return pqrsRepository.search(criteria, officeId, pageable).map(pqrsMapper::toDto);
+        return pqrsRepository.search(criteria, officeId, pageable).map(this::toPqrsDto);
     }
 
     /**
@@ -238,7 +265,7 @@ public class PqrsService {
             .findById(id)
             .map(pqrs -> {
                 authorization.checkCaseReadAccess(pqrs);
-                return pqrsMapper.toDto(pqrs);
+                return toPqrsDto(pqrs);
             });
     }
 
@@ -284,7 +311,7 @@ public class PqrsService {
                 }
                 pqrs.set_transientResponses(populatedResponses);
 
-                PqrsDTO dto = pqrsMapper.toDto(pqrs);
+                PqrsDTO dto = toPqrsDto(pqrs);
                 if (dto.getOficinaResponder() != null && dto.getOficinaResponder().getId() != null) {
                     Optional<Oficina> oficinaOpt = this.oficinaRepository.findById(dto.getOficinaResponder().getId());
                     oficinaOpt.ifPresent(oficina -> {
@@ -297,7 +324,7 @@ public class PqrsService {
     }
 
     private PqrsDTO mapPqrsToDtoWithOffice(Pqrs pqrs) {
-        PqrsDTO dto = pqrsMapper.toDto(pqrs);
+        PqrsDTO dto = toPqrsDto(pqrs);
         if (pqrs.getOficinaResponder() != null && pqrs.getOficinaResponder().getId() != null) {
             oficinaRepository
                 .findById(pqrs.getOficinaResponder().getId())
@@ -309,8 +336,42 @@ public class PqrsService {
         return dto;
     }
 
+    private PqrsDTO toPqrsDto(Pqrs pqrs) {
+        PqrsDTO dto = pqrsMapper.toDto(pqrs);
+        hideManagedKeys(dto.getArchivosAdjuntosDTO());
+        hideManagedKeys(dto.get_transientAttachments());
+        if (dto.get_transientResponses() != null) dto
+            .get_transientResponses()
+            .forEach(response -> hideManagedKeys(response.get_transientAttachments()));
+        return dto;
+    }
+
+    private PublicPqrsDTO hideManagedKeys(PublicPqrsDTO dto) {
+        if (dto == null) return null;
+        hideManagedKeys(dto.get_transientAttachments());
+        if (dto.get_transientResponses() != null) dto.get_transientResponses().forEach(this::hideManagedKeys);
+        return dto;
+    }
+
+    private PublicResponseDTO hideManagedKeys(PublicResponseDTO dto) {
+        if (dto != null) hideManagedKeys(dto.get_transientAttachments());
+        return dto;
+    }
+
+    private void hideManagedKeys(Set<ArchivoAdjuntoDTO> attachments) {
+        if (attachments == null) return;
+        for (ArchivoAdjuntoDTO attachment : attachments) {
+            if (attachment != null && attachment.getId() != null && attachmentVisibility.isManaged(attachment.getId())) {
+                attachment.setUrlArchivo(null);
+            }
+        }
+    }
+
     public PqrsDTO create(PqrsDTO pqrsDTO) {
         authorization.requireAdministrativeCaseAccess();
+        if (pqrsDTO.getArchivosAdjuntosDTO() != null && !pqrsDTO.getArchivosAdjuntosDTO().isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("Attachments must be sent with the secure operation");
+        }
         LOG.debug("Request to create a Pqrs: {}", pqrsDTO);
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
         pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
@@ -324,15 +385,6 @@ public class PqrsService {
         Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
         pqrs.setOficinaResponder(office);
 
-        if (pqrsDTO.getArchivosAdjuntosDTO() != null) {
-            Set<ArchivoAdjunto> archivosAdjuntos = pqrsDTO
-                .getArchivosAdjuntosDTO()
-                .stream()
-                .map(this::convertToEntity)
-                .collect(Collectors.toSet());
-            pqrs.setArchivosAdjuntos(archivosAdjuntos);
-        }
-
         pqrs = pqrsRepository.save(pqrs);
 
         pqrsNotificationService.sendPqrsNotification(
@@ -344,17 +396,6 @@ public class PqrsService {
         return mapPqrsToDtoWithOffice(pqrs);
     }
 
-    private ArchivoAdjunto convertToEntity(ArchivoAdjuntoDTO dto) {
-        ArchivoAdjunto archivo = new ArchivoAdjunto();
-        archivo.setId(dto.getId());
-        archivo.setNombre(dto.getNombre());
-        archivo.setTipo(dto.getTipo());
-        archivo.setUrlArchivo(dto.getUrlArchivo());
-        archivo.setFechaSubida(dto.getFechaSubida());
-
-        return archivo;
-    }
-
     public PqrsDTO update(PqrsDTO pqrsDTO) {
         Pqrs pqrs = pqrsMapper.toEntity(pqrsDTO);
         LOG.info("pqrs --------------------------------- {}", pqrs.toString());
@@ -364,76 +405,65 @@ public class PqrsService {
             throw new BadRequestAlertException("Pqrs not found", "Pqrs", "idnotfound");
         }
         // The marker is intentionally absent from REST DTOs; legacy edits must preserve it.
+        validateExistingAttachmentIds(pqrsDTO.getArchivosAdjuntosDTO(), oldPqrs.getId());
+        pqrs.setArchivosAdjuntos(oldPqrs.getArchivosAdjuntos());
         pqrs.setPublication(oldPqrs.getPublication());
+        pqrs.setResponsePublicationLock(oldPqrs.getResponsePublicationLock());
+        pqrs.setAuthorizationRevision(oldPqrs.getAuthorizationRevision());
         authorization.checkCaseWriteAccess(oldPqrs, pqrs);
+        boolean changeOffice = !Objects.equals(
+            oldPqrs.getOficinaResponder() == null ? null : oldPqrs.getOficinaResponder().getId(),
+            pqrs.getOficinaResponder() == null ? null : pqrs.getOficinaResponder().getId()
+        );
+        if (changeOffice) pqrs.setAuthorizationRevision(oldPqrs.getAuthorizationRevision() + 1);
+        boolean changeDeadline = !Objects.equals(oldPqrs.getDaysToReply(), pqrs.getDaysToReply());
+        if (changeDeadline) pqrs.setFechaLimiteRespuesta(
+            deadlineCalculationService.calculateDeadline(oldPqrs.getFechaCreacion(), pqrs.getDaysToReply())
+        );
 
+        validateExistingAttachmentIds(pqrsDTO.get_transientAttachments(), pqrs.getId());
+
+        if (!pqrsRepository.replaceIfAuthorizationCurrent(pqrs, oldPqrs.getAuthorizationRevision(), changeOffice)) {
+            throw new ConflictException("The case assignment or publication changed; reload the case");
+        }
         if (SecurityUtils.isAuthenticated()) {
-            if (PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado())) {
-                boolean changeState = !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado());
-
-                if (changeState) {
-                    pqrsNotificationService.sendPqrsNotification(
-                        pqrs,
-                        PqrsNotificationType.PQRS_RESOLVED,
-                        AuthoritiesConstants.FRONT_DESK_CS
-                    );
-                }
+            if (
+                PqrsStatus.RESOLVED.getDisplayName().equalsIgnoreCase(pqrs.getEstado()) &&
+                !Objects.equals(oldPqrs.getEstado(), pqrs.getEstado())
+            ) {
+                pqrsNotificationService.sendPqrsNotification(
+                    pqrs,
+                    PqrsNotificationService.PqrsNotificationType.PQRS_RESOLVED,
+                    AuthoritiesConstants.FRONT_DESK_CS
+                );
             }
-
-            boolean changeOffice =
-                (oldPqrs.getOficinaResponder() != null && pqrs.getOficinaResponder() != null) &&
-                !Objects.equals(oldPqrs.getOficinaResponder().getId(), pqrs.getOficinaResponder().getId());
-
             if (changeOffice) {
-                Oficina office = oficinaRepository.findById(pqrs.getOficinaResponder().getId()).orElse(null);
-                User responsible = office.getResponsable();
-                pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_ASSIGNED, responsible);
-            }
-
-            boolean changeDeadline = !Objects.equals(oldPqrs.getDaysToReply(), pqrs.getDaysToReply());
-            if (changeDeadline) {
-                Instant newDeadline = deadlineCalculationService.calculateDeadline(oldPqrs.getFechaCreacion(), pqrs.getDaysToReply());
-                pqrs.setFechaLimiteRespuesta(newDeadline);
-            }
-        }
-
-        Pqrs savedPqrs = pqrsRepository.save(pqrs);
-        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
-
-        if (pqrsDTO.get_transientAttachments() != null && !pqrsDTO.get_transientAttachments().isEmpty()) {
-            for (ArchivoAdjuntoDTO adjuntoDTO : pqrsDTO.get_transientAttachments()) {
-                if (adjuntoDTO.getId() != null) {
-                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
-                    adjuntoOpt.ifPresentOrElse(
-                        adjuntoToLink -> {
-                            adjuntoToLink.setPqrsAttachment(savedPqrs);
-                            attachedFileRepository.save(adjuntoToLink);
-                            successfullyLinkedAttachments.add(adjuntoToLink);
-                        },
-                        () ->
-                            LOG.warn(
-                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
-                                adjuntoDTO.getId(),
-                                savedPqrs.getId()
-                            )
+                oficinaRepository
+                    .findById(pqrs.getOficinaResponder().getId())
+                    .map(Oficina::getResponsable)
+                    .ifPresent(responsible ->
+                        pqrsNotificationService.sendPqrsNotification(pqrs, PqrsNotificationType.PQRS_ASSIGNED, responsible)
                     );
-                } else {
-                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
-                }
             }
         }
+        return toPqrsDto(pqrs);
+    }
 
-        if (!successfullyLinkedAttachments.isEmpty()) {
-            savedPqrs.set_transientAttachments(successfullyLinkedAttachments);
-        } else {
-            savedPqrs.set_transientAttachments(new HashSet<>());
+    private void validateExistingAttachmentIds(Set<ArchivoAdjuntoDTO> submitted, String caseId) {
+        if (submitted == null) return;
+        Set<String> existingIds = attachedFileRepository
+            .findByPqrsAttachment_Id(caseId)
+            .stream()
+            .filter(file -> attachmentVisibility.isVisible(file.getId()))
+            .map(ArchivoAdjunto::getId)
+            .collect(Collectors.toSet());
+        if (submitted.stream().anyMatch(file -> file == null || !existingIds.contains(file.getId()))) {
+            throw new org.springframework.security.access.AccessDeniedException("Attachment associations require the operation flow");
         }
-
-        return pqrsMapper.toDto(savedPqrs);
     }
 
     public PublicPqrsDTO createPublicPqrs(PublicPqrsDTO publicPqrsDTO) {
-        LOG.debug("Request to create public Pqrs : {}", publicPqrsDTO);
+        rejectAttachmentIdentifiers(publicPqrsDTO.get_transientAttachments());
         Pqrs pqrs = publicPqrsMapper.toEntity(publicPqrsDTO);
 
         Instant globalCurrentDate = Instant.now();
@@ -452,36 +482,7 @@ public class PqrsService {
 
         Pqrs savedPqrs = pqrsRepository.save(pqrs);
 
-        Set<ArchivoAdjunto> successfullyLinkedAttachments = new HashSet<>();
-
-        if (publicPqrsDTO.get_transientAttachments() != null && !publicPqrsDTO.get_transientAttachments().isEmpty()) {
-            for (ArchivoAdjuntoDTO adjuntoDTO : publicPqrsDTO.get_transientAttachments()) {
-                if (adjuntoDTO.getId() != null) {
-                    Optional<ArchivoAdjunto> adjuntoOpt = attachedFileRepository.findById(adjuntoDTO.getId());
-                    adjuntoOpt.ifPresentOrElse(
-                        adjuntoToLink -> {
-                            adjuntoToLink.setPqrsAttachment(savedPqrs);
-                            attachedFileRepository.save(adjuntoToLink);
-                            successfullyLinkedAttachments.add(adjuntoToLink);
-                        },
-                        () ->
-                            LOG.warn(
-                                "ArchivoAdjunto with ID {} provided in DTO not found. Cannot link to PQRS {}.",
-                                adjuntoDTO.getId(),
-                                savedPqrs.getId()
-                            )
-                    );
-                } else {
-                    LOG.warn("ArchivoAdjuntoDTO in _transientAttachments is missing an ID. Cannot link.");
-                }
-            }
-        }
-
-        if (!successfullyLinkedAttachments.isEmpty()) {
-            savedPqrs.set_transientAttachments(successfullyLinkedAttachments);
-        } else {
-            savedPqrs.set_transientAttachments(new HashSet<>());
-        }
+        savedPqrs.set_transientAttachments(new HashSet<>());
 
         if (pqrs != null) {
             pqrsNotificationService.sendPqrsNotification(
@@ -495,7 +496,47 @@ public class PqrsService {
             mailService.sendAccessToken(savedPqrs);
         }
 
-        return publicPqrsMapper.toDto(savedPqrs);
+        return hideManagedKeys(publicPqrsMapper.toDto(savedPqrs));
+    }
+
+    public PublicPqrsDTO createPublicPqrs(PublicPqrsDTO input, List<MultipartFile> files, String requestKey) {
+        if (input.getAccessToken() != null) throw new BadRequestAlertException(
+            "A new public PQRSD cannot include an access token",
+            "pqrs",
+            "idexists"
+        );
+        rejectAttachmentIdentifiers(input.get_transientAttachments());
+        Pqrs pqrs = publicPqrsMapper.toEntity(input);
+        Instant now = Instant.now();
+        pqrs.setEstado(PqrsStatus.PENDING.getDisplayName());
+        pqrs.setDaysToReply(15);
+        pqrs.setAccessToken(UUID.randomUUID().toString());
+        pqrs.setFechaCreacion(now);
+        pqrs.setFileNumber(generateFileNumber());
+        pqrs.setFechaLimiteRespuesta(deadlineCalculationService.calculateDeadline(now, 15));
+        Oficina office = oficinaRepository.findByNombre("Ventanilla Unica");
+        if (office == null) throw new IllegalStateException("Default intake office is unavailable");
+        pqrs.setOficinaResponder(office);
+        Map<String, String> identityFields = Map.of(
+            "type",
+            String.valueOf(input.getType()),
+            "title",
+            input.getTitulo(),
+            "description",
+            input.getDescripcion() == null ? "" : input.getDescripcion(),
+            "requesterEmail",
+            input.getRequesterEmail() == null ? "" : input.getRequesterEmail()
+        );
+        Pqrs created = attachmentOperations.publishCase(pqrs, files, requestKey, List.of("PUBLIC_CASE_CREATE"), identityFields);
+        String operationId = created.getPublication().getOperationId();
+        pqrsNotificationService.sendPqrsNotificationOnce(
+            created,
+            PqrsNotificationType.PQRS_CREATED,
+            AuthoritiesConstants.FRONT_DESK_CS,
+            operationId
+        );
+        if (created.getRequesterEmail() != null) mailService.sendAccessToken(created);
+        return hideManagedKeys(publicPqrsMapper.toDto(created));
     }
 
     /**
@@ -546,7 +587,7 @@ public class PqrsService {
             }
             pqrs.set_transientResponses(populatedResponses);
 
-            return publicPqrsMapper.toDto(pqrs);
+            return hideManagedKeys(publicPqrsMapper.toDto(pqrs));
         });
     }
 
@@ -563,33 +604,41 @@ public class PqrsService {
         return attachments.stream().filter(file -> attachmentVisibility.isVisible(file.getId())).collect(Collectors.toSet());
     }
 
-    public PublicResponseDTO addPublicResponseToPqrs(String accessToken, PublicResponseDTO publicResponseDTO, List<MultipartFile> files) {
+    public PublicResponseDTO addPublicResponseToPqrs(
+        String accessToken,
+        PublicResponseDTO publicResponseDTO,
+        List<MultipartFile> files,
+        String requestKey
+    ) {
         Pqrs pqrs = pqrsRepository
             .findByAccessToken(accessToken)
             .orElseThrow(() -> new BadRequestAlertException("Pqrs not found for the given access token", "Pqrs", "accessTokenNotFound"));
-
+        rejectAttachmentIdentifiers(publicResponseDTO.get_transientAttachments());
         Respuesta response = new Respuesta();
         response.setContenido(publicResponseDTO.getContenido());
         response.setFechaRespuesta(Instant.now());
         response.setPqrs(pqrs);
         response.setResolver(null);
+        response = attachmentOperations.publishResponse(
+            pqrs,
+            response,
+            files,
+            requestKey,
+            List.of("PUBLIC_RESPONSE", accessToken),
+            Map.of("content", publicResponseDTO.getContenido() == null ? "" : publicResponseDTO.getContenido()),
+            AttachmentOperationType.CITIZEN_RESPONSE_CREATE,
+            null
+        );
+        return hideManagedKeys(publicResponseMapper.toDto(response));
+    }
 
-        response = responseRepository.save(response);
-
-        Set<ArchivoAdjunto> savedAttachments = new HashSet<>();
-        if (files != null && !files.isEmpty()) {
-            for (MultipartFile file : files) {
-                if (!file.isEmpty()) {
-                    ArchivoAdjunto attachedFile = attachedFileService.saveFileMetadata(file);
-                    attachedFile.setResponseAttachment(response);
-
-                    savedAttachments.add(attachedFileRepository.save(attachedFile));
-                }
-            }
+    private static void rejectAttachmentIdentifiers(Set<ArchivoAdjuntoDTO> attachments) {
+        if (
+            attachments != null &&
+            attachments.stream().anyMatch(file -> file == null || file.getId() != null || file.getUrlArchivo() != null)
+        ) {
+            throw new org.springframework.security.access.AccessDeniedException("Attachment IDs are not accepted for publication");
         }
-
-        response.set_transientAttachments(savedAttachments);
-        return publicResponseMapper.toDto(response);
     }
 
     /**
@@ -636,7 +685,12 @@ public class PqrsService {
                 }
 
                 pqrs.setOficinaResponder(newOffice);
-                Pqrs updatedPqrs = pqrsRepository.save(pqrs);
+                long expectedRevision = pqrs.getAuthorizationRevision();
+                pqrs.setAuthorizationRevision(expectedRevision + 1);
+                if (!pqrsRepository.replaceIfAuthorizationCurrent(pqrs, expectedRevision, true)) {
+                    throw new ConflictException("A response publication is in progress; retry reassignment");
+                }
+                Pqrs updatedPqrs = pqrs;
 
                 if (oldOffice == null || !Objects.equals(oldOffice.getId(), newOffice.getId())) {
                     User responsible = newOffice.getResponsable();

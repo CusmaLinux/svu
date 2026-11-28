@@ -1,4 +1,4 @@
-import { type Ref, computed, defineComponent, inject, ref, onMounted } from 'vue';
+import { type Ref, computed, defineComponent, inject, ref, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
@@ -31,7 +31,6 @@ export default defineComponent({
     const existingFilesInfo: Ref<IArchivoAdjunto[]> = ref([]);
     const filesToDelete: Ref<string[]> = ref([]);
     const fileInput = ref<HTMLInputElement | null>(null);
-    const archivosAdjuntosDTO = ref<IArchivoAdjunto[]>([]);
     const isUploading = ref(false);
     const errorMessage = ref<string | null>(null);
     const successMessage = ref<string | null>(null);
@@ -42,6 +41,14 @@ export default defineComponent({
     const isPqrsFixed = ref(false);
     const pqrs: Ref<IPqrs[]> = ref([]);
     const isSaving = ref(false);
+    const idempotencyKey = ref<string | null>(null);
+    watch(
+      [respuesta, files],
+      () => {
+        if (!isSaving.value) idempotencyKey.value = null;
+      },
+      { deep: true },
+    );
     const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'es'), true);
 
     const route = useRoute();
@@ -147,25 +154,6 @@ export default defineComponent({
       }
     };
 
-    const uploadFiles = async (): Promise<IArchivoAdjunto[]> => {
-      if (files.value.length === 0) return [];
-
-      isUploading.value = true;
-      const formData = new FormData();
-      files.value.forEach(file => {
-        formData.append('files', file);
-      });
-
-      try {
-        return await archivoAdjuntoService().uploadFiles(formData);
-      } catch (error) {
-        alertService.showError(t$('ventanillaUnicaApp.respuesta.errors.upload'));
-        throw error;
-      } finally {
-        isUploading.value = false;
-      }
-    };
-
     const downloadAttachedFile = async (fileURL: string | undefined | null, fileName: string | undefined) => {
       if (!fileURL || !fileName) return;
       try {
@@ -202,9 +190,6 @@ export default defineComponent({
           filesToDelete.value = [];
         }
 
-        const newAttachments: IArchivoAdjunto[] = await uploadFiles();
-        respuesta.value._transientAttachments = newAttachments.map(attachedFile => ({ id: attachedFile.id }));
-
         const payload: IRespuesta = { ...respuesta.value };
 
         if (payload.pqrs && payload.pqrs.id) {
@@ -213,14 +198,20 @@ export default defineComponent({
 
         let result;
         if (payload.id) {
+          if (files.value.length > 0) throw new Error(t$('ventanillaUnicaApp.respuesta.errors.upload').toString());
           result = await respuestaService().update(payload);
           alertService.showInfo(t$('ventanillaUnicaApp.respuesta.updated', { param: result.id }));
         } else {
-          result = await respuestaService().create(payload);
+          isUploading.value = true;
+          idempotencyKey.value ??= crypto.randomUUID();
+          result = await respuestaService().createMultipart(payload, files.value, idempotencyKey.value);
+          isUploading.value = false;
+          idempotencyKey.value = null;
           alertService.showSuccess(t$('ventanillaUnicaApp.respuesta.created', { param: result.id }).toString());
         }
         previousState();
       } catch (error: any) {
+        isUploading.value = false;
         if (!isUploading.value) {
           alertService.showHttpError(error.response);
         }
@@ -242,8 +233,6 @@ export default defineComponent({
       respuesta,
       previousState,
       save,
-      archivosAdjuntosDTO,
-      uploadFiles,
       onDrop,
       isSaving,
       pqrs: allPqrs,

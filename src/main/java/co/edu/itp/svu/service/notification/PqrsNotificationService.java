@@ -5,12 +5,15 @@ import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.User;
 import co.edu.itp.svu.repository.NotificacionRepository;
 import co.edu.itp.svu.repository.UserRepository;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -89,5 +92,36 @@ public class PqrsNotificationService {
             return;
         }
         sendPqrsNotification(pqrs, type, recipient);
+    }
+
+    /** Persists an operation-scoped notification once; SSE is emitted only by the winning insert. */
+    public void sendPqrsNotificationOnce(Pqrs pqrs, PqrsNotificationType type, String recipientAuthority, String operationId) {
+        User recipient = userRepository.findByAuthoritiesName(recipientAuthority);
+        if (recipient == null || operationId == null || pqrs == null) return;
+        Notificacion notification = new Notificacion();
+        notification.setId(
+            UUID.nameUUIDFromBytes((operationId + ":" + type.key + ":" + recipient.getId()).getBytes(StandardCharsets.UTF_8)).toString()
+        );
+        notification.setFecha(Instant.now());
+        notification.setLeido(false);
+        notification.setMensaje(type.message + " (ID: " + pqrs.getId() + ")");
+        notification.setRecipient(recipient);
+        notification.setTipo(type.key);
+        try {
+            notificacionRepository.insert(notification);
+        } catch (DuplicateKeyException duplicate) {
+            return;
+        }
+        Map<String, Object> event = Map.of(
+            "id",
+            notification.getId(),
+            "type",
+            type.key,
+            "message",
+            type.message,
+            "creationDate",
+            notification.getFecha().toString()
+        );
+        sseNotificationService.sendNotificationToUser(recipient.getId(), type.key, event);
     }
 }

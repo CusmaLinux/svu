@@ -84,6 +84,64 @@ public class Pqrs implements Serializable {
     @Field("publication")
     private Publication publication;
 
+    @Field("authorization_revision")
+    private long authorizationRevision;
+
+    @Field("response_publication_lock")
+    private ResponsePublicationLock responsePublicationLock;
+
+    public long getAuthorizationRevision() {
+        return authorizationRevision;
+    }
+
+    public void setAuthorizationRevision(long authorizationRevision) {
+        this.authorizationRevision = authorizationRevision;
+    }
+
+    public ResponsePublicationLock getResponsePublicationLock() {
+        return responsePublicationLock;
+    }
+
+    public void setResponsePublicationLock(ResponsePublicationLock responsePublicationLock) {
+        this.responsePublicationLock = responsePublicationLock;
+    }
+
+    public static class ResponsePublicationLock implements Serializable {
+
+        @Field("operation_id")
+        private String operationId;
+
+        @Field("office_id")
+        private String officeId;
+
+        @Field("authorization_revision")
+        private long authorizationRevision;
+
+        public String getOperationId() {
+            return operationId;
+        }
+
+        public void setOperationId(String operationId) {
+            this.operationId = operationId;
+        }
+
+        public String getOfficeId() {
+            return officeId;
+        }
+
+        public void setOfficeId(String officeId) {
+            this.officeId = officeId;
+        }
+
+        public long getAuthorizationRevision() {
+            return authorizationRevision;
+        }
+
+        public void setAuthorizationRevision(long authorizationRevision) {
+            this.authorizationRevision = authorizationRevision;
+        }
+    }
+
     public Publication getPublication() {
         return publication;
     }
@@ -120,6 +178,12 @@ public class Pqrs implements Serializable {
 
         @Field("lease_until")
         private Instant leaseUntil;
+
+        @Field("authorized_office_id")
+        private String authorizedOfficeId;
+
+        @Field("authorization_revision")
+        private Long authorizationRevision;
 
         public String getState() {
             return state;
@@ -191,6 +255,22 @@ public class Pqrs implements Serializable {
 
         public void setLeaseUntil(Instant leaseUntil) {
             this.leaseUntil = leaseUntil;
+        }
+
+        public String getAuthorizedOfficeId() {
+            return authorizedOfficeId;
+        }
+
+        public void setAuthorizedOfficeId(String authorizedOfficeId) {
+            this.authorizedOfficeId = authorizedOfficeId;
+        }
+
+        public Long getAuthorizationRevision() {
+            return authorizationRevision;
+        }
+
+        public void setAuthorizationRevision(Long authorizationRevision) {
+            this.authorizationRevision = authorizationRevision;
         }
     }
 

@@ -31,6 +31,24 @@ public class AttachmentPublicationVisibilityRepository {
         return candidates.isEmpty() || (candidates.size() == 1 && isVisible(candidates.get(0)));
     }
 
+    public boolean isManaged(String attachmentId) {
+        Document attachment = mongo.getCollection("archivo_adjunto").find(new Document("_id", storedId(attachmentId))).first();
+        if (attachment == null) return false;
+        return (
+            mongo
+                .getCollection(AttachmentOperationRepository.COLLECTION)
+                .find(new Document("files.metadata_id", attachment.get("_id")))
+                .limit(1)
+                .first() !=
+            null
+        );
+    }
+
+    public boolean isManagedKey(String storageKey) {
+        Document attachment = mongo.getCollection("archivo_adjunto").find(new Document("url_archivo", storageKey)).first();
+        return attachment != null && isManaged(attachment.get("_id").toString());
+    }
+
     public boolean isVisible(Document attachment) {
         Object id = attachment.get("_id");
         List<Document> manifests = mongo

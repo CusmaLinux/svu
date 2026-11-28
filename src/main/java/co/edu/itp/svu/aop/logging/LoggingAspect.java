@@ -74,6 +74,18 @@ public class LoggingAspect {
     )
     public void responseDataPointcut() {}
 
+    @Pointcut(
+        "within(co.edu.itp.svu.service.storage.AttachmentOperationCoordinator+) " +
+        "|| execution(* co.edu.itp.svu.service.PqrsService.createPublicPqrs(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.createPublicPqrs(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.createPublicPqrsMultipart(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.downloadPublicCaseAttachment(..)) " +
+        "|| execution(* co.edu.itp.svu.web.rest.PqrsResource.downloadCaseAttachment(..)) " +
+        "|| execution(* co.edu.itp.svu.service.ArchivoAdjuntoService.openForCitizenToken(..)) " +
+        "|| execution(* co.edu.itp.svu.service.ArchivoAdjuntoService.openForCase(..))"
+    )
+    public void attachmentSensitivePointcut() {}
+
     // Statistical filters and small counts should stay out of argument and result logs.
     @Pointcut("within(co.edu.itp.svu..PqrsStatistics*)")
     public void statisticsPointcut() {}
@@ -85,7 +97,7 @@ public class LoggingAspect {
      * @param e exception.
      */
     @AfterThrowing(
-        pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !statisticsPointcut()",
+        pointcut = "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !attachmentSensitivePointcut() && !statisticsPointcut()",
         throwing = "e"
     )
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
@@ -114,7 +126,7 @@ public class LoggingAspect {
      * @throws Throwable throws {@link IllegalArgumentException}.
      */
     @Around(
-        "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !statisticsPointcut()"
+        "applicationPackagePointcut() && springBeanPointcut() && !directoryOrNotificationPointcut() && !responseDataPointcut() && !attachmentSensitivePointcut() && !statisticsPointcut()"
     )
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         Logger log = logger(joinPoint);

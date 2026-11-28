@@ -27,7 +27,7 @@
             <span v-if="respuesta.fechaRespuesta">{{ formatDateLong(respuesta.fechaRespuesta) }}</span>
           </dd>
         </dl>
-        <attachment-list :attachments="respuesta._transientAttachments"></attachment-list>
+        <attachment-list :attachments="respuesta._transientAttachments" :case-id="respuesta.pqrs?.id"></attachment-list>
         <button type="submit" @click.prevent="previousState()" class="btn btn-info" data-cy="entityDetailsBackButton">
           <font-awesome-icon icon="arrow-left"></font-awesome-icon>&nbsp;<span v-text="t$('entity.action.back')"></span>
         </button>

@@ -7,7 +7,7 @@
           ><b-button
             variant="link"
             class=".btn d-flex justify-content-start align-items-center"
-            @click="downloadAttachedFile(file.urlArchivo, file.nombre)"
+            @click="downloadAttachedFile(file.id, file.urlArchivo, file.nombre)"
             ><font-awesome-icon icon="file-alt" /> <span>{{ file.nombre }} </span></b-button
           ></b-badge
         >

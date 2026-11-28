@@ -136,10 +136,10 @@ export default class PqrsService {
     });
   }
 
-  public submitPqrsRequest(entity: IPqrs, headers?: any): Promise<IPqrs> {
+  public submitPqrsRequest(formData: FormData, headers?: any): Promise<IPqrs> {
     return new Promise<IPqrs>((resolve, reject) => {
       axios
-        .post(`${publicApiUrl}`, entity, { headers })
+        .post(`${publicApiUrl}`, formData, { headers })
         .then(res => {
           resolve(res.data);
         })
@@ -147,6 +147,14 @@ export default class PqrsService {
           reject(err);
         });
     });
+  }
+
+  public submitPqrsMultipart(entity: IPqrs, files: File[], requestKey: string, headers?: any): Promise<IPqrs> {
+    const formData = new FormData();
+    const request = { ...entity, _transientAttachments: [] };
+    formData.append('pqrs', new Blob([JSON.stringify(request)], { type: 'application/json' }));
+    files.forEach(file => formData.append('files', file));
+    return axios.post(`${publicApiUrl}`, formData, { headers: { ...headers, 'Idempotency-Key': requestKey } }).then(res => res.data);
   }
 
   public update(entity: IPqrs): Promise<IPqrs> {

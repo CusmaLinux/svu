@@ -41,7 +41,7 @@
                 </dd>
               </dl>
               <hr v-if="pqrs._transientAttachments && pqrs._transientAttachments.length > 0" />
-              <AttachmentList :attachments="pqrs._transientAttachments" />
+              <AttachmentList :attachments="pqrs._transientAttachments" :access-token="accessToken" />
             </div>
           </div>
 
@@ -49,7 +49,7 @@
           <div class="conversation-history">
             <h3 class="mb-3">Historial de Conversación</h3>
             <div v-if="pqrs._transientResponses && pqrs._transientResponses.length > 0">
-              <ResponseItem v-for="response in sortedResponses" :key="response.id" :response="response" />
+              <ResponseItem v-for="response in sortedResponses" :key="response.id" :response="response" :access-token="accessToken" />
             </div>
             <div v-else class="alert alert-secondary">
               <p>Aún no hay respuestas para esta PQRS.</p>

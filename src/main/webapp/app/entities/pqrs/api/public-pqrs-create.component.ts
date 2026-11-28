@@ -1,4 +1,4 @@
-import { computed, defineComponent, inject, ref, onUnmounted, type Ref } from 'vue';
+import { computed, defineComponent, inject, ref, onUnmounted, type Ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useVuelidate } from '@vuelidate/core';
@@ -13,26 +13,20 @@ import { type IPqrs, Pqrs } from '@/shared/model/pqrs.model';
 import { PqrsType } from '@/constants';
 import { helpers, email, maxLength, minLength } from '@vuelidate/validators';
 
-import ArchivoAdjuntoService from '@/entities/archivo-adjunto/archivo-adjunto.service';
-import { type IArchivoAdjunto } from '@/shared/model/archivo-adjunto.model';
-
 export default defineComponent({
   compatConfig: { MODE: 3 },
   name: 'PublicPqrsCreate',
   setup() {
     const pqrsService = inject('pqrsService', () => new PqrsService());
     const alertService = inject('alertService', () => useAlertService(), true);
-    const archivoAdjuntoService = inject('archivoAdjuntoService', () => new ArchivoAdjuntoService());
     const { t: t$ } = useI18n();
     const { getToken } = useRecaptcha();
 
     const files = ref<File[]>([]);
     const filesToDelete: Ref<string[]> = ref([]);
     const fileInput = ref<HTMLInputElement | null>(null);
-    const archivosAdjuntosDTO = ref<IArchivoAdjunto[]>([]);
     const isUploading = ref(false);
-    const errorMessage = ref<string | null>(null);
-    const successMessage = ref<string | null>(null);
+    const idempotencyKey = ref<string | null>(null);
 
     const pqrsTypeOptions = computed(() => {
       return [
@@ -47,6 +41,13 @@ export default defineComponent({
 
     const pqrs: Ref<IPqrs> = ref(new Pqrs());
     const isSaving = ref(false);
+    watch(
+      [pqrs, files],
+      () => {
+        if (!isSaving.value) idempotencyKey.value = null;
+      },
+      { deep: true },
+    );
 
     const input: Ref<HTMLInputElement | null> = ref(null);
     const currentLanguage = inject('currentLanguage', () => computed(() => navigator.language ?? 'es'), true);
@@ -111,28 +112,6 @@ export default defineComponent({
         target.value = '';
       }
     };
-    const uploadFiles = async () => {
-      isUploading.value = true;
-      errorMessage.value = null;
-      successMessage.value = null;
-
-      const formData = new FormData();
-      files.value.forEach(file => {
-        formData.append('files', file);
-      });
-
-      try {
-        const uploadResponse = await archivoAdjuntoService().uploadFiles(formData);
-        archivosAdjuntosDTO.value = uploadResponse;
-
-        successMessage.value = 'Archivos subidos correctamente';
-      } catch (error) {
-        errorMessage.value = 'Error al subir archivos';
-        throw error;
-      } finally {
-        isUploading.value = false;
-      }
-    };
     const downloadAttachedFile = async (fileURL: string | undefined | null, fileName: string | undefined) => {
       if (!fileURL && !fileName) {
         return;
@@ -180,14 +159,21 @@ export default defineComponent({
           await uploadFiles();
           pqrs.value._transientAttachments = archivosAdjuntosDTO.value.map(attachedFile => ({ id: attachedFile.id }));
         }
+        isUploading.value = true;
+        const formData = new FormData();
+        const request = { ...pqrs.value, _transientAttachments: [] };
+        formData.append('pqrs', new Blob([JSON.stringify(request)], { type: 'application/json' }));
+        files.value.forEach(file => formData.append('files', file));
         const recaptchaToken = await getToken('submit_pulic_pqrs');
-        const headers = { 'X-Recaptcha-Token': recaptchaToken };
-
-        const savedPqrs = await pqrsService().submitPqrsRequest(pqrs.value, headers);
+        const headers = { 'X-Recaptcha-Token': recaptchaToken, 'Idempotency-Key': (idempotencyKey.value ??= crypto.randomUUID()) };
+        const savedPqrs = await pqrsService().submitPqrsRequest(formData, headers);
+        isUploading.value = false;
+        idempotencyKey.value = null;
         alertService.showSuccess(t$('ventanillaUnicaApp.pqrs.created', { param: savedPqrs.id }).toString());
 
         navigateToVerifyPage(savedPqrs.accessToken);
       } catch (error: any) {
+        isUploading.value = false;
         alertService.showHttpError(error.response ?? 'Ocurrió un error inesperado.');
       } finally {
         isSaving.value = false;
@@ -233,16 +219,12 @@ export default defineComponent({
       files,
       downloadAttachedFile,
       fileInput,
-      archivosAdjuntosDTO,
-      uploadFiles,
       onFileChange,
       triggerFileInput,
       removeFile,
       save,
       onDrop,
       isUploading,
-      errorMessage,
-      successMessage,
       requesterEmailModel,
       pqrsTypeOptions,
       hasFiles,

@@ -62,7 +62,7 @@
             <!-- Attachments of pqrs -->
             <div v-if="pqrs?._transientAttachments" class="bg-white p-4 rounded shadow-sm border mb-4">
               <b-list-group>
-                <attachment-list :attachments="pqrs._transientAttachments"></attachment-list>
+                <attachment-list :attachments="pqrs._transientAttachments" :case-id="pqrs.id"></attachment-list>
               </b-list-group>
               <p class="small text-muted mt-3">Total: {{ pqrs._transientAttachments.length }} archivos</p>
             </div>
@@ -72,7 +72,7 @@
               <b-list-group>
                 <strong class="mb-4"><font-awesome-icon icon="comment" /> <span>Historial de Comunicación </span></strong>
                 <div v-for="response in pqrs._transientResponses" :key="response.id">
-                  <response-item :response="response"></response-item>
+                  <response-item :response="response" :case-id="pqrs.id"></response-item>
                 </div>
               </b-list-group>
             </div>

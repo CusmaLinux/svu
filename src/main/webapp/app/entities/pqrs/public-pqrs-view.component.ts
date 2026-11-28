@@ -22,6 +22,7 @@ export default defineComponent({
     const { formatDateLong } = useDateFormat();
 
     const pqrs = ref<IPublicPqrs | null>(null);
+    const accessToken = route.params.accessToken as string;
     const loading = ref(true);
     const error = ref<Error | null>(null);
 
@@ -49,7 +50,6 @@ export default defineComponent({
     });
 
     onMounted(() => {
-      const accessToken = route.params.accessToken as string;
       if (accessToken) {
         loadPqrs(accessToken);
       } else {
@@ -61,6 +61,7 @@ export default defineComponent({
     return {
       t,
       pqrs,
+      accessToken,
       loading,
       error,
       formatDateLong,

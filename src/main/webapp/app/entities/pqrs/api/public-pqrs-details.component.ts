@@ -1,4 +1,4 @@
-import { computed, defineComponent, inject, ref, onMounted, type Ref } from 'vue';
+import { computed, defineComponent, inject, ref, onMounted, type Ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AttachmentList from '@/entities/archivo-adjunto/attachment-list.vue';
 import SatisfactionSurveyModal from './satisfaction-survey-modal.vue';
@@ -42,6 +42,14 @@ export default defineComponent({
     const isLoading = ref(true);
     const isSendingReply = ref(false);
     const isUploading = ref(false);
+    const idempotencyKey = ref<string | null>(null);
+    watch(
+      [response, files],
+      () => {
+        if (!isSendingReply.value) idempotencyKey.value = null;
+      },
+      { deep: true },
+    );
     const dateFormat = useDateFormat();
     const { getToken } = useRecaptcha();
     const isSurveyModalVisible = ref(false);
@@ -140,7 +148,10 @@ export default defineComponent({
 
         if (accessToken) {
           const recaptchaToken = await getToken('response_pulic_pqrs');
-          const headers = { 'X-Recaptcha-Token': recaptchaToken };
+          const headers = {
+            'X-Recaptcha-Token': recaptchaToken,
+            'Idempotency-Key': (idempotencyKey.value ??= crypto.randomUUID()),
+          };
 
           const savedResponse = await pqrsService().submitPublicResponse(accessToken, formData, headers);
           alertService.showSuccess(t$('ventanillaUnicaApp.respuesta.created', { param: savedResponse.id }).toString());
@@ -161,6 +172,7 @@ export default defineComponent({
     const resetForm = () => {
       response.value = new Respuesta();
       files.value = [];
+      idempotencyKey.value = null;
 
       if (fileInput.value) {
         fileInput.value.value = '';
@@ -226,6 +238,7 @@ export default defineComponent({
     // --- Expose to Template ---
     return {
       pqrs,
+      effectiveAccessToken,
       newReply,
       isLoading,
       isSendingReply,

@@ -2,12 +2,19 @@ package co.edu.itp.svu.service;
 
 import co.edu.itp.svu.config.ApplicationProperties;
 import co.edu.itp.svu.domain.ArchivoAdjunto;
+import co.edu.itp.svu.domain.Pqrs;
+import co.edu.itp.svu.domain.Respuesta;
 import co.edu.itp.svu.repository.ArchivoAdjuntoRepository;
 import co.edu.itp.svu.repository.AttachmentPublicationVisibilityRepository;
+import co.edu.itp.svu.repository.PqrsRepository;
+import co.edu.itp.svu.repository.RespuestaRepository;
+import co.edu.itp.svu.security.PqrsAuthorizationService;
 import co.edu.itp.svu.service.dto.ArchivoAdjuntoDTO;
 import co.edu.itp.svu.service.mapper.ArchivoAdjuntoMapper;
+import co.edu.itp.svu.service.storage.AttachmentStorage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -39,6 +46,10 @@ public class ArchivoAdjuntoService {
 
     private final ArchivoAdjuntoMapper archivoAdjuntoMapper;
     private final AttachmentPublicationVisibilityRepository attachmentVisibility;
+    private final PqrsRepository pqrsRepository;
+    private final RespuestaRepository respuestaRepository;
+    private final PqrsAuthorizationService authorization;
+    private final AttachmentStorage storage;
 
     private final String uploadDir;
 
@@ -46,11 +57,19 @@ public class ArchivoAdjuntoService {
         ArchivoAdjuntoRepository archivoAdjuntoRepository,
         ArchivoAdjuntoMapper archivoAdjuntoMapper,
         AttachmentPublicationVisibilityRepository attachmentVisibility,
-        ApplicationProperties appProperties
+        ApplicationProperties appProperties,
+        PqrsRepository pqrsRepository,
+        RespuestaRepository respuestaRepository,
+        PqrsAuthorizationService authorization,
+        AttachmentStorage storage
     ) {
         this.archivoAdjuntoRepository = archivoAdjuntoRepository;
         this.archivoAdjuntoMapper = archivoAdjuntoMapper;
         this.attachmentVisibility = attachmentVisibility;
+        this.pqrsRepository = pqrsRepository;
+        this.respuestaRepository = respuestaRepository;
+        this.authorization = authorization;
+        this.storage = storage;
         this.uploadDir = appProperties.getFile().getUploadDir();
     }
 
@@ -58,7 +77,7 @@ public class ArchivoAdjuntoService {
     public Page<ArchivoAdjuntoDTO> search(String criteria, Pageable pageable) {
         LOG.debug("Request to search for a page of Attached files for query {}", criteria);
 
-        return archivoAdjuntoRepository.search(criteria, pageable).map(archivoAdjuntoMapper::toDto);
+        return archivoAdjuntoRepository.search(criteria, pageable).map(this::toPresentationDto);
     }
 
     /**
@@ -71,7 +90,7 @@ public class ArchivoAdjuntoService {
         LOG.debug("Request to save ArchivoAdjunto : {}", archivoAdjuntoDTO);
         ArchivoAdjunto archivoAdjunto = archivoAdjuntoMapper.toEntity(archivoAdjuntoDTO);
         archivoAdjunto = archivoAdjuntoRepository.save(archivoAdjunto);
-        return archivoAdjuntoMapper.toDto(archivoAdjunto);
+        return toPresentationDto(archivoAdjunto);
     }
 
     /**
@@ -82,9 +101,12 @@ public class ArchivoAdjuntoService {
      */
     public ArchivoAdjuntoDTO update(ArchivoAdjuntoDTO archivoAdjuntoDTO) {
         LOG.debug("Request to update ArchivoAdjunto : {}", archivoAdjuntoDTO);
+        if (attachmentVisibility.isManaged(archivoAdjuntoDTO.getId())) throw new AccessDeniedException(
+            "Published attachment metadata is immutable"
+        );
         ArchivoAdjunto archivoAdjunto = archivoAdjuntoMapper.toEntity(archivoAdjuntoDTO);
         archivoAdjunto = archivoAdjuntoRepository.save(archivoAdjunto);
-        return archivoAdjuntoMapper.toDto(archivoAdjunto);
+        return toPresentationDto(archivoAdjunto);
     }
 
     /**
@@ -99,6 +121,9 @@ public class ArchivoAdjuntoService {
         return archivoAdjuntoRepository
             .findById(archivoAdjuntoDTO.getId())
             .map(existingArchivoAdjunto -> {
+                if (attachmentVisibility.isManaged(existingArchivoAdjunto.getId())) {
+                    throw new AccessDeniedException("Published attachment metadata is immutable");
+                }
                 if (archivoAdjuntoDTO.getNombre() != null) {
                     existingArchivoAdjunto.setNombre(archivoAdjuntoDTO.getNombre());
                 }
@@ -115,7 +140,7 @@ public class ArchivoAdjuntoService {
                 return existingArchivoAdjunto;
             })
             .map(archivoAdjuntoRepository::save)
-            .map(archivoAdjuntoMapper::toDto);
+            .map(this::toPresentationDto);
     }
 
     /**
@@ -144,7 +169,7 @@ public class ArchivoAdjuntoService {
         return archivoAdjuntoRepository
             .findById(id)
             .filter(file -> attachmentVisibility.isVisible(file.getId()))
-            .map(archivoAdjuntoMapper::toDto);
+            .map(this::toPresentationDto);
     }
 
     /**
@@ -154,6 +179,7 @@ public class ArchivoAdjuntoService {
      */
     public void delete(String id) {
         LOG.debug("Request to delete ArchivoAdjunto : {}", id);
+        if (attachmentVisibility.isManaged(id)) throw new AccessDeniedException("Published attachments are immutable");
         if (!attachmentVisibility.isVisible(id)) throw new AccessDeniedException("Attachment is not published");
         archivoAdjuntoRepository.deleteById(id);
     }
@@ -165,6 +191,7 @@ public class ArchivoAdjuntoService {
      */
     public void deleteByFileURL(String fileURL) {
         LOG.debug("Request to delete ArchivoAdjunto : {}", fileURL);
+        if (attachmentVisibility.isManagedKey(fileURL)) throw new AccessDeniedException("Published attachments are immutable");
         if (!attachmentVisibility.isVisibleKey(fileURL)) throw new AccessDeniedException("Attachment is not published");
         archivoAdjuntoRepository.deleteByUrlArchivo(fileURL);
     }
@@ -183,8 +210,49 @@ public class ArchivoAdjuntoService {
         }
     }
 
+    public ContextualDownload openForCase(String caseId, String attachmentId, String citizenToken) throws IOException {
+        ArchivoAdjunto attachment = archivoAdjuntoRepository
+            .findById(attachmentId)
+            .orElseThrow(() -> new AccessDeniedException("Attachment unavailable"));
+        Pqrs pqrs = pqrsRepository.findById(caseId).orElseThrow(() -> new AccessDeniedException("Case unavailable"));
+        boolean citizen = citizenToken != null;
+        if (citizen) {
+            Pqrs tokenCase = pqrsRepository
+                .findByAccessToken(citizenToken)
+                .orElseThrow(() -> new AccessDeniedException("Case unavailable"));
+            if (!Objects.equals(tokenCase.getId(), pqrs.getId())) throw new AccessDeniedException("Attachment unavailable");
+        } else {
+            authorization.checkCaseReadAccess(pqrs);
+        }
+        if (!attachmentVisibility.isVisible(attachmentId)) throw new AccessDeniedException("Attachment unavailable");
+        boolean directMember = attachment.getPqrsAttachment() != null && Objects.equals(attachment.getPqrsAttachment().getId(), caseId);
+        boolean responseMember = false;
+        if (attachment.getResponseAttachment() != null) {
+            Respuesta response = respuestaRepository.findById(attachment.getResponseAttachment().getId()).orElse(null);
+            responseMember = response != null && response.getPqrs() != null && Objects.equals(response.getPqrs().getId(), caseId);
+        }
+        boolean member = attachment.getResponseAttachment() == null ? directMember : directMember && responseMember;
+        if (!member) throw new AccessDeniedException("Attachment unavailable");
+        InputStream stream = storage.open(attachment.getUrlArchivo());
+        return new ContextualDownload(stream, attachment.getNombre());
+    }
+
+    public ContextualDownload openForCitizenToken(String citizenToken, String attachmentId) throws IOException {
+        Pqrs pqrs = pqrsRepository.findByAccessToken(citizenToken).orElseThrow(() -> new AccessDeniedException("Case unavailable"));
+        return openForCase(pqrs.getId(), attachmentId, citizenToken);
+    }
+
+    public record ContextualDownload(InputStream stream, String filename) {}
+
+    private ArchivoAdjuntoDTO toPresentationDto(ArchivoAdjunto attachment) {
+        ArchivoAdjuntoDTO dto = archivoAdjuntoMapper.toDto(attachment);
+        if (attachmentVisibility.isManaged(attachment.getId())) dto.setUrlArchivo(null);
+        return dto;
+    }
+
     public void deleteFile(String fileName) throws IOException {
         LOG.debug("Request to delete a file");
+        if (attachmentVisibility.isManagedKey(fileName)) throw new AccessDeniedException("Published attachments are immutable");
         if (!attachmentVisibility.isVisibleKey(fileName)) throw new AccessDeniedException("Attachment is not published");
 
         Path rootLocation = Path.of(this.uploadDir);

@@ -14,6 +14,8 @@ export default defineComponent({
       type: Object as PropType<IRespuesta>,
       required: true,
     },
+    caseId: { type: String, default: null },
+    accessToken: { type: String, default: null },
   },
   setup() {
     const { t } = useI18n();

@@ -10,7 +10,7 @@
     <div class="card-body">
       <p class="card-text" v-text="response.contenido"></p>
       <hr v-if="response._transientAttachments && response._transientAttachments.length > 0" />
-      <attachment-list :attachments="response._transientAttachments" />
+      <attachment-list :attachments="response._transientAttachments" :case-id="caseId" :access-token="accessToken" />
     </div>
   </div>
 </template>

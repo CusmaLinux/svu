@@ -4,6 +4,8 @@ import static co.edu.itp.svu.repository.AttachmentOperationRepository.PhysicalSe
 import static org.assertj.core.api.Assertions.*;
 
 import co.edu.itp.svu.config.ApplicationProperties;
+import co.edu.itp.svu.domain.Oficina;
+import co.edu.itp.svu.domain.Pqrs;
 import co.edu.itp.svu.domain.attachment.*;
 import co.edu.itp.svu.repository.AttachmentOperationRepository.*;
 import co.edu.itp.svu.service.storage.AttachmentRequestIdentity;
@@ -129,6 +131,30 @@ class AttachmentOperationStandaloneIT {
     }
 
     @Test
+    void responseGateSerializesPublicationAgainstCaseReassignment() {
+        String caseId = new ObjectId().toHexString();
+        String firstOfficeId = new ObjectId().toHexString();
+        String nextOfficeId = new ObjectId().toHexString();
+        Pqrs persisted = new Pqrs();
+        persisted.setId(caseId);
+        persisted.setOficinaResponder(new Oficina().id(firstOfficeId));
+        template.insert(persisted);
+        var gate = new co.edu.itp.svu.service.ResponsePublicationGate(template);
+        Pqrs loaded = template.findById(caseId, Pqrs.class);
+
+        assertThat(gate.acquire(loaded, "response-op", firstOfficeId)).isTrue();
+        Pqrs reassignment = template.findById(caseId, Pqrs.class);
+        reassignment.setOficinaResponder(new Oficina().id(nextOfficeId));
+        assertThat(new PqrsQueryRepositoryImpl(template).replaceIfAuthorizationCurrent(reassignment, 0, true)).isFalse();
+
+        gate.release(caseId, "response-op");
+        assertThat(new PqrsQueryRepositoryImpl(template).replaceIfAuthorizationCurrent(reassignment, 0, true)).isTrue();
+        Pqrs staleAssignment = template.findById(caseId, Pqrs.class);
+        staleAssignment.setOficinaResponder(new Oficina().id(firstOfficeId));
+        assertThat(gate.acquire(staleAssignment, "stale-response-op", firstOfficeId)).isFalse();
+    }
+
+    @Test
     void persistsReservedBsonIdsAndMinimalFileMetadata() {
         var op = operation("actor", "key", "digest");
         op.setCaseId(new org.bson.types.ObjectId());
@@ -222,7 +248,13 @@ class AttachmentOperationStandaloneIT {
                     )
                 )
             );
-        new co.edu.itp.svu.service.storage.AttachmentRecoveryService(physicalOperations, template, verifier, storage).recoverPendingBatch();
+        new co.edu.itp.svu.service.storage.AttachmentRecoveryService(
+            physicalOperations,
+            template,
+            verifier,
+            storage,
+            new co.edu.itp.svu.service.ResponsePublicationGate(template)
+        ).recoverPendingBatch();
         assertThat(physicalOperations.findById(persisting.getId()).orElseThrow().getState()).isEqualTo(AttachmentOperationState.COMMITTED);
     }
 
@@ -351,7 +383,13 @@ class AttachmentOperationStandaloneIT {
         var storage = physicalStorage(root);
         var publications = new AttachmentPublicationRepository(template, repository);
         var verifier = new AttachmentPublicationVerifier(repository, publications, storage, template);
-        var recovery = new co.edu.itp.svu.service.storage.AttachmentRecoveryService(repository, template, verifier, storage);
+        var recovery = new co.edu.itp.svu.service.storage.AttachmentRecoveryService(
+            repository,
+            template,
+            verifier,
+            storage,
+            new co.edu.itp.svu.service.ResponsePublicationGate(template)
+        );
         recovery.recoverPendingBatch();
 
         assertThat(repository.findById(abandoned.getId()).orElseThrow().getState()).isEqualTo(AttachmentOperationState.ABORTED);

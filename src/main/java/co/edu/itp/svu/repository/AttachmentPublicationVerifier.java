@@ -171,7 +171,20 @@ public class AttachmentPublicationVerifier {
         if (!Objects.equals(root.id(), operation.getResponseId())) return false;
         Document parent = mongo.getCollection("pqrs").find(new Document("_id", operation.getCaseId())).first();
         if (parent == null || !isPublished(parent)) return false;
-        return refersTo(root.document().get("pqrs"), "pqrs", operation.getCaseId());
+        if (!refersTo(root.document().get("pqrs"), "pqrs", operation.getCaseId())) return false;
+        if (operation.getOperationType() != AttachmentOperationType.INSTITUTIONAL_RESPONSE_CREATE) return true;
+        Document lock = parent.get("response_publication_lock", Document.class);
+        Document publication = root.document().get("publication", Document.class);
+        if (lock == null || publication == null) return false;
+        Object currentOffice = refId(parent.get("oficinaResponder"), "oficina");
+        long authorizationRevision = number(parent.get("authorization_revision"), 0);
+        return (
+            operation.getId().equals(lock.getString("operation_id")) &&
+            Objects.equals(currentOffice, storedId(lock.getString("office_id"))) &&
+            Objects.equals(lock.getString("office_id"), publication.getString("authorized_office_id")) &&
+            authorizationRevision == number(lock.get("authorization_revision"), -1) &&
+            authorizationRevision == number(publication.get("authorization_revision"), -1)
+        );
     }
 
     private Root root(AttachmentOperation operation) {
@@ -240,6 +253,11 @@ public class AttachmentPublicationVerifier {
             return collection.equals(document.getString("$ref")) ? document.get("$id") : null;
         }
         return null;
+    }
+
+    private static Object storedId(String id) {
+        if (id == null) return null;
+        return ObjectId.isValid(id) ? new ObjectId(id) : id;
     }
 
     private static long number(Object value, long fallback) {

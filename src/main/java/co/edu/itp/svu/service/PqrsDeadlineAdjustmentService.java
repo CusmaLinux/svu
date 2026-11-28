@@ -59,7 +59,7 @@ public class PqrsDeadlineAdjustmentService {
             })
             .collect(Collectors.toList());
 
-        pqrsRepository.saveAll(updatedPqrsList);
+        updatedPqrsList.forEach(pqrs -> pqrsRepository.updateDeadline(pqrs.getId(), pqrs.getFechaLimiteRespuesta()));
         log.info("Successfully updated deadlines for {} PQRS.", updatedPqrsList.size());
     }
 }
